@@ -2,6 +2,7 @@ package com.magicjinn.chronos.shell.mojmap;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
 import java.nio.file.Path;
+import net.minecraft.SharedConstants;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -38,5 +39,10 @@ public final class MojmapServerEnvironment implements ServerEnvironment {
     @Override
     public Path getRunDirectory() {
         return server.getServerDirectory().toAbsolutePath().normalize();
+    }
+
+    @Override
+    public String getMinecraftVersion() {
+        return SharedConstants.getCurrentVersion().id();
     }
 }

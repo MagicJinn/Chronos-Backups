@@ -3,6 +3,7 @@ package com.magicjinn.chronos.shell.forge;
 import com.magicjinn.chronos.core.ServerEnvironment;
 import java.nio.file.Path;
 import net.minecraft.server.MinecraftServer;
+import net.minecraftforge.common.ForgeVersion;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.world.WorldServer;
 
@@ -45,5 +46,10 @@ public final class ForgeServerEnvironment implements ServerEnvironment {
     @Override
     public Path getRunDirectory() {
         return server.getDataDirectory().toPath().toAbsolutePath().normalize();
+    }
+
+    @Override
+    public String getMinecraftVersion() {
+        return ForgeVersion.mcVersion;
     }
 }
