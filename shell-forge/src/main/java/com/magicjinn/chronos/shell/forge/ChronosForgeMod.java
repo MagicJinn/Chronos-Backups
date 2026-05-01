@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.shell.HookBridge;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
@@ -19,7 +20,7 @@ public final class ChronosForgeMod {
 
     @Mod.EventHandler
     public void onServerStarted(FMLServerStartedEvent event) {
-        HookBridge.worldStarted();
+        HookBridge.worldStarted(FMLCommonHandler.instance().getMinecraftServerInstance());
     }
 
     @Mod.EventHandler

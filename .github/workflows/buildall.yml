@@ -21,5 +21,10 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
+      - name: Generate variant projects
+        run: ./gradlew generateVariantProjects --no-daemon
+        env:
+          CHRONOS_SKIP_VARIANT_AUTOGEN: "1"
+
       - name: Run buildAll
         run: ./gradlew buildAll

@@ -87,6 +87,8 @@ Bash/zsh:
 - `buildAll` - builds all enabled variants (Fabric, NeoForge, Forge), then collects output jars.
 - `collectAllJars` - copies final jars to root `build/libs/`. Automatically run by `buildAll`.
 - `:fabric-line-1_21:build`, `:neoforge-line-1_21:build`, `:neoforge-1_21_4:build` - build one target.
+- `:<version>-line-<compileGroup>:runClient` - Runs the client for the given version and compile group.
+- `:<version>-line-<compileGroup>:runServer` - Runs the server for the given version and compile group. (will not automatically shut down like `smokeTestServers` does)
 - `generateVariantProjects` - generates variant projects from `gradle/chronos-versions.json` and `gradle/chronos-compile-groups.json`. Should be run automaticaly.
 - `smokeTestServers` - runs dev servers and checks expected Chronos startup lines. Arguments: `--workers <number>` (default 4), `--only <label>` (repeatable).
 
@@ -97,4 +99,11 @@ Example Smoke Test command:
 # equivalent:
 .\gradlew.bat smokeTestServers -PchronosSmokeArgs="--workers 2 --only fabric-line-1_21"
 # IMPORTANT: do not insert a space before `=` in `-P...=...`
+```
+
+Example Run command:
+
+```powershell
+.\gradlew.bat :fabric-line-26_1:runClient
+.\gradlew.bat :neoforge-line-1_21:runServer
 ```

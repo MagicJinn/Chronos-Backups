@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 public final class ChronosFabricEntrypoint implements ModInitializer {
     @Override
     public void onInitialize() {
-        ServerLifecycleEvents.SERVER_STARTED.register(server -> HookBridge.worldStarted());
+        ServerLifecycleEvents.SERVER_STARTED.register(HookBridge::worldStarted);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> HookBridge.worldStopped());
     }
 }

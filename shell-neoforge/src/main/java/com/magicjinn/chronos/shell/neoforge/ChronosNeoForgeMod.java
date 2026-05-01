@@ -18,7 +18,7 @@ public final class ChronosNeoForgeMod {
 
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
-        HookBridge.worldStarted();
+        HookBridge.worldStarted(event.getServer());
     }
 
     @SubscribeEvent

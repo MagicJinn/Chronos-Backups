@@ -2,6 +2,9 @@ plugins {
     id '{{pluginId}}' version '{{loomVersion}}'
 }
 
+import java.net.ServerSocket
+import java.util.Properties
+
 group = rootProject.findProperty('chronos.mod.group')
 version = rootProject.findProperty('chronos.mod.version')
 
@@ -51,4 +54,36 @@ java {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = {{javaMajor}}
+}
+
+def chronosSelectFreePort = {
+    def socket = new ServerSocket(0)
+    try {
+        return socket.localPort
+    } finally {
+        socket.close()
+    }
+}
+
+def chronosPrepareRunServerPort = tasks.register('chronosPrepareRunServerPort') {
+    doLast {
+        def runDir = new File(projectDir, 'run')
+        runDir.mkdirs()
+
+        def serverProperties = new File(runDir, 'server.properties')
+        def properties = new Properties()
+        if (serverProperties.exists()) {
+            serverProperties.withInputStream { properties.load(it) }
+        }
+
+        def selectedPort = chronosSelectFreePort()
+        properties.setProperty('server-port', selectedPort.toString())
+        serverProperties.withOutputStream { properties.store(it, 'Updated by Gradle runServer task') }
+
+        logger.lifecycle("Chronos selected random server port ${selectedPort} for runServer")
+    }
+}
+
+tasks.named('runServer') {
+    dependsOn chronosPrepareRunServerPort
 }{{remapJarBlock}}

@@ -21,6 +21,11 @@ rootProject.name = "chronos-backup"
 include(":core")
 include(":tooling")
 
+val requestedTasks = gradle.startParameter.taskNames
+val bootstrapVariantGeneration = requestedTasks.any { taskName ->
+    taskName == "generateVariantProjects" || taskName.endsWith(":generateVariantProjects")
+}
+
 if (System.getenv("CHRONOS_SKIP_VARIANT_AUTOGEN") != "1") {
     val wrapperPath = if (OperatingSystem.current().isWindows) "gradlew.bat" else "gradlew"
     val wrapper = file(wrapperPath)
@@ -54,17 +59,19 @@ fun File.directoriesSorted(): List<File> =
 
 val variantsRoot = file("variants")
 if (!variantsRoot.isDirectory) {
-    throw GradleException(
-        "Missing ${variantsRoot.path}. Run: ./gradlew generateVariantProjects",
-    )
-}
-
-for (groupDir in variantsRoot.directoriesSorted()) {
-    for (projectDir in groupDir.directoriesSorted()) {
-        val name = projectDir.name
-        if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-")) {
-            include(":$name")
-            project(":$name").projectDir = projectDir
+    if (!bootstrapVariantGeneration) {
+        throw GradleException(
+            "Missing ${variantsRoot.path}. Run: ./gradlew generateVariantProjects",
+        )
+    }
+} else {
+    for (groupDir in variantsRoot.directoriesSorted()) {
+        for (projectDir in groupDir.directoriesSorted()) {
+            val name = projectDir.name
+            if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-")) {
+                include(":$name")
+                project(":$name").projectDir = projectDir
+            }
         }
     }
 }
