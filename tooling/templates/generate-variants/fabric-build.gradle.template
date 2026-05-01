@@ -22,6 +22,7 @@ dependencies {
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
+    rootProject.file('shell-mojmap/src/main/java'),
     rootProject.file('shell-fabric/src/main/java'),
 )
 

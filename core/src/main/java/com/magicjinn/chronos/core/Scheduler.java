@@ -1,5 +1,7 @@
 package com.magicjinn.chronos.core;
 
+import java.time.Instant;
+import java.util.logging.Logger;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -8,17 +10,23 @@ import java.util.concurrent.TimeUnit;
  * Schedules backup work and delegates to {@link Backupper}.
  */
 public final class Scheduler {
+    private static final Logger LOG = Logger.getLogger(Scheduler.class.getName());
+
     private static ScheduledExecutorService backupScheduler = Executors.newScheduledThreadPool(1);
     private static volatile BackupRuntimeContext runtimeContext;
 
-    private static final long BACKUP_INTERVAL_SECONDS = 60 * 60 * 24; // 24 hours // TODO: Make this configurable
-
-    // This triggers a backup immediately
-    // TODO: Remove this once the backup system is implemented
-    private static long secondsSinceLastBackup = getCurrentTimeSeconds() - BACKUP_INTERVAL_SECONDS;
+    // 30 minutes TODO: Make this configurable
+    private static final long BACKUP_INTERVAL_SECONDS = (long) (60 * 60 * 0.5f);
+    private static final long BACKUP_INITIAL_DELAY_SECONDS = 10;
+    private static final long BACKUP_CHECK_INTERVAL_SECONDS = 1;
+    // Set to current time, to prevent immediate backup on startup
+    private static long secondsSinceLastBackup = getCurrentTimeSeconds();
 
     public static void onWorldStarted(BackupRuntimeContext context) {
-        System.out.println("Scheduler checking in");
+        context.logInfo("Scheduler checking in");
+
+        Backupper.checkIn();
+
         runtimeContext = context;
         if (backupScheduler.isShutdown() || backupScheduler.isTerminated()) {
             backupScheduler = Executors.newScheduledThreadPool(1);
@@ -32,14 +40,15 @@ public final class Scheduler {
                     Backupper.runBackup(runtimeContext);
                 }
             } catch (Exception e) {
-                System.err.println("Error scheduling backup: " + e.getMessage());
+                logError("Error scheduling backup: " + e.getMessage());
                 e.printStackTrace();
             }
         };
 
         // Check whether we should run a backup every second. This is handy so the user
         // could change backup interval on the fly
-        backupScheduler.scheduleAtFixedRate(backupTask, 0, 1, TimeUnit.SECONDS);
+        backupScheduler.scheduleAtFixedRate(backupTask, BACKUP_INITIAL_DELAY_SECONDS, BACKUP_CHECK_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
     }
 
     public static void onWorldStopped() {
@@ -47,9 +56,27 @@ public final class Scheduler {
         runtimeContext = null;
     }
 
+    public static boolean runBackupNow() {
+        BackupRuntimeContext context = runtimeContext;
+        if (context == null) {
+            return false;
+        }
+        secondsSinceLastBackup = getCurrentTimeSeconds();
+        backupScheduler.execute(() -> Backupper.runBackup(context));
+        return true;
+    }
+
     private Scheduler() {}
 
     private static long getCurrentTimeSeconds() {
-        return System.currentTimeMillis() / 1000;
+        return Instant.now().getEpochSecond();
+    }
+
+    private static void logError(String message) {
+        if (runtimeContext != null) {
+            runtimeContext.logError(message);
+            return;
+        }
+        LOG.severe(message);
     }
 }

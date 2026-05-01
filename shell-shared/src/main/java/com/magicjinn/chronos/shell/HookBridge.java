@@ -1,24 +1,56 @@
 package com.magicjinn.chronos.shell;
 
 import com.magicjinn.chronos.core.BackupRuntimeContext;
+import com.magicjinn.chronos.core.BackupWorldController;
 import com.magicjinn.chronos.core.Scheduler;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import com.magicjinn.chronos.core.ServerEnvironment;
+import com.magicjinn.chronos.core.ShellMessenger;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 /**
- * Small glue between loader-specific hooks and the version-agnostic core.
+ * Glue between loader-specific hooks and the version-agnostic core.
  */
 public final class HookBridge {
-    private static final AtomicBoolean WORLD_START_FIRED = new AtomicBoolean(false);
-    private static final String DEFAULT_WORLD_NAME = "world";
+    private static final Logger FALLBACK_LOG = Logger.getLogger(HookBridge.class.getName());
 
-    public static void worldStarted(Object server) {
+    private static final AtomicBoolean WORLD_START_FIRED = new AtomicBoolean(false);
+
+    private static final ShellMessenger FALLBACK_MESSENGER =
+            new ShellMessenger() {
+                @Override
+                public void logInfo(String message) {
+                    FALLBACK_LOG.info(message);
+                }
+
+                @Override
+                public void logError(String message) {
+                    FALLBACK_LOG.severe(message);
+                }
+
+                @Override
+                public void sendChat(String message) {
+                    // No server handle / messenger — chat is unavailable.
+                }
+            };
+
+    public static void worldStarted(
+            ServerEnvironment environment,
+            Object serverHandle,
+            ShellMessenger messenger,
+            BackupWorldController worldController) {
         if (!WORLD_START_FIRED.compareAndSet(false, true)) {
             return;
         }
-        BackupRuntimeContext context = buildRuntimeContext(server);
-        System.out.println("Hook checking in");
+        if (environment == null) {
+            throw new IllegalStateException("Missing ServerEnvironment when calling HookBridge.worldStarted.");
+        }
+        if (worldController == null) {
+            throw new IllegalStateException(
+                    "Missing BackupWorldController when calling HookBridge.worldStarted.");
+        }
+        BackupRuntimeContext context = buildRuntimeContext(environment, serverHandle, messenger, worldController);
+        context.logInfo("Hook checking in");
         Scheduler.onWorldStarted(context);
     }
 
@@ -29,55 +61,20 @@ public final class HookBridge {
 
     private HookBridge() {}
 
-    private static BackupRuntimeContext buildRuntimeContext(Object server) {
-        boolean dedicatedServer = readDedicatedServer(server);
-        String worldName = readWorldName(server);
-        Path runDirectory = readRunDirectory(server);
-        return new BackupRuntimeContext(dedicatedServer, worldName, runDirectory);
-    }
-
-    private static boolean readDedicatedServer(Object server) {
-        try {
-            Object result = server.getClass().getMethod("isDedicatedServer").invoke(server);
-            return result instanceof Boolean && (Boolean) result;
-        } catch (ReflectiveOperationException ignored) {
-            return false;
-        }
-    }
-
-    private static String readWorldName(Object server) {
-        try {
-            Object worldData = server.getClass().getMethod("getWorldData").invoke(server);
-            Object levelName = worldData.getClass().getMethod("getLevelName").invoke(worldData);
-            if (levelName instanceof String && !((String) levelName).trim().isEmpty()) {
-                return (String) levelName;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Fall through to legacy name probing.
-        }
-
-        try {
-            Object folderName = server.getClass().getMethod("getFolderName").invoke(server);
-            if (folderName instanceof String && !((String) folderName).trim().isEmpty()) {
-                return (String) folderName;
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Fall through to default name.
-        }
-
-        return DEFAULT_WORLD_NAME;
-    }
-
-    private static Path readRunDirectory(Object server) {
-        try {
-            Object directory = server.getClass().getMethod("getServerDirectory").invoke(server);
-            if (directory instanceof java.io.File) {
-                return ((java.io.File) directory).toPath().toAbsolutePath().normalize();
-            }
-        } catch (ReflectiveOperationException ignored) {
-            // Fall through to process working directory.
-        }
-
-        return Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
+    private static BackupRuntimeContext buildRuntimeContext(
+            ServerEnvironment environment,
+            Object serverHandle,
+            ShellMessenger messenger,
+            BackupWorldController worldController) {
+        ShellMessenger resolved = messenger != null ? messenger : FALLBACK_MESSENGER;
+        return new BackupRuntimeContext(
+                environment.isDedicatedServer(),
+                environment.getWorldName(),
+                environment.getRunDirectory(),
+                serverHandle,
+                worldController,
+                resolved::logInfo,
+                resolved::logError,
+                resolved::sendChat);
     }
 }
