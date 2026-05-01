@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": ["${mod_author}"],
+  "license": "${mod_license}",
+  "icon": "assets/chronosbackup/icon.png",
+  "environment": "*",
+  "entrypoints": { "main": ["com.magicjinn.chronos.shell.fabric.ChronosFabricEntrypoint"] },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "${minecraft_dep}",
+    "java": "${java_dep}",
+    "fabric-api": "*"
+  }
+}

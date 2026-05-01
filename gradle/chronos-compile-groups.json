@@ -31,6 +31,16 @@
         "referenceMinecraft": "26.1.2",
         "neoForge": "26.1.2.30-beta"
       }
+    },
+    {
+      "id": "minecraft_1_12",
+      "description": "Minecraft Java 1.12.x: one Forge jar for the whole 1.12 line built against 1.12.2.",
+      "minecraftVersionPrefixes": ["1.12"],
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.12.2",
+        "forge": "14.23.5.2864"
+      }
     }
   ]
 }

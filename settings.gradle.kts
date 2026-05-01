@@ -62,7 +62,7 @@ if (!variantsRoot.isDirectory) {
 for (groupDir in variantsRoot.directoriesSorted()) {
     for (projectDir in groupDir.directoriesSorted()) {
         val name = projectDir.name
-        if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-")) {
+        if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-")) {
             include(":$name")
             project(":$name").projectDir = projectDir
         }

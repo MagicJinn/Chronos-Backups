@@ -1,0 +1,54 @@
+plugins {
+    id '{{pluginId}}' version '{{loomVersion}}'
+}
+
+group = rootProject.findProperty('chronos.mod.group')
+version = rootProject.findProperty('chronos.mod.version')
+
+base { archivesName = "{{archivesName}}" }
+
+repositories { mavenCentral() }
+
+dependencies {
+    minecraft "com.mojang:minecraft:{{minecraft}}"
+    {{mappings}}
+    {{depConf}} "net.fabricmc:fabric-loader:{{fabricLoader}}"
+    {{depConf}} "net.fabricmc.fabric-api:fabric-api:{{fabricApi}}"
+}
+
+sourceSets.main.java.srcDirs(
+    rootProject.file('core/src/main/java'),
+    rootProject.file('shell-shared/src/main/java'),
+    rootProject.file('shell-fabric/src/main/java'),
+)
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft', '{{minecraft}}'
+    inputs.property 'mod_id', rootProject.findProperty('chronos.mod.id')
+    inputs.property 'mod_name', rootProject.findProperty('chronos.mod.name')
+    inputs.property 'mod_description', rootProject.findProperty('chronos.mod.description')
+    inputs.property 'mod_author', rootProject.findProperty('chronos.mod.author')
+    inputs.property 'mod_license', rootProject.findProperty('chronos.mod.license')
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version,
+               'minecraft': '{{minecraft}}',
+               'minecraft_dep': '{{minecraftDep}}',
+               'java_dep': '{{javaDep}}',
+               'mod_id': rootProject.findProperty('chronos.mod.id'),
+               'mod_name': rootProject.findProperty('chronos.mod.name'),
+               'mod_description': rootProject.findProperty('chronos.mod.description'),
+               'mod_author': rootProject.findProperty('chronos.mod.author'),
+               'mod_license': rootProject.findProperty('chronos.mod.license')
+    }
+}
+
+java {
+    withSourcesJar()
+    toolchain { languageVersion = JavaLanguageVersion.of({{javaMajor}}) }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = {{javaMajor}}
+}{{remapJarBlock}}

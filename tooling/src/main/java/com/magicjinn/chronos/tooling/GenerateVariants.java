@@ -23,7 +23,16 @@ public final class GenerateVariants {
     private static final Path ROOT = locateRepoRoot();
     private static final Path VERSIONS_FILE = ROOT.resolve("gradle/chronos-versions.json");
     private static final Path GROUPS_FILE = ROOT.resolve("gradle/chronos-compile-groups.json");
+    private static final Path TEMPLATES_DIR = ROOT.resolve("tooling/templates/generate-variants");
+    private static final Map<String, String> TEMPLATE_FILES = Map.of(
+            "fabricBuildGradle", "fabric-build.gradle.template",
+            "fabricModJson", "fabric-mod.json.template",
+            "neoBuildGradleKts", "neo-build.gradle.kts.template",
+            "neoModsToml", "neo-neoforge.mods.toml.template",
+            "forgeBuildGradle", "forge-build.gradle.template",
+            "forgeMcmodInfo", "forge-mcmod.info.template");
     private static final Path VARIANTS_ROOT = ROOT.resolve("variants");
+    private static final Map<String, String> TEMPLATES = readTemplates();
 
     private GenerateVariants() {
     }
@@ -61,16 +70,20 @@ public final class GenerateVariants {
 
             boolean unifiedFabric = bool(gdef.get("unifiedFabricJar")) && gdef.containsKey("fabricUnified");
             boolean unifiedNeo = bool(gdef.get("unifiedNeoForgeJar")) && gdef.containsKey("neoForgeUnified");
+            boolean unifiedForge = bool(gdef.get("unifiedForgeJar")) && gdef.containsKey("forgeUnified");
 
             String slug = mc.replace(".", "_");
             Path groupDir = VARIANTS_ROOT.resolve(compileGroup);
             Path fabricDir = groupDir.resolve("fabric-" + slug);
             Path neoDir = groupDir.resolve("neoforge-" + slug);
+            Path forgeDir = groupDir.resolve("forge-" + slug);
 
             if (!loaders.contains("fabric"))
                 deleteTree(fabricDir);
             if (!loaders.contains("neoforge") || unifiedNeo)
                 deleteTree(neoDir);
+            if (!loaders.contains("forge") || unifiedForge)
+                deleteTree(forgeDir);
 
             if (loaders.contains("fabric") && !unifiedFabric) {
                 writeFabricProject(fabricDir, compileGroup, mc, str(row.get("fabricLoader")), str(row.get("fabricApi")),
@@ -82,6 +95,11 @@ public final class GenerateVariants {
             if (loaders.contains("neoforge") && !unifiedNeo) {
                 writeNeoProject(neoDir, compileGroup, mc, str(row.get("neoForge")), neoforgeModdev, false);
                 validPaths.add(neoDir);
+                generated++;
+            }
+            if (loaders.contains("forge") && !unifiedForge) {
+                writeForgeProject(forgeDir, compileGroup, mc, str(row.get("forge")));
+                validPaths.add(forgeDir);
                 generated++;
             }
         }
@@ -105,6 +123,15 @@ public final class GenerateVariants {
                 Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
                 writeNeoProject(dir, gid, str(nu.get("referenceMinecraft")), str(nu.get("neoForge")), neoforgeModdev,
                         true);
+                validPaths.add(dir);
+                generated++;
+            }
+            if (bool(g.get("unifiedForgeJar")) && g.containsKey("forgeUnified")) {
+                Map<String, Object> fu = castMap(g.get("forgeUnified"));
+                String line = primaryLinePrefix(g);
+                String projectName = "forge-line-" + line.replace(".", "_");
+                Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
+                writeForgeProject(dir, gid, str(fu.get("referenceMinecraft")), str(fu.get("forge")));
                 validPaths.add(dir);
                 generated++;
             }
@@ -134,89 +161,24 @@ public final class GenerateVariants {
         String mcDep = fabricMcDep(mc);
         String remapJar = mc.startsWith("26.") ? "" : "\n\ntasks.named('remapJar') {\n    archiveClassifier = ''\n}\n";
 
-        write(dir.resolve("build.gradle"), """
-                plugins {
-                    id '%s' version '%s'
-                }
-
-                group = rootProject.findProperty('chronos.mod.group')
-                version = rootProject.findProperty('chronos.mod.version')
-
-                base { archivesName = "%s" }
-
-                repositories { mavenCentral() }
-
-                dependencies {
-                    minecraft "com.mojang:minecraft:%s"
-                    %s
-                    %s "net.fabricmc:fabric-loader:%s"
-                    %s "net.fabricmc.fabric-api:fabric-api:%s"
-                }
-
-                sourceSets.main.java.srcDirs(
-                    rootProject.file('core/src/main/java'),
-                    rootProject.file('shell-shared/src/main/java'),
-                    rootProject.file('shell-fabric/src/main/java'),
-                )
-
-                processResources {
-                    inputs.property 'version', project.version
-                    inputs.property 'minecraft', '%s'
-                    inputs.property 'mod_id', rootProject.findProperty('chronos.mod.id')
-                    inputs.property 'mod_name', rootProject.findProperty('chronos.mod.name')
-                    inputs.property 'mod_description', rootProject.findProperty('chronos.mod.description')
-                    inputs.property 'mod_author', rootProject.findProperty('chronos.mod.author')
-                    inputs.property 'mod_license', rootProject.findProperty('chronos.mod.license')
-                    filesMatching('fabric.mod.json') {
-                        expand 'version': project.version,
-                               'minecraft': '%s',
-                               'minecraft_dep': '%s',
-                               'java_dep': '%s',
-                               'mod_id': rootProject.findProperty('chronos.mod.id'),
-                               'mod_name': rootProject.findProperty('chronos.mod.name'),
-                               'mod_description': rootProject.findProperty('chronos.mod.description'),
-                               'mod_author': rootProject.findProperty('chronos.mod.author'),
-                               'mod_license': rootProject.findProperty('chronos.mod.license')
-                    }
-                }
-
-                java {
-                    withSourcesJar()
-                    toolchain { languageVersion = JavaLanguageVersion.of(%s) }
-                }
-
-                tasks.withType(JavaCompile).configureEach {
-                    options.encoding = 'UTF-8'
-                    options.release = %s
-                }%s
-                """.formatted(
-                pluginId, loomVersion, archivesName, mc, mappings, depConf, fabricLoader, depConf, fabricApi,
-                mc, mc, mcDep, javaDep, mc.startsWith("26.") ? "25" : "21", mc.startsWith("26.") ? "25" : "21",
-                remapJar));
+        Map<String, String> values = new HashMap<>();
+        values.put("pluginId", pluginId);
+        values.put("loomVersion", loomVersion);
+        values.put("archivesName", archivesName);
+        values.put("minecraft", mc);
+        values.put("mappings", mappings);
+        values.put("depConf", depConf);
+        values.put("fabricLoader", fabricLoader);
+        values.put("fabricApi", fabricApi);
+        values.put("minecraftDep", mcDep);
+        values.put("javaDep", javaDep);
+        values.put("javaMajor", mc.startsWith("26.") ? "25" : "21");
+        values.put("remapJarBlock", remapJar);
+        write(dir.resolve("build.gradle"), renderTemplate("fabricBuildGradle", values));
 
         Path resources = dir.resolve("src/main/resources");
         Files.createDirectories(resources);
-        write(resources.resolve("fabric.mod.json"),
-                """
-                        {
-                          "schemaVersion": 1,
-                          "id": "${mod_id}",
-                          "version": "${version}",
-                          "name": "${mod_name}",
-                          "description": "${mod_description}",
-                          "authors": ["${mod_author}"],
-                          "license": "${mod_license}",
-                          "icon": "assets/chronosbackup/icon.png",
-                          "environment": "*",
-                          "entrypoints": { "main": ["com.magicjinn.chronos.shell.fabric.ChronosFabricEntrypoint"] },
-                          "depends": {
-                            "fabricloader": ">=0.15.0",
-                            "minecraft": "${minecraft_dep}",
-                            "java": "${java_dep}",
-                            "fabric-api": "*"
-                          }
-                        }
-                        """);
+        write(resources.resolve("fabric.mod.json"), renderTemplate("fabricModJson", Map.of()));
     }
 
     private static void writeNeoProject(Path dir, String compileGroup, String mc, String neoVersion,
@@ -232,103 +194,39 @@ public final class GenerateVariants {
         String archivesName = "chronos-backup-neoforge-" + minecraftLineTag(mc);
         String mcRange = lineRange ? lineRange(mc) : neoRange(mc);
         String javaMajor = mc.startsWith("26.") ? "25" : "21";
-        write(dir.resolve("build.gradle.kts"), """
-                plugins {
-                    `java-library`
-                    id("net.neoforged.moddev") version "%s"
-                }
-
-                group = rootProject.findProperty("chronos.mod.group") as String
-                version = rootProject.findProperty("chronos.mod.version") as String
-
-                base { archivesName.set("%s") }
-
-                neoForge {
-                    version = "%s"
-                    mods {
-                        register("chronosbackup") { sourceSet(sourceSets["main"]) }
-                    }
-                    runs {
-                        register("server") {
-                            server()
-                            programArgument("--nogui")
-                        }
-                    }
-                }
-
-                repositories { mavenCentral() }
-
-                sourceSets.named("main") {
-                    java.srcDirs(
-                        rootProject.file("core/src/main/java"),
-                        rootProject.file("shell-shared/src/main/java"),
-                        rootProject.file("shell-neoforge/src/main/java"),
-                    )
-                }
-
-                tasks.processResources {
-                    inputs.property("version", project.version)
-                    inputs.property("minecraft", "%s")
-                    inputs.property("mod_id", rootProject.findProperty("chronos.mod.id") as String)
-                    inputs.property("mod_name", rootProject.findProperty("chronos.mod.name") as String)
-                    inputs.property("mod_description", rootProject.findProperty("chronos.mod.description") as String)
-                    inputs.property("mod_author", rootProject.findProperty("chronos.mod.author") as String)
-                    inputs.property("mod_license", rootProject.findProperty("chronos.mod.license") as String)
-                    filesMatching("META-INF/neoforge.mods.toml") {
-                        expand(
-                            mapOf(
-                                "version" to project.version,
-                                "minecraft_range" to "%s",
-                                "neo_version" to "%s",
-                                "mod_id" to (rootProject.findProperty("chronos.mod.id") as String),
-                                "mod_name" to (rootProject.findProperty("chronos.mod.name") as String),
-                                "mod_description" to (rootProject.findProperty("chronos.mod.description") as String),
-                                "mod_author" to (rootProject.findProperty("chronos.mod.author") as String),
-                                "mod_license" to (rootProject.findProperty("chronos.mod.license") as String),
-                            ),
-                        )
-                    }
-                }
-
-                java {
-                    withSourcesJar()
-                    toolchain { languageVersion.set(JavaLanguageVersion.of(%s)) }
-                }
-                tasks.withType<JavaCompile>().configureEach {
-                    options.encoding = "UTF-8"
-                    options.release.set(%s)
-                }
-                """.formatted(moddevVersion, archivesName, neoVersion, mc, mcRange, neoVersion, javaMajor, javaMajor));
+        write(dir.resolve("build.gradle.kts"), renderTemplate("neoBuildGradleKts", Map.of(
+                "moddevVersion", moddevVersion,
+                "archivesName", archivesName,
+                "neoVersion", neoVersion,
+                "minecraft", mc,
+                "minecraftRange", mcRange,
+                "javaMajor", javaMajor)));
 
         Path meta = dir.resolve("src/main/resources/META-INF");
         Files.createDirectories(meta);
-        write(meta.resolve("neoforge.mods.toml"),
-                """
-                        modLoader = "javafml"
-                        loaderVersion = "[1,)"
-                        license = "${mod_license}"
+        write(meta.resolve("neoforge.mods.toml"), renderTemplate("neoModsToml", Map.of()));
+    }
 
-                        [[mods]]
-                        modId = "${mod_id}"
-                        version = "${version}"
-                        displayName = "${mod_name}"
-                        description = "${mod_description}"
-                        authors = "${mod_author}"
+    private static void writeForgeProject(Path dir, String compileGroup, String mc, String forgeVersion)
+            throws IOException {
+        Files.createDirectories(dir);
+        write(dir.resolve("gradle.properties"), """
+                # Generated by tooling Java generator — do not hand-edit.
+                compileGroup=%s
+                minecraftVersion=%s
+                forgeVersion=%s
+                """.formatted(compileGroup, mc, forgeVersion));
 
-                        [[dependencies.chronosbackup]]
-                        modId = "neoforge"
-                        type = "required"
-                        versionRange = "[${neo_version},)"
-                        ordering = "NONE"
-                        side = "BOTH"
+        String archivesName = "chronos-backup-forge-" + minecraftLineTag(mc);
+        write(dir.resolve("build.gradle"), renderTemplate("forgeBuildGradle", Map.of(
+                "archivesName", archivesName,
+                "minecraft", mc,
+                "forgeVersion", forgeVersion)));
 
-                        [[dependencies.chronosbackup]]
-                        modId = "minecraft"
-                        type = "required"
-                        versionRange = "${minecraft_range}"
-                        ordering = "NONE"
-                        side = "BOTH"
-                        """);
+        Path resources = dir.resolve("src/main/resources");
+        Files.createDirectories(resources);
+        write(resources.resolve("mcmod.info"), renderTemplate("forgeMcmodInfo", Map.of(
+                "minecraft", mc)));
     }
 
     private static String fabricMcDep(String mc) {
@@ -378,7 +276,7 @@ public final class GenerateVariants {
                 try (var dirs = Files.list(groupDir)) {
                     for (Path child : (Iterable<Path>) dirs::iterator) {
                         String name = child.getFileName().toString();
-                        if ((name.startsWith("fabric-") || name.startsWith("neoforge-"))
+                        if ((name.startsWith("fabric-") || name.startsWith("neoforge-") || name.startsWith("forge-"))
                                 && !validPaths.contains(child)) {
                             deleteTree(child);
                         }
@@ -430,6 +328,33 @@ public final class GenerateVariants {
         Type type = new TypeToken<Map<String, Object>>() {
         }.getType();
         return GSON.fromJson(Files.readString(file), type);
+    }
+
+    private static Map<String, String> readTemplates() {
+        Map<String, String> out = new HashMap<>();
+        for (Map.Entry<String, String> e : TEMPLATE_FILES.entrySet()) {
+            Path path = TEMPLATES_DIR.resolve(e.getValue());
+            try {
+                if (!Files.isRegularFile(path))
+                    throw new IllegalStateException("Missing template file: " + path);
+                out.put(e.getKey(), Files.readString(path, StandardCharsets.UTF_8));
+            } catch (IOException ex) {
+                throw new IllegalStateException("Failed to read template: " + path, ex);
+            }
+        }
+        return out;
+    }
+
+    private static String renderTemplate(String key, Map<String, String> values) {
+        String template = TEMPLATES.get(key);
+        if (template == null || template.isEmpty()) {
+            throw new IllegalStateException("Template not found: " + key);
+        }
+        String out = template;
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            out = out.replace("{{" + entry.getKey() + "}}", entry.getValue());
+        }
+        return out;
     }
 
     @SuppressWarnings("unchecked")

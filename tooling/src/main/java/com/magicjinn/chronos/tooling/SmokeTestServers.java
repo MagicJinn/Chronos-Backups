@@ -56,10 +56,11 @@ public final class SmokeTestServers {
         Set<String> unifiedNeo = groups.stream()
                 .filter(g -> bool(g.get("unifiedNeoForgeJar")) && g.containsKey("neoForgeUnified"))
                 .map(g -> str(g.get("id"))).collect(Collectors.toSet());
+        Set<String> unifiedForge = groups.stream()
+                .filter(g -> bool(g.get("unifiedForgeJar")) && g.containsKey("forgeUnified"))
+                .map(g -> str(g.get("id"))).collect(Collectors.toSet());
 
         List<Job> jobs = new ArrayList<>();
-        jobs.add(new Job("forge-line-1_12", ROOT.resolve("forge"), List.of("runServer"),
-                List.of(ROOT.resolve("forge/run"), ROOT.resolve("forge/run/server"))));
         for (Map<String, Object> g : groups) {
             String gid = str(g.get("id"));
             String line = primaryLinePrefix(g).replace(".", "_");
@@ -70,6 +71,11 @@ public final class SmokeTestServers {
             }
             if (unifiedNeo.contains(gid)) {
                 String name = "neoforge-line-" + line;
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
+                        List.of(ROOT.resolve("variants").resolve(gid).resolve(name).resolve("run"))));
+            }
+            if (unifiedForge.contains(gid)) {
+                String name = "forge-line-" + line;
                 jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
                         List.of(ROOT.resolve("variants").resolve(gid).resolve(name).resolve("run"))));
             }
@@ -88,6 +94,11 @@ public final class SmokeTestServers {
             }
             if (loaders.contains("neoforge") && !unifiedNeo.contains(cg)) {
                 String name = "neoforge-" + slug;
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
+                        List.of(ROOT.resolve("variants").resolve(cg).resolve(name).resolve("run"))));
+            }
+            if (loaders.contains("forge") && !unifiedForge.contains(cg)) {
+                String name = "forge-" + slug;
                 jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
                         List.of(ROOT.resolve("variants").resolve(cg).resolve(name).resolve("run"))));
             }
@@ -157,10 +168,6 @@ public final class SmokeTestServers {
             List<String> cmd = new ArrayList<>();
             cmd.add(gradleWrapperCommand(job.cwd));
             cmd.addAll(job.gradleArgs);
-            String jdk21 = resolveJdk21Home();
-            if (job.label.startsWith("forge-line-1_12") && jdk21 != null) {
-                cmd.add("-Dorg.gradle.java.home=" + jdk21);
-            }
             cmd.add("--no-daemon");
             cmd.add("-Dorg.gradle.console=plain");
 
@@ -426,25 +433,6 @@ public final class SmokeTestServers {
 
     private static boolean cfgVerbose() {
         return VERBOSE;
-    }
-
-    private static String resolveJdk21Home() {
-        String configured = System.getenv("JDK21_HOME");
-        if (configured != null && !configured.isBlank()) {
-            Path configuredPath = Path.of(configured);
-            if (Files.exists(configuredPath.resolve("bin").resolve(isWindows() ? "java.exe" : "java")))
-                return configuredPath.toAbsolutePath().normalize().toString();
-        }
-
-        Path currentHome = Path.of(System.getProperty("java.home")).toAbsolutePath().normalize();
-        Path parent = currentHome.getParent();
-        if (parent == null)
-            return null;
-
-        Path sibling = parent.resolve("21");
-        if (Files.exists(sibling.resolve("bin").resolve(isWindows() ? "java.exe" : "java")))
-            return sibling.toAbsolutePath().normalize().toString();
-        return null;
     }
 
     private static Path locateRepoRoot() {

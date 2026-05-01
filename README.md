@@ -61,7 +61,7 @@ All currently supported versions are listed below in `major.minor.x` format:
 ### Prerequisites
 
 - Install **JDK 25+** and set `JAVA_HOME` to it.
-- `forge/` uses a Java 8 toolchain via Gradle/Foojay automatically.
+- Older variants use a Java 8, 17 or 21 toolchain via Gradle/Foojay automatically.
 
 ### Commands
 
@@ -84,7 +84,7 @@ Bash/zsh:
 
 ### Most useful tasks
 
-- `buildAll` - builds all enabled variants and Forge, then collects output jars.
+- `buildAll` - builds all enabled variants (Fabric, NeoForge, Forge), then collects output jars.
 - `collectAllJars` - copies final jars to root `build/libs/`. Automatically run by `buildAll`.
 - `:fabric-line-1_21:build`, `:neoforge-line-1_21:build`, `:neoforge-1_21_4:build` - build one target.
 - `generateVariantProjects` - generates variant projects from `gradle/chronos-versions.json` and `gradle/chronos-compile-groups.json`. Should be run automaticaly.

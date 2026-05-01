@@ -1,0 +1,65 @@
+plugins {
+    `java-library`
+    id("net.neoforged.moddev") version "{{moddevVersion}}"
+}
+
+group = rootProject.findProperty("chronos.mod.group") as String
+version = rootProject.findProperty("chronos.mod.version") as String
+
+base { archivesName.set("{{archivesName}}") }
+
+neoForge {
+    version = "{{neoVersion}}"
+    mods {
+        register("chronosbackup") { sourceSet(sourceSets["main"]) }
+    }
+    runs {
+        register("server") {
+            server()
+            programArgument("--nogui")
+        }
+    }
+}
+
+repositories { mavenCentral() }
+
+sourceSets.named("main") {
+    java.srcDirs(
+        rootProject.file("core/src/main/java"),
+        rootProject.file("shell-shared/src/main/java"),
+        rootProject.file("shell-neoforge/src/main/java"),
+    )
+}
+
+tasks.processResources {
+    inputs.property("version", project.version)
+    inputs.property("minecraft", "{{minecraft}}")
+    inputs.property("mod_id", rootProject.findProperty("chronos.mod.id") as String)
+    inputs.property("mod_name", rootProject.findProperty("chronos.mod.name") as String)
+    inputs.property("mod_description", rootProject.findProperty("chronos.mod.description") as String)
+    inputs.property("mod_author", rootProject.findProperty("chronos.mod.author") as String)
+    inputs.property("mod_license", rootProject.findProperty("chronos.mod.license") as String)
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand(
+            mapOf(
+                "version" to project.version,
+                "minecraft_range" to "{{minecraftRange}}",
+                "neo_version" to "{{neoVersion}}",
+                "mod_id" to (rootProject.findProperty("chronos.mod.id") as String),
+                "mod_name" to (rootProject.findProperty("chronos.mod.name") as String),
+                "mod_description" to (rootProject.findProperty("chronos.mod.description") as String),
+                "mod_author" to (rootProject.findProperty("chronos.mod.author") as String),
+                "mod_license" to (rootProject.findProperty("chronos.mod.license") as String),
+            ),
+        )
+    }
+}
+
+java {
+    withSourcesJar()
+    toolchain { languageVersion.set(JavaLanguageVersion.of({{javaMajor}})) }
+}
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set({{javaMajor}})
+}
