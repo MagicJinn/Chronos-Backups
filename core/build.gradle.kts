@@ -5,6 +5,15 @@ plugins {
 group = rootProject.findProperty("chronos.mod.group") as String
 version = rootProject.findProperty("chronos.mod.version") as String
 
+repositories {
+    mavenCentral()
+    maven("https://jitpack.io")
+}
+
+dependencies {
+    implementation("com.github.Querz:NBT:6.1")
+}
+
 java {
     withSourcesJar()
     toolchain {

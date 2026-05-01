@@ -13,6 +13,10 @@ import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import net.querz.nbt.io.NBTUtil;
+import net.querz.nbt.io.NamedTag;
+import net.querz.nbt.tag.CompoundTag;
+
 /**
  * Version-agnostic backup implementation.
  */
@@ -63,11 +67,17 @@ public final class Backupper {
             }
 
             copyWorldToCache(worldPath, cacheSnapshotPath);
+
+            int dataVersion = getDataVersionFromLevelData(worldPath);
+
+            int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes // TODO: Make this configurable
+            Pruner.PruneMinecraftWorld(worldPath, dataVersion, pruneTimeRequirementSeconds);
+
             zipSnapshot(cacheSnapshotPath, zipOutputPath);
 
             context.logInfo("Chronos backup completed: " + zipOutputPath);
             context.sendChat("Backup completed.");
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             context.logError("Chronos backup failed: " + e.getMessage());
             context.sendChat("Backup failed. Check server logs for details.");
             e.printStackTrace();
@@ -109,6 +119,23 @@ public final class Backupper {
             return context.getRunDirectory().resolve(context.getWorldName());
         }
         return context.getRunDirectory().resolve("saves").resolve(context.getWorldName());
+    }
+
+    private static int getDataVersionFromLevelData(Path worldPath) throws IOException {
+        Path levelDataPath = worldPath.resolve("level.dat");
+        if (!Files.isRegularFile(levelDataPath)) {
+            return 0;
+        }
+        NamedTag namedTag = NBTUtil.read(levelDataPath.toFile());
+        if (!(namedTag.getTag() instanceof CompoundTag)) {
+            return 0;
+        }
+        CompoundTag root = (CompoundTag) namedTag.getTag();
+        CompoundTag data = root.getCompoundTag("Data");
+        if (data == null) {
+            return 0;
+        }
+        return data.getInt("DataVersion");
     }
 
     private static void copyWorldToCache(Path worldPath, Path cacheSnapshotPath) throws IOException {

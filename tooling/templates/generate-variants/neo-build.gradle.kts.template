@@ -21,7 +21,14 @@ neoForge {
     }
 }
 
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+    maven("https://jitpack.io")
+}
+
+dependencies {
+    implementation("com.github.Querz:NBT:6.1")
+}
 
 sourceSets.named("main") {
     java.srcDirs(
