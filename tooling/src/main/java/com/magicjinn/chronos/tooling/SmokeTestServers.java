@@ -66,18 +66,15 @@ public final class SmokeTestServers {
             String line = primaryLinePrefix(g).replace(".", "_");
             if (unifiedFabric.contains(gid)) {
                 String name = "fabric-line-" + line;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
-                        List.of(ROOT.resolve("variants").resolve(gid).resolve(name).resolve("run"))));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name)));
             }
             if (unifiedNeo.contains(gid)) {
                 String name = "neoforge-line-" + line;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
-                        List.of(ROOT.resolve("variants").resolve(gid).resolve(name).resolve("run"))));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name)));
             }
             if (unifiedForge.contains(gid)) {
                 String name = "forge-line-" + line;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
-                        List.of(ROOT.resolve("variants").resolve(gid).resolve(name).resolve("run"))));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name)));
             }
         }
         for (Map<String, Object> row : rows) {
@@ -89,18 +86,15 @@ public final class SmokeTestServers {
             String slug = mc.replace(".", "_");
             if (loaders.contains("fabric") && !unifiedFabric.contains(cg)) {
                 String name = "fabric-" + slug;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
-                        List.of(ROOT.resolve("variants").resolve(cg).resolve(name).resolve("run"))));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name)));
             }
             if (loaders.contains("neoforge") && !unifiedNeo.contains(cg)) {
                 String name = "neoforge-" + slug;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
-                        List.of(ROOT.resolve("variants").resolve(cg).resolve(name).resolve("run"))));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name)));
             }
             if (loaders.contains("forge") && !unifiedForge.contains(cg)) {
                 String name = "forge-" + slug;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"),
-                        List.of(ROOT.resolve("variants").resolve(cg).resolve(name).resolve("run"))));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name)));
             }
         }
         if (!cfg.only.isEmpty())
@@ -295,6 +289,14 @@ public final class SmokeTestServers {
         if (!replacedWorld)
             lines.add("level-name=" + worldName);
         Files.write(props, lines, StandardCharsets.UTF_8);
+    }
+
+    // Typical layouts: Fabric/Loom use run/; Forge dev runs use run/server;
+    // JavaExec cwd is often the variant root.
+    private static List<Path> smokeRunDirs(String compileGroupId, String projectName) {
+        Path variantRoot = ROOT.resolve("variants").resolve(compileGroupId).resolve(projectName);
+        Path runDir = variantRoot.resolve("run");
+        return List.of(runDir.resolve("server"), runDir, variantRoot);
     }
 
     private static String primaryLinePrefix(Map<String, Object> group) {
