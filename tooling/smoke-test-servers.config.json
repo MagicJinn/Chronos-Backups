@@ -1,0 +1,7 @@
+{
+  "expectedMarkers": [
+    "Hook checking in",
+    "Scheduler checking in",
+    "Backupper checking in"
+  ]
+}

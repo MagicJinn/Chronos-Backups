@@ -1,0 +1,36 @@
+{
+  "groups": [
+    {
+      "id": "minecraft_1_21",
+      "description": "Minecraft Java 1.21.x: one Fabric jar and one NeoForge jar for the whole 1.21 line, each built against a reference version with broad supported-version metadata.",
+      "minecraftVersionPrefixes": ["1.21"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.21.11",
+        "fabricLoader": "0.19.2",
+        "fabricApi": "0.141.3+1.21.11"
+      },
+      "unifiedNeoForgeJar": true,
+      "neoForgeUnified": {
+        "referenceMinecraft": "1.21.11",
+        "neoForge": "21.11.42"
+      }
+    },
+    {
+      "id": "minecraft_26_1",
+      "description": "Minecraft Java 26.1.x: split from 1.21.x because mappings/toolchains diverge. One Fabric jar and one NeoForge jar for the whole 26.1 line, each built against a reference version with broad supported-version metadata.",
+      "minecraftVersionPrefixes": ["26.1"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "26.1.2",
+        "fabricLoader": "0.19.2",
+        "fabricApi": "0.146.0+26.1.2"
+      },
+      "unifiedNeoForgeJar": true,
+      "neoForgeUnified": {
+        "referenceMinecraft": "26.1.2",
+        "neoForge": "26.1.2.30-beta"
+      }
+    }
+  ]
+}

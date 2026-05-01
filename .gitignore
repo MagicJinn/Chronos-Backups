@@ -1,0 +1,19 @@
+# Build outputs
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Gradle
+.gradle/
+**/out/
+
+# IDE
+.idea/
+*.iml
+/.vscode
+
+# Minecraft / mod runs
+**/run/
+variants/
+
+# OS
+.DS_Store

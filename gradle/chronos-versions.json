@@ -1,0 +1,15 @@
+[
+  {"minecraft": "1.21", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.0.167"},
+  {"minecraft": "1.21.1", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.1.228"},
+  {"minecraft": "1.21.2", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.2.1-beta"},
+  {"minecraft": "1.21.3", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.3.96"},
+  {"minecraft": "1.21.4", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.4.157"},
+  {"minecraft": "1.21.5", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.5.97"},
+  {"minecraft": "1.21.6", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.6.20-beta"},
+  {"minecraft": "1.21.7", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.7.25-beta"},
+  {"minecraft": "1.21.8", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.8.53"},
+  {"minecraft": "1.21.9", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.9.16-beta"},
+  {"minecraft": "1.21.10", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.10.64"},
+  {"minecraft": "1.21.11", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.11.42"},
+  {"minecraft": "26.1.2", "compileGroup": "minecraft_26_1", "loaders": ["neoforge"], "neoForge": "26.1.2.30-beta"}
+]
