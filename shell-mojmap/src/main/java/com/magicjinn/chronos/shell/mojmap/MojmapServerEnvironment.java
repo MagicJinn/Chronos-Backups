@@ -40,9 +40,4 @@ public final class MojmapServerEnvironment implements ServerEnvironment {
     public Path getRunDirectory() {
         return server.getServerDirectory().toAbsolutePath().normalize();
     }
-
-    @Override
-    public String getMinecraftVersion() {
-        return SharedConstants.getCurrentVersion().id();
-    }
 }

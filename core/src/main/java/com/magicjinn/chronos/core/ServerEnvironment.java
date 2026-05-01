@@ -11,7 +11,4 @@ public interface ServerEnvironment {
     String getWorldName();
 
     Path getRunDirectory();
-
-    /** The game version of the running server (e.g. {@code 1.21.1} or {@code 1.12.2}). */
-    String getMinecraftVersion();
 }

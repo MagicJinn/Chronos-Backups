@@ -47,9 +47,4 @@ public final class ForgeServerEnvironment implements ServerEnvironment {
     public Path getRunDirectory() {
         return server.getDataDirectory().toPath().toAbsolutePath().normalize();
     }
-
-    @Override
-    public String getMinecraftVersion() {
-        return ForgeVersion.mcVersion;
-    }
 }

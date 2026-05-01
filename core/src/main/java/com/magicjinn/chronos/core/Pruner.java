@@ -16,6 +16,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import net.querz.mca.Chunk;
+import net.querz.mca.LoadFlags;
+import net.querz.mca.MCAFile;
+import net.querz.mca.MCAUtil;
+import net.querz.nbt.tag.CompoundTag;
+
 public final class Pruner {
 
     /**
@@ -29,11 +35,13 @@ public final class Pruner {
      * @see <a href="https://minecraft.wiki/w/Java_Edition_level_format">Java
      *      Edition level format</a>
      */
-    public static final int DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6 = 4774;
-
     private static final Logger LOG = Logger.getLogger(Pruner.class.getName());
 
+    public static final int DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6 = 4774;
     private static final String REGION_FOLDER_NAME = "region";
+    private static final String ENTITIES_FOLDER_NAME = "entities";
+    private static final String POI_FOLDER_NAME = "poi";
+    private static final String INHABITED_TIME_TAG_NAME = "InhabitedTime";
 
     /**
      * Roots for vanilla overworld, Nether, and End (each contains {@code region/},
@@ -53,14 +61,6 @@ public final class Pruner {
 
     private Pruner() {}
 
-    @Deprecated // TODO: Remove this
-    public static String getMinecraftServerVersion(ServerEnvironment environment) {
-        if (environment == null) {
-            throw new IllegalArgumentException("environment");
-        }
-        return environment.getMinecraftVersion();
-    }
-
     public static void PruneMinecraftWorld(Path worldPath, int dataVersion, int spentTimeRequirementSeconds)
             throws IOException {
         if (!Files.isDirectory(worldPath)) {
@@ -69,13 +69,6 @@ public final class Pruner {
 
         int spentTimeRequirementTicks = spentTimeRequirementSeconds * 20;
         List<DataFolder> dataFolders = findDataFolders(worldPath, dataVersion);
-        for (DataFolder dataFolder : dataFolders) {
-            LOG.info(dataFolder.toString());
-        }
-
-        // Track which chunks have been deleted, and which entities and other data will
-        // have to be deleted too.
-        HashSet<ChunkCoordinate> deletedChunkCoordinates = new HashSet<>();
 
         if (dataVersion >= DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6) {
             pruneRegionDirectories(dataFolders, spentTimeRequirementTicks);
@@ -136,8 +129,8 @@ public final class Pruner {
             folders.add(
                     new DataFolder(
                             regionDir,
-                            dimensionRoot.resolve("entities"),
-                            dimensionRoot.resolve("poi")));
+                            dimensionRoot.resolve(ENTITIES_FOLDER_NAME),
+                            dimensionRoot.resolve(POI_FOLDER_NAME)));
         }
         return Collections.unmodifiableList(folders);
     }
@@ -163,23 +156,117 @@ public final class Pruner {
     }
 
     private static void pruneRegionDirectories(List<DataFolder> dataFolders, int spentTimeRequirementTicks) {
-        // Track which chunks have been deleted, and which entities and other data will
-        // have to be deleted too.
         for (DataFolder dataFolder : dataFolders) {
+            // Track which chunks have been deleted, and which entities and other data will
+            // have to be deleted too.
             HashSet<ChunkCoordinate> deletedChunkCoordinates = new HashSet<>();
 
-        }
+            // loop over every file in region
+            try (DirectoryStream<Path> regionFiles = Files.newDirectoryStream(dataFolder.regionDirectory)) {
+                for (Path file : regionFiles) {
+                    if (!file.getFileName().toString().endsWith(".mca")) {
+                        continue;
+                    }
+                    try {
+                        int regionX;
+                        int regionZ;
+                        try {
+                            int[] region = parseRegionCoords(file.getFileName().toString());
+                            regionX = region[0];
+                            regionZ = region[1];
+                        } catch (IllegalArgumentException ex) {
+                            LOG.warning("Skipping region file with unexpected name: " + file);
+                            continue;
+                        }
 
-        // TODO: walk regionDirectories → *.mca using spentTimeRequirementTicks
+                        // RAW: modern chunks have no "Level" wrapper; Querz's parsed Chunk would throw.
+                        MCAFile mca = MCAUtil.read(file.toFile(), LoadFlags.RAW);
+                        int chunkBaseX = MCAUtil.regionToChunk(regionX);
+                        int chunkBaseZ = MCAUtil.regionToChunk(regionZ);
+
+                        for (int lz = 0; lz < 32; lz++) {
+                            for (int lx = 0; lx < 32; lx++) {
+                                Chunk chunk = mca.getChunk(lx, lz);
+                                if (chunk == null) {
+                                    continue;
+                                }
+                                CompoundTag chunkRoot = chunk.getHandle();
+                                if (chunkRoot == null) {
+                                    continue;
+                                }
+                                long inhabitedTicks = readInhabitedTimeTicks(chunkRoot);
+                                if (inhabitedTicks < spentTimeRequirementTicks) {
+                                    deletedChunkCoordinates.add(new ChunkCoordinate(chunkBaseX + lx, chunkBaseZ + lz));
+                                }
+                            }
+                        }
+                    } catch (IOException e) {
+                        LOG.severe("Error reading region file: " + file);
+                        e.printStackTrace();
+                    }
+                }
+            } catch (IOException e) {
+                LOG.severe("Error listing region directory: " + dataFolder.regionDirectory);
+                e.printStackTrace();
+            }
+        }
     }
 
-    private class ChunkCoordinate {
-        public final int x;
-        public final int z;
+    /**
+     * Cumulative player time in ticks. Older chunks store this under {@code Level};
+     * 1.18+ stores it on the chunk root.
+     */
+    private static long readInhabitedTimeTicks(CompoundTag chunkRoot) {
+        CompoundTag level = chunkRoot.getCompoundTag("Level");
+        if (level != null && level.containsKey(INHABITED_TIME_TAG_NAME)) {
+            return level.getLong(INHABITED_TIME_TAG_NAME);
+        }
+        // 1.18+
+        if (chunkRoot.containsKey(INHABITED_TIME_TAG_NAME)) {
+            return chunkRoot.getLong(INHABITED_TIME_TAG_NAME);
+        }
+        return 0L;
+    }
 
-        public ChunkCoordinate(int x, int z) {
+    /** Parses a region filename ({@literal r.<rx>.<rz>.mca}). */
+    private static int[] parseRegionCoords(String fileName) {
+        if (!fileName.startsWith("r.") || !fileName.endsWith(".mca")) {
+            throw new IllegalArgumentException(fileName);
+        }
+        String core = fileName.substring(2, fileName.length() - ".mca".length());
+        int dot = core.indexOf('.');
+        if (dot < 0) {
+            throw new IllegalArgumentException(fileName);
+        }
+        int regionX = Integer.parseInt(core.substring(0, dot));
+        int regionZ = Integer.parseInt(core.substring(dot + 1));
+        return new int[] { regionX, regionZ };
+    }
+
+    private static final class ChunkCoordinate {
+        final int x;
+        final int z;
+
+        ChunkCoordinate(int x, int z) {
             this.x = x;
             this.z = z;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ChunkCoordinate that = (ChunkCoordinate) o;
+            return x == that.x && z == that.z;
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * x + z;
         }
     }
 
