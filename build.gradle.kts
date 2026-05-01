@@ -1,6 +1,6 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 
-val packableSubprojects = subprojects.filter { it.path != ":core" }
+val packableSubprojects = subprojects.filter { it.path != ":core" && it.path != ":tooling" }
 
 subprojects {
     tasks.withType<ProcessResources>().configureEach {
