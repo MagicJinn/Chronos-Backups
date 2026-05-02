@@ -25,22 +25,15 @@ public final class Config {
 
     private static final ModConfig BUILTIN_DEFAULTS = new ModConfig();
 
+    private static final String CONFIG_FOLDER_NAME = "config";
     private static final String CONFIG_FILE_NAME = "chronos.toml";
 
     public static void InitializeConfig() {
-        Path configFolder = Core.RunningDirectory.resolve("config");
-        try {
-            Files.createDirectories(configFolder);
-        } catch (IOException e) {
-            LOG.severe("Failed to create config folder: " + e.getMessage());
-        }
-
-        Path configPath = configFolder.resolve(CONFIG_FILE_NAME);
+        Path configPath = Core.RunningDirectory.resolve(CONFIG_FOLDER_NAME).resolve(CONFIG_FILE_NAME);
         ModConfig defaults = new ModConfig();
         if (needsDefaultConfigFile(configPath)) {
-            writeTomlDocument(configPath, defaults);
+            writeTomlDocument(configPath, defaults); // writeTomlDocument will create parent dirs if needed
         }
-
         modConfig = loadFromToml(configPath, defaults);
     }
 
