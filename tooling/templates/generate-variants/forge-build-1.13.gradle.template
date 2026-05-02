@@ -30,7 +30,7 @@ unimined.minecraft {
 
     mappings {
         searge()
-        mcp 'stable', '39-1.12'
+        mcp 'snapshot', '20180921-1.13'
     }
 
     minecraftForge {
@@ -67,8 +67,12 @@ tasks.named('jar', Jar) {
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
-    rootProject.file('shell-forge/v1_12/src/main/java'),
+    rootProject.file('shell-brigadier/src/main/java'),
+    rootProject.file('shell-forge/v1_13/src/main/java'),
 )
+
+// Root-level pack.mcmeta (1.13 format 4): avoids ResourcePackInfo warnings when icon.png sits at jar root.
+sourceSets.main.resources.srcDir(rootProject.file('shell-forge/v1_13/src/main/resources'))
 
 processResources {
     inputs.property 'version', project.version
@@ -79,7 +83,7 @@ processResources {
     from(rootProject.file('icon.png')) {
         into ''
     }
-    filesMatching('mcmod.info') {
+    filesMatching('**/META-INF/mods.toml') {
         expand(
                 'version': project.version,
                 'mod_id': rootProject.findProperty('chronos.mod.id'),

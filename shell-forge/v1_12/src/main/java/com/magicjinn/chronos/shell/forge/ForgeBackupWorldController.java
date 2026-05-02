@@ -6,12 +6,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 
 /**
- * Forge 1.12 — flush players and loaded chunks ({@link MinecraftServer#saveAllWorlds}),
- * then toggle {@link WorldServer#disableLevelSaving} while copying files.
- *
- * <p>All touches to the server and worlds run on the server thread; calling {@link
- * MinecraftServer#saveAllWorlds} from a worker thread is undefined and often results in a silent
- * no-op or inconsistent saves.
+ * Forge 1.12 — flush players and loaded chunks
+ * ({@link MinecraftServer#saveAllWorlds}), then toggle
+ * {@link WorldServer#disableLevelSaving} while copying files.
  */
 public final class ForgeBackupWorldController implements BackupWorldController {
     private static final String SERVER_THREAD_NAME = "Server thread";
@@ -26,7 +23,8 @@ public final class ForgeBackupWorldController implements BackupWorldController {
                 server,
                 () -> {
                     server.getPlayerList().saveAllPlayerData();
-                    // Full dimension flush to disk (closest to modern MinecraftServer.saveEverything).
+                    // Full dimension flush to disk (closest to modern
+                    // MinecraftServer.saveEverything).
                     // true = suppress per-chunk save spam in logs during scheduled backups.
                     server.saveAllWorlds(true);
                 });

@@ -1,54 +1,43 @@
 package com.magicjinn.chronos.shell.fabric;
 
-import com.magicjinn.chronos.shell.ChronosCommandActions;
+import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.minecraft.commands.Commands;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 
 final class FabricCommandRegistrar implements ShellCommandRegistrar {
     @Override
     public void register(Object registrationContext) {
         CommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess, environment) -> dispatcher.register(
-                        Commands.literal("chronos")
-                                .then(
-                                        Commands.literal("backup")
-                                                .executes(
-                                                        context -> {
-                                                            if (ChronosCommandActions.startManualBackup()) {
-                                                                context
-                                                                        .getSource()
-                                                                        .sendSuccess(
-                                                                                () -> Component.literal(
-                                                                                        ChronosCommandActions
-                                                                                                .messageManualBackupStarted()),
-                                                                                false);
-                                                                return 1;
-                                                            }
-                                                            context.getSource()
-                                                                    .sendSuccess(
-                                                                            () -> Component.literal(
-                                                                                    ChronosCommandActions
-                                                                                            .messageRuntimeInactive()),
-                                                                            false);
-                                                            return 0;
-                                                        }))
-                                .then(
-                                        Commands.literal("cancel")
-                                                .executes(
-                                                        context -> {
-                                                            if (ChronosCommandActions
-                                                                    .requestCancelInFlightBackup()) {
-                                                                return 1;
-                                                            }
-                                                            context.getSource()
-                                                                    .sendSuccess(
-                                                                            () -> Component.literal(
-                                                                                    ChronosCommandActions
-                                                                                            .messageCancelNothingRunning()),
-                                                                            false);
-                                                            return 0;
-                                                        }))));
+                (dispatcher, registryAccess, environment) ->
+                        ChronosBrigadier.register(
+                                dispatcher,
+                                new ChronosBrigadier.Hooks<CommandSourceStack>() {
+                                    @Override
+                                    public void feedback(
+                                            CommandSourceStack source,
+                                            String message,
+                                            boolean broadcastToOps) {
+                                        source.sendSuccess(
+                                                () -> Component.literal(message), broadcastToOps);
+                                    }
+
+                                    @Override
+                                    public boolean mayExecuteChronos(CommandSourceStack source) {
+                                        return source.hasPermission(
+                                                ChronosBrigadier.REQUIRED_PERMISSION_LEVEL);
+                                    }
+
+                                    @Override
+                                    public int backupReturnCode(boolean started) {
+                                        return started ? 1 : 0;
+                                    }
+
+                                    @Override
+                                    public int cancelReturnCode(boolean cancelled) {
+                                        return cancelled ? 1 : 0;
+                                    }
+                                }));
     }
 }

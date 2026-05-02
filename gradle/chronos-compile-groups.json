@@ -2,7 +2,7 @@
   "groups": [
     {
       "id": "minecraft_1_21",
-      "description": "Minecraft Java 1.21.x: one Fabric jar and one NeoForge jar for the whole 1.21 line, each built against a reference version with broad supported-version metadata. Fabric for 1.20–1.20.6 lives under minecraft_1_20.",
+      "description": "Fabric for 1.20–1.20.6 lives under minecraft_1_20. NeoForge: one unified jar for supported 1.21.x releases.",
       "minecraftVersionPrefixes": ["1.21"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -19,7 +19,7 @@
     },
     {
       "id": "minecraft_1_20",
-      "description": "Minecraft Java 1.20 through 1.20.6: Fabric on every patch (1.20, 1.20.1, …, 1.20.6) via one unified Fabric jar (reference 1.20.6, Fabric Loader 0.16.10, Fabric API 0.100.8+1.20.6, fabric.mod.json minecraft >=1.20 <1.20.7). NeoForge unified jar covers 1.20.2–1.20.6 only (mods.toml [1.20.2,1.20.7)); 1.20 and 1.20.1 are Fabric-only here (Forge is separate).",
+      "description": "Fabric on every patch (1.20 - 1.20.6) via one unified Fabric jar. NeoForge targets 1.20.1+. Forge is a separate unified jar for the initial 1.20.0 release only.",
       "minecraftVersionPrefixes": ["1.20"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -32,12 +32,19 @@
       "neoForgeUnified": {
         "referenceMinecraft": "1.20.6",
         "neoForge": "20.6.139",
-        "minecraftRange": "[1.20.2,1.20.7)"
+        "minecraftRange": "[1.20.1,1.20.7)",
+        "archiveVersionTag": "1.20.1-1.20.6"
+        },
+        "unifiedForgeJar": true,
+        "forgeUnified": {
+          "referenceMinecraft": "1.20",
+          "forge": "46.0.14",
+          "archiveVersionTag": "1.20.0"
       }
     },
     {
       "id": "minecraft_26_1",
-      "description": "Minecraft Java 26.1.x: split from 1.21.x because mappings/toolchains diverge. One Fabric jar and one NeoForge jar for the whole 26.1 line, each built against a reference version with broad supported-version metadata.",
+      "description": "Split from 1.21.x because mappings/toolchains diverge. Unified Fabric and NeoForge jars for the 26.1.x line.",
       "minecraftVersionPrefixes": ["26.1"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -53,12 +60,21 @@
     },
     {
       "id": "minecraft_1_12",
-      "description": "Minecraft Java 1.12.x: one Forge jar for the whole 1.12 line built against 1.12.2.",
+      "description": "Forge-only. Unified Forge for all 1.12.x.",
       "minecraftVersionPrefixes": ["1.12"],
       "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.12.2",
         "forge": "14.23.5.2864"
+      }
+    }, {
+      "id": "minecraft_1_13",
+      "description": "Forge-only. Unified Forge for all 1.13.x.",
+      "minecraftVersionPrefixes": ["1.13"],
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.13.2",
+        "forge": "25.0.223"
       }
     }
   ]

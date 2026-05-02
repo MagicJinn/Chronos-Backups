@@ -1,4 +1,4 @@
-package com.magicjinn.chronos.shell.neoforge;
+package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
@@ -7,7 +7,8 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 
-final class NeoForgeCommandRegistrar implements ShellCommandRegistrar {
+/* Forge 1.20 command registrar. */
+final class ForgeCommandRegistrar implements ShellCommandRegistrar {
     @Override
     public void register(Object registrationContext) {
         if (!(registrationContext instanceof CommandDispatcher)) {
@@ -17,7 +18,7 @@ final class NeoForgeCommandRegistrar implements ShellCommandRegistrar {
         CommandDispatcher<CommandSourceStack> dispatcher = (CommandDispatcher<CommandSourceStack>) registrationContext;
         ChronosBrigadier.register(
                 dispatcher,
-                new ChronosBrigadier.Hooks<CommandSourceStack>() {
+                new ChronosBrigadier.Hooks<>() {
                     @Override
                     public void feedback(
                             CommandSourceStack source, String message, boolean broadcastToOps) {

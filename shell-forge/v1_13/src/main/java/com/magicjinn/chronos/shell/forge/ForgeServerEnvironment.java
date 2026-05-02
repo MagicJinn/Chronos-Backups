@@ -1,0 +1,65 @@
+package com.magicjinn.chronos.shell.forge;
+
+import com.magicjinn.chronos.core.ServerEnvironment;
+import java.io.File;
+import java.nio.file.Path;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.dedicated.DedicatedServer;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.dimension.DimensionType;
+
+public final class ForgeServerEnvironment implements ServerEnvironment {
+    private static final String DEFAULT_WORLD_NAME = "world";
+
+    private final MinecraftServer server;
+
+    public ForgeServerEnvironment(MinecraftServer server) {
+        this.server = server;
+    }
+
+    @Override
+    public boolean isDedicatedServer() {
+        return server.isDedicatedServer();
+    }
+
+    @Override
+    public String getWorldName() {
+        if (server.isDedicatedServer()) {
+            DedicatedServer dedicated = (DedicatedServer) server;
+            String folder = dedicated.getFolderName();
+            if (folder != null && !folder.trim().isEmpty()) {
+                return folder;
+            }
+            return DEFAULT_WORLD_NAME;
+        }
+
+        WorldServer overworld = server.getWorld(DimensionType.OVERWORLD);
+        if (overworld != null) {
+            String name = overworld.getWorldInfo().getWorldName();
+            if (name != null && !name.trim().isEmpty()) {
+                return name;
+            }
+        }
+        return DEFAULT_WORLD_NAME;
+    }
+
+    @Override
+    public Path getRunDirectory() {
+        return server.getDataDirectory().toPath().toAbsolutePath().normalize();
+    }
+
+    @Override
+    public Path getWorldSaveRoot() {
+        if (server.isDedicatedServer()) {
+            return getRunDirectory().resolve(getWorldName()).normalize();
+        }
+        WorldServer overworld = server.getWorld(DimensionType.OVERWORLD);
+        if (overworld != null) {
+            File dir = overworld.getSaveHandler().getWorldDirectory();
+            if (dir != null) {
+                return dir.toPath().toAbsolutePath().normalize();
+            }
+        }
+        return getRunDirectory().resolve("saves").resolve(getWorldName()).normalize();
+    }
+}

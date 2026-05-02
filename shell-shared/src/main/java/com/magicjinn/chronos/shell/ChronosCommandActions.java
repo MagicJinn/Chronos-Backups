@@ -10,7 +10,14 @@ import com.magicjinn.chronos.core.Scheduler;
  */
 public final class ChronosCommandActions {
     /** Short hint for legacy {@code ICommand} usage lines. */
-    public static final String USAGE_LINE = "/chronos backup | /chronos cancel";
+    public static final String USAGE_LINE = "/"
+            + ChronosCommandLiterals.ROOT
+            + " "
+            + ChronosCommandLiterals.BACKUP
+            + " | /"
+            + ChronosCommandLiterals.ROOT
+            + " "
+            + ChronosCommandLiterals.CANCEL;
 
     private ChronosCommandActions() {}
 

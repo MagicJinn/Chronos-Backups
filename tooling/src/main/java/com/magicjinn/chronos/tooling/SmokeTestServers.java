@@ -180,6 +180,7 @@ public final class SmokeTestServers {
             cmd.add(gradleWrapperCommand(job.cwd));
             cmd.addAll(job.gradleArgs);
             cmd.add("--no-daemon");
+            cmd.add("--configure-on-demand");
             cmd.add("-Dorg.gradle.console=plain");
 
             for (Path runDir : job.runDirs) {

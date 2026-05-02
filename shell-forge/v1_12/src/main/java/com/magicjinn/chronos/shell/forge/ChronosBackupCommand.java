@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.shell.ChronosCommandActions;
+import com.magicjinn.chronos.shell.ChronosCommandLiterals;
 import java.util.Collections;
 import java.util.List;
 import net.minecraft.command.CommandBase;
@@ -12,8 +13,13 @@ import net.minecraft.util.text.TextComponentString;
 
 final class ChronosBackupCommand extends CommandBase {
     @Override
+    public int getRequiredPermissionLevel() {
+        return 4;
+    }
+
+    @Override
     public String getName() {
-        return "chronos";
+        return ChronosCommandLiterals.ROOT;
     }
 
     @Override
@@ -30,7 +36,8 @@ final class ChronosBackupCommand extends CommandBase {
     public List<String> getTabCompletions(
             MinecraftServer server, ICommandSender sender, String[] args, BlockPos targetPos) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(args, "backup", "cancel");
+            return getListOfStringsMatchingLastWord(
+                    args, ChronosCommandLiterals.BACKUP, ChronosCommandLiterals.CANCEL);
         }
         return Collections.emptyList();
     }
@@ -40,7 +47,7 @@ final class ChronosBackupCommand extends CommandBase {
         if (args.length == 0) {
             return;
         }
-        if ("backup".equalsIgnoreCase(args[0])) {
+        if (ChronosCommandLiterals.BACKUP.equalsIgnoreCase(args[0])) {
             if (ChronosCommandActions.startManualBackup()) {
                 sender.sendMessage(
                         new TextComponentString(ChronosCommandActions.messageManualBackupStarted()));
@@ -50,7 +57,7 @@ final class ChronosBackupCommand extends CommandBase {
             }
             return;
         }
-        if ("cancel".equalsIgnoreCase(args[0])) {
+        if (ChronosCommandLiterals.CANCEL.equalsIgnoreCase(args[0])) {
             if (!ChronosCommandActions.requestCancelInFlightBackup()) {
                 sender.sendMessage(
                         new TextComponentString(ChronosCommandActions.messageCancelNothingRunning()));

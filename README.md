@@ -33,14 +33,14 @@ All currently supported versions are listed below in `major.minor.x` format:
 | - | - | - | - | - | - |
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
-| `1.20.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | 1.20.0 Fabric only, Forge support coming soon. NeoForge and Fabric for 1.20.1-1.20.6 |
+| `1.20.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0 only. Fabric covers the whole range. NeoForge covers 1.20.1 - 1.20.6. |
 | `1.19.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.18.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.17.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.16.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.15.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.14.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
-| `1.13.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.11.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.10.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
@@ -88,7 +88,7 @@ Bash/zsh:
 - `:<version>-line-<compileGroup>:runClient` - Runs the client for the given version and compile group.
 - `:<version>-line-<compileGroup>:runServer` - Runs the server for the given version and compile group. (will not automatically shut down like `smokeTestServers` does)
 - `generateVariantProjects` - generates variant projects from `gradle/chronos-versions.json` and `gradle/chronos-compile-groups.json`. Should be run automaticaly.
-- `smokeTestServers` - runs dev servers and checks expected Chronos startup lines. Arguments: `--workers <number>` (default 4), `--only <label>` (repeatable).
+- `smokeTestServers` - runs dev servers and checks expected Chronos startup lines. Smoke tests are run against the highest supported minor version of the target line, meaning that Forge 1.20.0 will test against 1.20.0, and Fabric 1.20.x will test against 1.20.6. Arguments: `--workers <number>` (default 4), `--only <label>` (repeatable).
 
 Example Smoke Test command:
 
