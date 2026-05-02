@@ -1,5 +1,7 @@
 package com.magicjinn.chronos.core;
 
+import java.io.EOFException;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
@@ -9,7 +11,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -38,10 +39,14 @@ public final class Pruner {
     private static final Logger LOG = Logger.getLogger(Pruner.class.getName());
 
     public static final int DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6 = 4774;
+    private static final String DIMENSIONS_FOLDER_NAME = "dimensions";
     private static final String REGION_FOLDER_NAME = "region";
     private static final String ENTITIES_FOLDER_NAME = "entities";
     private static final String POI_FOLDER_NAME = "poi";
     private static final String INHABITED_TIME_TAG_NAME = "InhabitedTime";
+
+    /** Anvil region files store location + timestamp tables (4096 + 4096 bytes) before chunk sectors. */
+    private static final long MIN_ANVIL_REGION_FILE_BYTES = 8192L;
 
     /**
      * Roots for vanilla overworld, Nether, and End (each contains {@code region/},
@@ -69,13 +74,8 @@ public final class Pruner {
 
         int spentTimeRequirementTicks = spentTimeRequirementSeconds * 20;
         List<DataFolder> dataFolders = findDataFolders(worldPath, dataVersion);
-
-        if (dataVersion >= DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6) {
-            pruneRegionDirectories(dataFolders, spentTimeRequirementTicks);
-        } else {
-            // TODO: Implement pruning for older data versions
-            throw new UnsupportedOperationException("Unsupported data version: " + dataVersion);
-        }
+        // Layout-specific discovery is handled in findDataFolders; pruning logic is the same for all versions.
+        pruneRegionDirectories(dataFolders, spentTimeRequirementTicks);
     }
 
     /**
@@ -94,7 +94,7 @@ public final class Pruner {
 
         Set<Path> regionDirectories = new LinkedHashSet<>();
         if (dataVersion >= DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6) {
-            Path dimensions = worldRoot.resolve("dimensions");
+            Path dimensions = worldRoot.resolve(DIMENSIONS_FOLDER_NAME);
             if (Files.isDirectory(dimensions)) {
                 collectRegionDirectoriesUnder(dimensions, regionDirectories);
             }
@@ -114,7 +114,7 @@ public final class Pruner {
                     }
                 }
             }
-            Path dimensions = worldRoot.resolve("dimensions");
+            Path dimensions = worldRoot.resolve(DIMENSIONS_FOLDER_NAME);
             if (Files.isDirectory(dimensions)) {
                 collectRegionDirectoriesUnder(dimensions, regionDirectories);
             }
@@ -155,61 +155,138 @@ public final class Pruner {
                 });
     }
 
-    private static void pruneRegionDirectories(List<DataFolder> dataFolders, int spentTimeRequirementTicks) {
+    private static void pruneRegionDirectories(List<DataFolder> dataFolders, int spentTimeRequirementTicks)
+            throws IOException {
         for (DataFolder dataFolder : dataFolders) {
-            // Track which chunks have been deleted, and which entities and other data will
-            // have to be deleted too.
-            HashSet<ChunkCoordinate> deletedChunkCoordinates = new HashSet<>();
-
-            // loop over every file in region
+            if (!Files.isDirectory(dataFolder.regionDirectory)) {
+                continue;
+            }
             try (DirectoryStream<Path> regionFiles = Files.newDirectoryStream(dataFolder.regionDirectory)) {
-                for (Path file : regionFiles) {
-                    if (!file.getFileName().toString().endsWith(".mca")) {
+                for (Path regionPath : regionFiles) {
+                    if (!regionPath.getFileName().toString().endsWith(".mca")) {
                         continue;
                     }
                     try {
-                        int regionX;
-                        int regionZ;
-                        try {
-                            int[] region = parseRegionCoords(file.getFileName().toString());
-                            regionX = region[0];
-                            regionZ = region[1];
-                        } catch (IllegalArgumentException ex) {
-                            LOG.warning("Skipping region file with unexpected name: " + file);
-                            continue;
-                        }
+                        parseRegionCoords(regionPath.getFileName().toString());
+                    } catch (IllegalArgumentException ex) {
+                        LOG.warning("Skipping region file with unexpected name: " + regionPath);
+                        continue;
+                    }
 
-                        // RAW: modern chunks have no "Level" wrapper; Querz's parsed Chunk would throw.
-                        MCAFile mca = MCAUtil.read(file.toFile(), LoadFlags.RAW);
-                        int chunkBaseX = MCAUtil.regionToChunk(regionX);
-                        int chunkBaseZ = MCAUtil.regionToChunk(regionZ);
+                    if (!hasMinimumAnvilHeader(regionPath)) {
+                        continue;
+                    }
 
-                        for (int lz = 0; lz < 32; lz++) {
-                            for (int lx = 0; lx < 32; lx++) {
-                                Chunk chunk = mca.getChunk(lx, lz);
-                                if (chunk == null) {
-                                    continue;
-                                }
-                                CompoundTag chunkRoot = chunk.getHandle();
-                                if (chunkRoot == null) {
-                                    continue;
-                                }
-                                long inhabitedTicks = readInhabitedTimeTicks(chunkRoot);
-                                if (inhabitedTicks < spentTimeRequirementTicks) {
-                                    deletedChunkCoordinates.add(new ChunkCoordinate(chunkBaseX + lx, chunkBaseZ + lz));
-                                }
+                    MCAFile regionMca;
+                    try {
+                        regionMca = MCAUtil.read(regionPath.toFile(), LoadFlags.RAW);
+                    } catch (EOFException e) {
+                        LOG.warning("Corrupt or truncated region file (EOF), skipping: " + regionPath);
+                        continue;
+                    } catch (IOException e) {
+                        LOG.warning("Failed to read region file, skipping: " + regionPath + " — " + e.getMessage());
+                        continue;
+                    }
+
+                    List<int[]> slotsToClear = new ArrayList<>();
+
+                    for (int lz = 0; lz < 32; lz++) {
+                        for (int lx = 0; lx < 32; lx++) {
+                            Chunk chunk = regionMca.getChunk(lx, lz);
+                            if (chunk == null) {
+                                continue;
+                            }
+                            CompoundTag chunkRoot = chunk.getHandle();
+                            if (chunkRoot == null) {
+                                continue;
+                            }
+                            long inhabitedTicks = readInhabitedTimeTicks(chunkRoot);
+                            if (inhabitedTicks < spentTimeRequirementTicks) {
+                                slotsToClear.add(new int[] { lx, lz });
                             }
                         }
-                    } catch (IOException e) {
-                        LOG.severe("Error reading region file: " + file);
-                        e.printStackTrace();
                     }
+
+                    if (slotsToClear.isEmpty()) {
+                        continue;
+                    }
+
+                    for (int[] slot : slotsToClear) {
+                        regionMca.setChunk(slot[0], slot[1], null);
+                    }
+                    writeMcaOrDelete(regionMca, regionPath.toFile());
+
+                    String regionFileName = regionPath.getFileName().toString();
+                    clearMatchingSlotsInSiblingMca(dataFolder.entitiesDirectory, regionFileName, slotsToClear);
+                    clearMatchingSlotsInSiblingMca(dataFolder.poiDirectory, regionFileName, slotsToClear);
+
+                    LOG.info("Pruned " + slotsToClear.size() + " chunk columns in " + regionPath);
                 }
-            } catch (IOException e) {
-                LOG.severe("Error listing region directory: " + dataFolder.regionDirectory);
-                e.printStackTrace();
             }
         }
+    }
+
+    /**
+     * Region, entities, and POI use the same {@code r.x.z.mca} grid; clearing a slot removes that column's data
+     * without re-checking NBT inside entities/poi.
+     */
+    private static void clearMatchingSlotsInSiblingMca(Path siblingDir, String regionFileName, List<int[]> slotsToClear) {
+        if (!Files.isDirectory(siblingDir)) {
+            return;
+        }
+        Path path = siblingDir.resolve(regionFileName);
+        if (!Files.isRegularFile(path)) {
+            return;
+        }
+        if (!hasMinimumAnvilHeader(path)) {
+            return;
+        }
+        try {
+            MCAFile mca = MCAUtil.read(path.toFile(), LoadFlags.RAW);
+            for (int[] slot : slotsToClear) {
+                mca.setChunk(slot[0], slot[1], null);
+            }
+            writeMcaOrDelete(mca, path.toFile());
+        } catch (EOFException e) {
+            LOG.warning("Corrupt sibling MCA (EOF), leaving unchanged: " + path);
+        } catch (IOException e) {
+            LOG.warning("Could not update sibling MCA: " + path + " — " + e.getMessage());
+        }
+    }
+
+    private static boolean hasMinimumAnvilHeader(Path mcaPath) {
+        try {
+            long size = Files.size(mcaPath);
+            if (size < MIN_ANVIL_REGION_FILE_BYTES) {
+                return false;
+            }
+            return true;
+        } catch (IOException e) {
+            LOG.warning("Could not stat MCA file, skipping: " + mcaPath + " — " + e.getMessage());
+            return false;
+        }
+    }
+
+    private static int countNonNullChunks(MCAFile mca) {
+        int n = 0;
+        for (int i = 0; i < 1024; i++) {
+            if (mca.getChunk(i) != null) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Writes the region back or deletes it if no chunk columns remain. {@link MCAUtil#write} skips replacing the file
+     * when zero chunks serialize, so an empty region must be a deleted file.
+     */
+    private static void writeMcaOrDelete(MCAFile mca, File file) throws IOException {
+        if (countNonNullChunks(mca) == 0) {
+            Files.deleteIfExists(file.toPath());
+            return;
+        }
+        MCAUtil.write(mca, file);
     }
 
     /**
@@ -241,33 +318,6 @@ public final class Pruner {
         int regionX = Integer.parseInt(core.substring(0, dot));
         int regionZ = Integer.parseInt(core.substring(dot + 1));
         return new int[] { regionX, regionZ };
-    }
-
-    private static final class ChunkCoordinate {
-        final int x;
-        final int z;
-
-        ChunkCoordinate(int x, int z) {
-            this.x = x;
-            this.z = z;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ChunkCoordinate that = (ChunkCoordinate) o;
-            return x == that.x && z == that.z;
-        }
-
-        @Override
-        public int hashCode() {
-            return 31 * x + z;
-        }
     }
 
     /**

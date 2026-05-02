@@ -2,8 +2,8 @@ package com.magicjinn.chronos.shell.mojmap;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
 import java.nio.file.Path;
-import net.minecraft.SharedConstants;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.storage.LevelResource;
 
 /**
  * Mojmap {@link MinecraftServer} — shared by Fabric and NeoForge lines using
@@ -39,5 +39,11 @@ public final class MojmapServerEnvironment implements ServerEnvironment {
     @Override
     public Path getRunDirectory() {
         return server.getServerDirectory().toAbsolutePath().normalize();
+    }
+
+    @Override
+    public Path getWorldSaveRoot() {
+        Path root = server.getWorldPath(LevelResource.ROOT);
+        return root.toAbsolutePath().normalize();
     }
 }

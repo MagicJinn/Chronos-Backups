@@ -11,4 +11,7 @@ public interface ServerEnvironment {
     String getWorldName();
 
     Path getRunDirectory();
+
+    /** Absolute path to the save root (directory containing {@code level.dat}). */
+    Path getWorldSaveRoot();
 }

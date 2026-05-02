@@ -3,6 +3,7 @@ package com.magicjinn.chronos.core;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
@@ -26,8 +27,12 @@ public final class Backupper {
     private static final String CHRONOS_FOLDER_NAME = "chronos";
     private static final String CACHE_FOLDER_NAME = "cache";
     private static final String SESSION_LOCK_FILE_NAME = "session.lock";
+    /** Loader atomic-write temps — copied mid-rename causes NoSuchFileException on Windows. */
+    private static final String NEOFORGE_ATOMIC_TMP_SUFFIX = ".neoforge-tmp";
+    private static final String FABRIC_ATOMIC_TMP_SUFFIX = ".fabric-tmp";
     private static final int DEDICATED_SERVER_SLASH_BACKWARDS_AMOUNT = 1;
-    private static final int INTEGRATED_SERVER_SLASH_BACKWARDS_AMOUNT = 2;
+    /** World root is already an absolute path from the server; walk up to the run directory. */
+    private static final int INTEGRATED_FROM_WORLD_ROOT_TO_RUN = 2;
     private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
     public static void checkIn() {
@@ -40,13 +45,13 @@ public final class Backupper {
             return;
         }
 
-        Path worldPath = resolveWorldPath(context);
+        Path worldPath = context.getWorldSaveRoot();
         if (!Files.isDirectory(worldPath)) {
             context.logError("Backupper skipped: world path does not exist -> " + worldPath);
             return;
         }
 
-        Path rootPath = resolveRootPath(worldPath, context.isDedicatedServer());
+        Path rootPath = resolveRootPathFromWorldPath(worldPath, context.isDedicatedServer());
         Path chronosFolder = rootPath.resolve(CHRONOS_FOLDER_NAME);
         Path cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
         String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
@@ -68,17 +73,21 @@ public final class Backupper {
 
             copyWorldToCache(worldPath, cacheSnapshotPath);
 
-            int dataVersion = getDataVersionFromLevelData(worldPath);
+            int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
 
             int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes // TODO: Make this configurable
-            Pruner.PruneMinecraftWorld(worldPath, dataVersion, pruneTimeRequirementSeconds);
+            Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, pruneTimeRequirementSeconds);
 
             zipSnapshot(cacheSnapshotPath, zipOutputPath);
 
             context.logInfo("Chronos backup completed: " + zipOutputPath);
             context.sendChat("Backup completed.");
         } catch (IOException | RuntimeException e) {
-            context.logError("Chronos backup failed: " + e.getMessage());
+            String detail = e.getMessage();
+            if (detail == null || detail.isEmpty()) {
+                detail = e.getClass().getName();
+            }
+            context.logError("Chronos backup failed: " + detail);
             context.sendChat("Backup failed. Check server logs for details.");
             e.printStackTrace();
         } finally {
@@ -100,10 +109,9 @@ public final class Backupper {
     private Backupper() {
     }
 
-    private static Path resolveRootPath(Path worldPath, boolean dedicatedServer) {
-        int slashBackwardsAmount = dedicatedServer
-                ? DEDICATED_SERVER_SLASH_BACKWARDS_AMOUNT
-                : INTEGRATED_SERVER_SLASH_BACKWARDS_AMOUNT;
+    private static Path resolveRootPathFromWorldPath(Path worldPath, boolean dedicatedServer) {
+        int slashBackwardsAmount =
+                dedicatedServer ? DEDICATED_SERVER_SLASH_BACKWARDS_AMOUNT : INTEGRATED_FROM_WORLD_ROOT_TO_RUN;
         Path rootPath = worldPath;
         for (int i = 0; i < slashBackwardsAmount; i++) {
             if (rootPath.getParent() == null) {
@@ -112,13 +120,6 @@ public final class Backupper {
             rootPath = rootPath.getParent();
         }
         return rootPath;
-    }
-
-    private static Path resolveWorldPath(BackupRuntimeContext context) {
-        if (context.isDedicatedServer()) {
-            return context.getRunDirectory().resolve(context.getWorldName());
-        }
-        return context.getRunDirectory().resolve("saves").resolve(context.getWorldName());
     }
 
     private static int getDataVersionFromLevelData(Path worldPath) throws IOException {
@@ -159,9 +160,18 @@ public final class Backupper {
                         if (SESSION_LOCK_FILE_NAME.equals(file.getFileName().toString())) {
                             return FileVisitResult.CONTINUE;
                         }
+                        String leaf = file.getFileName().toString();
+                        if (leaf.endsWith(NEOFORGE_ATOMIC_TMP_SUFFIX) || leaf.endsWith(FABRIC_ATOMIC_TMP_SUFFIX)) {
+                            return FileVisitResult.CONTINUE;
+                        }
                         Path relative = worldPath.relativize(file);
                         Path destination = cacheSnapshotPath.resolve(relative);
-                        Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
+                        try {
+                            Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
+                        } catch (NoSuchFileException e) {
+                            // File disappeared between directory scan and copy (temp rename); omit from backup.
+                            LOG.fine("Skipping vanished file during backup copy: " + file);
+                        }
                         return FileVisitResult.CONTINUE;
                     }
                 });

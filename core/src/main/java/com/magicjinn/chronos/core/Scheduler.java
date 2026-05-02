@@ -27,10 +27,9 @@ public final class Scheduler {
 
         Backupper.checkIn();
 
+        shutdownBackupScheduler();
         runtimeContext = context;
-        if (backupScheduler.isShutdown() || backupScheduler.isTerminated()) {
-            backupScheduler = Executors.newScheduledThreadPool(1);
-        }
+        backupScheduler = Executors.newScheduledThreadPool(1);
 
         Runnable backupTask = () -> {
             try {
@@ -52,8 +51,23 @@ public final class Scheduler {
     }
 
     public static void onWorldStopped() {
-        backupScheduler.shutdown();
+        shutdownBackupScheduler();
         runtimeContext = null;
+    }
+
+    private static void shutdownBackupScheduler() {
+        if (backupScheduler == null || backupScheduler.isShutdown()) {
+            return;
+        }
+        backupScheduler.shutdown();
+        try {
+            if (!backupScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                backupScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            backupScheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 
     public static boolean runBackupNow() {

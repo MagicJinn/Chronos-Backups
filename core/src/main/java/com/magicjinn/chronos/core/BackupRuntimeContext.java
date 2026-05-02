@@ -12,9 +12,7 @@ public final class BackupRuntimeContext {
 
     private static final Logger LOG = Logger.getLogger(BackupRuntimeContext.class.getName());
 
-    private final boolean dedicatedServer;
-    private final String worldName;
-    private final Path runDirectory;
+    private final ServerEnvironment environment;
     private final Object serverHandle;
     private final BackupWorldController worldController;
     private final Consumer<String> logInfoSink;
@@ -22,17 +20,13 @@ public final class BackupRuntimeContext {
     private final Consumer<String> chatSink;
 
     public BackupRuntimeContext(
-            boolean dedicatedServer,
-            String worldName,
-            Path runDirectory,
+            ServerEnvironment environment,
             Object serverHandle,
             BackupWorldController worldController,
             Consumer<String> logInfoSink,
             Consumer<String> logErrorSink,
             Consumer<String> chatSink) {
-        this.dedicatedServer = dedicatedServer;
-        this.worldName = worldName;
-        this.runDirectory = runDirectory;
+        this.environment = environment;
         this.serverHandle = serverHandle;
         this.worldController = worldController;
         this.logInfoSink = logInfoSink;
@@ -41,15 +35,19 @@ public final class BackupRuntimeContext {
     }
 
     public boolean isDedicatedServer() {
-        return dedicatedServer;
+        return environment.isDedicatedServer();
     }
 
     public String getWorldName() {
-        return worldName;
+        return environment.getWorldName();
     }
 
     public Path getRunDirectory() {
-        return runDirectory;
+        return environment.getRunDirectory();
+    }
+
+    public Path getWorldSaveRoot() {
+        return environment.getWorldSaveRoot();
     }
 
     public Object getServerHandle() {

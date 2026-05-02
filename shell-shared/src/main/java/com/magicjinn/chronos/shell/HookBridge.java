@@ -5,7 +5,6 @@ import com.magicjinn.chronos.core.BackupWorldController;
 import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.ServerEnvironment;
 import com.magicjinn.chronos.core.ShellMessenger;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 /**
@@ -13,8 +12,6 @@ import java.util.logging.Logger;
  */
 public final class HookBridge {
     private static final Logger FALLBACK_LOG = Logger.getLogger(HookBridge.class.getName());
-
-    private static final AtomicBoolean WORLD_START_FIRED = new AtomicBoolean(false);
 
     private static final ShellMessenger FALLBACK_MESSENGER =
             new ShellMessenger() {
@@ -39,9 +36,6 @@ public final class HookBridge {
             Object serverHandle,
             ShellMessenger messenger,
             BackupWorldController worldController) {
-        if (!WORLD_START_FIRED.compareAndSet(false, true)) {
-            return;
-        }
         if (environment == null) {
             throw new IllegalStateException("Missing ServerEnvironment when calling HookBridge.worldStarted.");
         }
@@ -55,7 +49,6 @@ public final class HookBridge {
     }
 
     public static void worldStopped() {
-        WORLD_START_FIRED.set(false);
         Scheduler.onWorldStopped();
     }
 
@@ -68,9 +61,7 @@ public final class HookBridge {
             BackupWorldController worldController) {
         ShellMessenger resolved = messenger != null ? messenger : FALLBACK_MESSENGER;
         return new BackupRuntimeContext(
-                environment.isDedicatedServer(),
-                environment.getWorldName(),
-                environment.getRunDirectory(),
+                environment,
                 serverHandle,
                 worldController,
                 resolved::logInfo,
