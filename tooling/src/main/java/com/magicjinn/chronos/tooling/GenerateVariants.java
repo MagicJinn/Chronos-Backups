@@ -200,7 +200,8 @@ public final class GenerateVariants {
                 "neoVersion", neoVersion,
                 "minecraft", mc,
                 "minecraftRange", mcRange,
-                "javaMajor", javaMajor)));
+                "javaMajor", javaMajor,
+                "neoForgeLineDir", minecraftLineFolder(mc))));
 
         Path meta = dir.resolve("src/main/resources/META-INF");
         Files.createDirectories(meta);
@@ -257,6 +258,17 @@ public final class GenerateVariants {
     private static String minecraftLineTag(String version) {
         String[] p = version.split("\\.");
         return p.length >= 2 ? p[0] + "." + p[1] + ".x" : version + ".x";
+    }
+
+    /**
+     * Directory name under {@code shell-neoforge/} for line-specific NeoForge sources (e.g. {@code 1.20},
+     * {@code 1.21}, {@code 26.1}) — not a separate Gradle module.
+     */
+    private static String minecraftLineFolder(String minecraftVersion) {
+        String[] p = minecraftVersion.split("\\.");
+        if (p.length >= 2)
+            return p[0] + "." + p[1];
+        return minecraftVersion;
     }
 
     private static String primaryLinePrefix(Map<String, Object> group) {

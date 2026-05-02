@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.mojmap;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
+import java.io.File;
 import java.nio.file.Path;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -38,7 +39,9 @@ public final class MojmapServerEnvironment implements ServerEnvironment {
 
     @Override
     public Path getRunDirectory() {
-        return server.getServerDirectory().toAbsolutePath().normalize();
+        Object root = server.getServerDirectory();
+        Path base = root instanceof Path p ? p : ((File) root).toPath();
+        return base.toAbsolutePath().normalize();
     }
 
     @Override

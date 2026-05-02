@@ -1,4 +1,11 @@
 [
+  {"minecraft": "1.20", "compileGroup": "minecraft_1_20", "loaders": ["fabric"]},
+  {"minecraft": "1.20.1", "compileGroup": "minecraft_1_20", "loaders": ["fabric"]},
+  {"minecraft": "1.20.2", "compileGroup": "minecraft_1_20", "loaders": ["fabric", "neoforge"], "neoForge": "20.2.86"},
+  {"minecraft": "1.20.3", "compileGroup": "minecraft_1_20", "loaders": ["fabric", "neoforge"], "neoForge": "20.3.30"},
+  {"minecraft": "1.20.4", "compileGroup": "minecraft_1_20", "loaders": ["fabric", "neoforge"], "neoForge": "20.4.237"},
+  {"minecraft": "1.20.5", "compileGroup": "minecraft_1_20", "loaders": ["fabric", "neoforge"], "neoForge": "20.5.26"},
+  {"minecraft": "1.20.6", "compileGroup": "minecraft_1_20", "loaders": ["fabric", "neoforge"], "neoForge": "20.6.139"},
   {"minecraft": "1.21", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.0.167"},
   {"minecraft": "1.21.1", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.1.228"},
   {"minecraft": "1.21.2", "compileGroup": "minecraft_1_21", "loaders": ["neoforge"], "neoForge": "21.2.1-beta"},

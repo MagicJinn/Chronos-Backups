@@ -2,18 +2,37 @@
   "groups": [
     {
       "id": "minecraft_1_21",
-      "description": "Minecraft Java 1.21.x: one Fabric jar and one NeoForge jar for the whole 1.21 line, each built against a reference version with broad supported-version metadata.",
+      "description": "Minecraft Java 1.21.x: one Fabric jar and one NeoForge jar for the whole 1.21 line, each built against a reference version with broad supported-version metadata. Fabric for 1.20–1.20.6 lives under minecraft_1_20.",
       "minecraftVersionPrefixes": ["1.21"],
       "unifiedFabricJar": true,
       "fabricUnified": {
         "referenceMinecraft": "1.21.11",
         "fabricLoader": "0.19.2",
-        "fabricApi": "0.141.3+1.21.11"
+        "fabricApi": "0.141.3+1.21.11",
+        "minecraftDep": ">=1.21 <1.22"
       },
       "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
         "referenceMinecraft": "1.21.11",
         "neoForge": "21.11.42"
+      }
+    },
+    {
+      "id": "minecraft_1_20",
+      "description": "Minecraft Java 1.20 through 1.20.6: Fabric on every patch (1.20, 1.20.1, …, 1.20.6) via one unified Fabric jar (reference 1.20.6, Fabric Loader 0.16.10, Fabric API 0.100.8+1.20.6, fabric.mod.json minecraft >=1.20 <1.20.7). NeoForge unified jar covers 1.20.2–1.20.6 only (mods.toml [1.20.2,1.20.7)); 1.20 and 1.20.1 are Fabric-only here (Forge is separate).",
+      "minecraftVersionPrefixes": ["1.20"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.20.6",
+        "fabricLoader": "0.16.10",
+        "fabricApi": "0.100.8+1.20.6",
+        "minecraftDep": ">=1.20 <1.20.7"
+      },
+      "unifiedNeoForgeJar": true,
+      "neoForgeUnified": {
+        "referenceMinecraft": "1.20.6",
+        "neoForge": "20.6.139",
+        "minecraftRange": "[1.20.2,1.20.7)"
       }
     },
     {

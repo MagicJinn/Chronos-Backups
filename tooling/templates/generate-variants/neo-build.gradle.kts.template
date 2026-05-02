@@ -44,11 +44,14 @@ dependencies {
 }
 
 sourceSets.named("main") {
+    // Shared NeoForge code plus optional line-specific trees under shell-neoforge/<line>/ (e.g. 1.20, 1.21, 26.1).
+    // Prefer one unified jar per line; use line folders only when APIs diverge - not separate Gradle modules.
     java.srcDirs(
         rootProject.file("core/src/main/java"),
         rootProject.file("shell-shared/src/main/java"),
         rootProject.file("shell-mojmap/src/main/java"),
         rootProject.file("shell-neoforge/src/main/java"),
+        rootProject.file("shell-neoforge/{{neoForgeLineDir}}/src/main/java"),
     )
 }
 

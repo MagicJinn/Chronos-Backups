@@ -1,20 +1,16 @@
 package com.magicjinn.chronos.shell.mojmap;
 
 import com.magicjinn.chronos.core.BackupWorldController;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 
 /**
- * Mojmap: flush with {@link MinecraftServer#saveEverything}, then pause/resume
- * persistence using the vanilla {@link MinecraftServer#setAutoSave} API.
- *
- * <p>Autosave state before pause is stored on {@link ThreadLocal} because the backup worker
- * thread runs pause and restore sequentially; restore reapplies the exact prior flag so backups
- * never leave the server stuck with saving off when {@code setAutoSave} return values are
- * ambiguous.
+ * Mojmap: flush with {@link MinecraftServer#saveEverything}, then toggle each dimension's
+ * {@link ServerLevel#noSave}. Matches {@code FabricBackupWorldController} so one implementation
+ * works from 1.20 through current (1.20.x did not expose {@code MinecraftServer#setAutoSave}).
  */
 public final class MojmapBackupWorldController implements BackupWorldController {
-    private static final ThreadLocal<Boolean> AUTOSAVE_BEFORE_PAUSE = new ThreadLocal<>();
-
     @Override
     public void saveAllWorldData(Object serverHandle) {
         if (!(serverHandle instanceof MinecraftServer server)) {
@@ -28,20 +24,19 @@ public final class MojmapBackupWorldController implements BackupWorldController 
         if (!(serverHandle instanceof MinecraftServer server)) {
             return false;
         }
+        AtomicBoolean touchedLevel = new AtomicBoolean(false);
         server.executeBlocking(
                 () -> {
-                    if (disabled) {
-                        boolean was = server.isAutoSave();
-                        AUTOSAVE_BEFORE_PAUSE.set(was);
-                        server.setAutoSave(false);
-                    } else {
-                        Boolean was = AUTOSAVE_BEFORE_PAUSE.get();
-                        AUTOSAVE_BEFORE_PAUSE.remove();
-                        if (was != null && was.booleanValue()) {
-                            server.setAutoSave(true);
+                    for (ServerLevel level : server.getAllLevels()) {
+                        if (level == null) {
+                            continue;
                         }
+                        if (level.noSave != disabled) {
+                            level.noSave = disabled;
+                        }
+                        touchedLevel.set(true);
                     }
                 });
-        return true;
+        return touchedLevel.get();
     }
 }

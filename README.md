@@ -25,36 +25,32 @@ Chronos Backup is made of two layers:
 
 All currently supported versions are listed below in `major.minor.x` format:
 
-| Minecraft | Support       | Loader(s)                         | Backup | Config       | Notes                                     |
-| --------- | ------------- | --------------------------------- | ------ | ------------ | ----------------------------------------- |
-| `26.1.x`  | ✅ Supported   | Fabric + NeoForge                 | ✅      | 🟡 File-only | Current target with ready-made jars.      |
-| `1.21.x`  | ✅ Supported   | Fabric + NeoForge                 | ✅      | 🟡 File-only | Current target with ready-made jars.      |
-| `1.20.x`  | ❌ Unsupported | NeoForge / Forge / Fabric / Quilt | ❌      | 🔴 None      | -                                         |
-| `1.19.x`  | ❌ Unsupported | Forge / Fabric / Quilt            | ❌      | 🔴 None      | -                                         |
-| `1.18.x`  | ❌ Unsupported | Forge / Fabric / Quilt            | ❌      | 🔴 None      | -                                         |
-| `1.17.x`  | ❌ Unsupported | Forge / Fabric / Quilt            | ❌      | 🔴 None      | -                                         |
-| `1.16.x`  | ❌ Unsupported | Forge / Fabric                    | ❌      | 🔴 None      | -                                         |
-| `1.15.x`  | ❌ Unsupported | Forge / Fabric                    | ❌      | 🔴 None      | -                                         |
-| `1.14.x`  | ❌ Unsupported | Forge / Fabric                    | ❌      | 🔴 None      | -                                         |
-| `1.13.x`  | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                         |
-| `1.12.x`  | ✅ Supported   | Forge                             | ✅      | 🟡 File-only | Classic Forge target with ready-made jar. |
-| `1.11.x`  | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                         |
-| `1.10.x`  | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                         |
-| `1.9.x`   | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                         |
-| `1.8.x`   | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                         |
-| `1.7.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
-| `1.6.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
-| `1.5.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
-| `1.4.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
-| `1.3.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
-| `1.2.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
-| `1.1.x`   | ❌ Unsupported | Legacy Forge                      | ❌      | 🔴 None      | -                                         |
+| Minecraft | Support | Loader(s) | Backup | Config | Notes |
+| - | - | - | - | - | - |
+| `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🔴 None | - |
+| `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🔴 None | - |
+| `1.20.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🔴 None | 1.20.0 Fabric only, Forge support coming soon. NeoForge and Fabric for 1.20.1-1.20.6 |
+| `1.19.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
+| `1.18.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
+| `1.17.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
+| `1.16.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
+| `1.15.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
+| `1.14.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
+| `1.13.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.12.x` | ✅ Supported | Forge | ✅ | 🔴 None | - |
+| `1.11.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.10.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.9.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.8.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.7.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.6.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.5.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.4.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.3.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.2.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.1.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
 
-`Config` values:
-
-- `🟢 Full` = in-game config menu available.
-- `🟡 File-only` = config by file/editing only (no in-game menu).
-- `🔴 None` = no user-facing config.
+For **1.20.x**, Minecraft **1.20** and **1.20.1** are **Fabric-only**; **Forge** for those versions is not shipped yet but is planned.
 
 ## Development
 
@@ -95,10 +91,7 @@ Bash/zsh:
 Example Smoke Test command:
 
 ```powershell
-.\gradlew.bat smokeTestServers "-Pchronos.smoke.args=--workers 2 --only fabric-line-1_21"
-# equivalent:
 .\gradlew.bat smokeTestServers -PchronosSmokeArgs="--workers 2 --only fabric-line-1_21"
-# IMPORTANT: do not insert a space before `=` in `-P...=...`
 ```
 
 Example Run command:
