@@ -1,7 +1,11 @@
 {
-  "expectedMarkers": [
-    "Hook checking in",
-    "Scheduler checking in",
-    "Backupper checking in"
+  "serverReadyMarkers": [
+    "Chronos is initializing...",
+    "Scheduler is ready and on standby...",
+    "Backupper is ready and on standby..."
+  ],
+  "shutdownMarkers": [
+    "Chronos backup failed",
+    "Chronos backup completed"
   ]
 }
