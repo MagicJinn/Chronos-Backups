@@ -5,6 +5,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Logger;
 
 import com.electronwill.nightconfig.core.file.FileConfig;
@@ -78,6 +81,9 @@ public final class Config {
                     defaults.pruneTimeRequirementSeconds);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
+            out.pruneWorkerThreads = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_WORKER_THREADS,
+                    defaults.pruneWorkerThreads);
+            loadCopyBlacklist(cfg, out, defaults);
             int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
             if (fileVersion != ChronosTomlSpec.CONFIG_VERSION) {
                 LOG.info("Updating " + CONFIG_FILE_NAME + " from format v" + fileVersion + " to v"
@@ -88,6 +94,25 @@ public final class Config {
         } catch (Exception e) {
             LOG.severe("Failed to load " + CONFIG_FILE_NAME + ", using defaults: " + e.getMessage());
             return defaults;
+        }
+    }
+
+    private static void loadCopyBlacklist(FileConfig cfg, ModConfig out, ModConfig defaults) {
+        Object raw = cfg.get(ChronosTomlSpec.KEY_COPY_BLACKLIST);
+        if (!(raw instanceof List)) {
+            out.copyBlacklist = new ArrayList<>(defaults.copyBlacklist);
+            return;
+        }
+        List<?> fromFile = (List<?>) raw;
+        out.copyBlacklist = new ArrayList<>();
+        for (Object o : fromFile) {
+            if (o == null) {
+                continue;
+            }
+            String s = o.toString().trim();
+            if (!s.isEmpty()) {
+                out.copyBlacklist.add(s);
+            }
         }
     }
 
@@ -102,13 +127,31 @@ public final class Config {
     }
 
     /**
-     * Minimum in-world playtime (seconds) before a chunk may be pruned. When
+     * Minimum in-world playtime (seconds) before a chunk may no longer be pruned. When
      * {@link #modConfig} is unset, returns the
      * same built-in defaults as a fresh {@link ModConfig}.
      */
     public static int getPruneTimeRequirementSeconds() {
         ModConfig c = modConfig;
         return c != null ? c.pruneTimeRequirementSeconds : BUILTIN_DEFAULTS.pruneTimeRequirementSeconds;
+    }
+
+    /**
+     * Path patterns excluded when copying the world for backup. When {@link #modConfig} is unset,
+     * returns the same built-in defaults as a fresh {@link ModConfig}.
+     */
+    public static List<String> getCopyBlacklist() {
+        ModConfig c = modConfig;
+        List<String> src = c != null && c.copyBlacklist != null ? c.copyBlacklist : BUILTIN_DEFAULTS.copyBlacklist;
+        return Collections.unmodifiableList(new ArrayList<>(src));
+    }
+
+    /**
+     * Prune thread pool size from config. {@code 0} means caller should use an automatic cap.
+     */
+    public static int getPruneWorkerThreadsRaw() {
+        ModConfig c = modConfig;
+        return c != null ? c.pruneWorkerThreads : BUILTIN_DEFAULTS.pruneWorkerThreads;
     }
 
     private Config() {

@@ -13,6 +13,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -290,6 +291,42 @@ public final class Backupper {
         }
     }
 
+    /**
+     * {@code pattern} without {@code /} matches the last path segment; with {@code /}, matches a path prefix under the
+     * world root (forward-slash form).
+     */
+    private static boolean isCopyBlacklisted(Path relativeToWorldRoot, List<String> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return false;
+        }
+        Path rel = relativeToWorldRoot.normalize();
+        String relSlash = rel.toString().replace('\\', '/');
+        if (relSlash.isEmpty() || ".".equals(relSlash)) {
+            return false;
+        }
+        for (String pattern : patterns) {
+            if (pattern == null) {
+                continue;
+            }
+            String p = pattern.trim();
+            if (p.isEmpty()) {
+                continue;
+            }
+            String pNorm = p.replace('\\', '/');
+            if (pNorm.indexOf('/') >= 0) {
+                if (relSlash.equals(pNorm) || relSlash.startsWith(pNorm + "/")) {
+                    return true;
+                }
+            } else {
+                Path fn = rel.getFileName();
+                if (fn != null && p.equals(fn.toString())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static void assertCacheOutsideWorld(Path worldRoot, Path cacheSnapshotPath) throws IOException {
         Path w = worldRoot.toAbsolutePath().normalize();
         Path c = cacheSnapshotPath.toAbsolutePath().normalize();
@@ -311,6 +348,7 @@ public final class Backupper {
         deleteDirectory(cacheSnapshotPath);
         Files.createDirectories(cacheSnapshotPath);
 
+        final List<String> copyBlacklist = Config.getCopyBlacklist();
         AtomicInteger fileCounter = new AtomicInteger();
 
         Files.walkFileTree(
@@ -323,6 +361,9 @@ public final class Backupper {
                             throw new InterruptedIOException("Backup copy aborted during shutdown");
                         }
                         Path relative = relativizeToWorldRoot(worldRoot, dir);
+                        if (isCopyBlacklisted(relative, copyBlacklist)) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
                         Path destination = cacheSnapshotPath.resolve(relative);
                         Files.createDirectories(destination);
                         return FileVisitResult.CONTINUE;
@@ -341,6 +382,9 @@ public final class Backupper {
                             return FileVisitResult.CONTINUE;
                         }
                         Path relative = relativizeToWorldRoot(worldRoot, file);
+                        if (isCopyBlacklisted(relative, copyBlacklist)) {
+                            return FileVisitResult.CONTINUE;
+                        }
                         Path destination = cacheSnapshotPath.resolve(relative);
                         try {
                             Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);

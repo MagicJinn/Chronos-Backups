@@ -1,5 +1,7 @@
 package com.magicjinn.chronos.core.config;
 
+import java.util.List;
+
 /**
  * Single place for {@code chronos.toml} key names and the user-facing text
  * written on first run and on format migration.
@@ -9,10 +11,12 @@ package com.magicjinn.chronos.core.config;
 public final class ChronosTomlSpec {
     public static final String KEY_PRUNE_TIME_REQUIREMENT_SECONDS = "pruneTimeRequirementSeconds";
     public static final String KEY_BACKUP_INTERVAL_SECONDS = "backupIntervalSeconds";
+    public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
+    public static final String KEY_PRUNE_WORKER_THREADS = "pruneWorkerThreads";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 1;
+    public static final int CONFIG_VERSION = 3; // TODO: reset to 1 on 1.0.0
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
@@ -34,9 +38,42 @@ public final class ChronosTomlSpec {
                 "# Example: 1800 = every 30 minutes; 3600 = hourly.",
                 KEY_BACKUP_INTERVAL_SECONDS + " = " + config.backupIntervalSeconds,
                 "",
+                "# Parallel prune workers for region (.mca) files. 0 = automatic (logical CPUs, capped).",
+                "# Set a positive whole number to pin thread count.",
+                KEY_PRUNE_WORKER_THREADS + " = " + config.pruneWorkerThreads,
+                "",
+                "# Paths to exclude from the backup snapshot copy (names anywhere under the world, or relative paths",
+                "# with /).",
+                renderCopyBlacklistArray(config),
+                "",
                 "# Internal: Config format version (updated automatically when the layout changes).",
                 KEY_CONFIG_VERSION + " = " + CONFIG_VERSION,
                 "");
+    }
+
+    private static String renderCopyBlacklistArray(ModConfig config) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(KEY_COPY_BLACKLIST).append(" = [\n");
+        List<String> list = config.copyBlacklist;
+        if (list != null) {
+            for (int i = 0; i < list.size(); i++) {
+                String s = list.get(i);
+                sb.append("  ").append(tomlStringLiteral(s));
+                if (i + 1 < list.size()) {
+                    sb.append(',');
+                }
+                sb.append('\n');
+            }
+        }
+        sb.append(']');
+        return sb.toString();
+    }
+
+    private static String tomlStringLiteral(String s) {
+        if (s == null) {
+            return "\"\"";
+        }
+        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     private ChronosTomlSpec() {
