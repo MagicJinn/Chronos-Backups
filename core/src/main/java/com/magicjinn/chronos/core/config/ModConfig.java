@@ -9,11 +9,6 @@ public final class ModConfig {
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 
     /**
-     * Parallel MCA prune workers. {@code 0} means automatic (CPU count, capped).
-     */
-    public int pruneWorkerThreads = 0;
-
-    /**
      * World-relative path segments or names to skip when copying the save for a backup.
      * A single segment (no {@code /}) matches any file or folder with that name; paths with
      * {@code /} match as a prefix under the world root.

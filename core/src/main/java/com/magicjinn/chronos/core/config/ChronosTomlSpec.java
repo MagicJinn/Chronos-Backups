@@ -12,7 +12,6 @@ public final class ChronosTomlSpec {
     public static final String KEY_PRUNE_TIME_REQUIREMENT_SECONDS = "pruneTimeRequirementSeconds";
     public static final String KEY_BACKUP_INTERVAL_SECONDS = "backupIntervalSeconds";
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
-    public static final String KEY_PRUNE_WORKER_THREADS = "pruneWorkerThreads";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
@@ -37,10 +36,6 @@ public final class ChronosTomlSpec {
                 "# Seconds between automatic backup runs (whole numbers only).",
                 "# Example: 1800 = every 30 minutes; 3600 = hourly.",
                 KEY_BACKUP_INTERVAL_SECONDS + " = " + config.backupIntervalSeconds,
-                "",
-                "# Parallel prune workers for region (.mca) files. 0 = automatic (logical CPUs, capped).",
-                "# Set a positive whole number to pin thread count.",
-                KEY_PRUNE_WORKER_THREADS + " = " + config.pruneWorkerThreads,
                 "",
                 "# Paths to exclude from the backup snapshot copy (names anywhere under the world, or relative paths",
                 "# with /).",
