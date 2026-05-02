@@ -81,8 +81,6 @@ public final class Config {
                     defaults.pruneTimeRequirementSeconds);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
-            out.pruneWorkerThreads = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_WORKER_THREADS,
-                    defaults.pruneWorkerThreads);
             loadCopyBlacklist(cfg, out, defaults);
             int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
             if (fileVersion != ChronosTomlSpec.CONFIG_VERSION) {
@@ -144,14 +142,6 @@ public final class Config {
         ModConfig c = modConfig;
         List<String> src = c != null && c.copyBlacklist != null ? c.copyBlacklist : BUILTIN_DEFAULTS.copyBlacklist;
         return Collections.unmodifiableList(new ArrayList<>(src));
-    }
-
-    /**
-     * Prune thread pool size from config. {@code 0} means caller should use an automatic cap.
-     */
-    public static int getPruneWorkerThreadsRaw() {
-        ModConfig c = modConfig;
-        return c != null ? c.pruneWorkerThreads : BUILTIN_DEFAULTS.pruneWorkerThreads;
     }
 
     private Config() {
