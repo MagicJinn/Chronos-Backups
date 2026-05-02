@@ -1,5 +1,6 @@
 package com.magicjinn.chronos.shell.neoforge;
 
+import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.HookBridge;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
@@ -12,6 +13,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
@@ -24,7 +27,17 @@ public final class ChronosNeoForgeMod {
     private static final ShellCommandRegistrar COMMAND_REGISTRAR = new NeoForgeCommandRegistrar();
 
     public ChronosNeoForgeMod(IEventBus modBus) {
+        modBus.addListener(this::onClientSetup);
+        modBus.addListener(this::onDedicatedServerSetup);
         NeoForge.EVENT_BUS.register(this);
+    }
+
+    private void onClientSetup(FMLClientSetupEvent event) {
+        Core.OnLoaderStarted(Core.LoaderEnvironment.CLIENT);
+    }
+
+    private void onDedicatedServerSetup(FMLDedicatedServerSetupEvent event) {
+        Core.OnLoaderStarted(Core.LoaderEnvironment.DEDICATED_SERVER);
     }
 
     @SubscribeEvent

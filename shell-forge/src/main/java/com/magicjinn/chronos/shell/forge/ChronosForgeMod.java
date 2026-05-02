@@ -1,13 +1,17 @@
 package com.magicjinn.chronos.shell.forge;
 
+import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.HookBridge;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
+import net.minecraftforge.fml.relauncher.FMLLaunchHandler;
+import net.minecraftforge.fml.relauncher.Side;
 
 @Mod(
     modid = ChronosForgeMod.MODID,
@@ -23,6 +27,16 @@ public final class ChronosForgeMod {
     private static final ForgeBackupWorldController WORLD_CONTROLLER = new ForgeBackupWorldController();
     private static final ShellMessenger MESSENGER = new ForgeShellMessenger(() -> activeServer);
     private static final ShellCommandRegistrar COMMAND_REGISTRAR = new ForgeCommandRegistrar();
+
+    @Mod.EventHandler
+    public void onInitialization(FMLInitializationEvent event) {
+        Side physical = FMLLaunchHandler.side();
+        if (physical == Side.CLIENT) {
+            Core.OnLoaderStarted(Core.LoaderEnvironment.CLIENT);
+        } else if (physical == Side.SERVER) {
+            Core.OnLoaderStarted(Core.LoaderEnvironment.DEDICATED_SERVER);
+        }
+    }
 
     @Mod.EventHandler
     public void onServerStarted(FMLServerStartedEvent event) {

@@ -22,13 +22,12 @@ public final class Scheduler {
     // Set to current time, to prevent immediate backup on startup
     private static long secondsSinceLastBackup = getCurrentTimeSeconds();
 
-    public static void onWorldStarted(BackupRuntimeContext context) {
-        context.logInfo("Scheduler checking in");
+    public static void InitializeScheduler(BackupRuntimeContext context) {
 
-        Backupper.checkIn();
+        // Just in case the scheduler is already running, shutdown it
+        ShutdownScheduler();
 
-        shutdownBackupScheduler();
-        runtimeContext = context;
+        runtimeContext = context; // Store the context for use in the runnable task
         backupScheduler = Executors.newScheduledThreadPool(1);
 
         Runnable backupTask = () -> {
@@ -48,14 +47,12 @@ public final class Scheduler {
         // could change backup interval on the fly
         backupScheduler.scheduleAtFixedRate(backupTask, BACKUP_INITIAL_DELAY_SECONDS, BACKUP_CHECK_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
+
+        context.logInfo("Scheduler is ready and on standby...");
     }
 
-    public static void onWorldStopped() {
-        shutdownBackupScheduler();
+    public static void ShutdownScheduler() {
         runtimeContext = null;
-    }
-
-    private static void shutdownBackupScheduler() {
         if (backupScheduler == null || backupScheduler.isShutdown()) {
             return;
         }

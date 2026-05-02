@@ -28,18 +28,39 @@ public final class Backupper {
     private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
 
     private static final String CHRONOS_FOLDER_NAME = "chronos";
-    private static final String CACHE_FOLDER_NAME = "cache";
+    private static final String CACHE_FOLDER_NAME = ".cache";
     private static final String SESSION_LOCK_FILE_NAME = "session.lock";
     /** Loader atomic-write temps — copied mid-rename causes NoSuchFileException on Windows. */
     private static final String NEOFORGE_ATOMIC_TMP_SUFFIX = ".neoforge-tmp";
     private static final String FABRIC_ATOMIC_TMP_SUFFIX = ".fabric-tmp";
-    private static final int DEDICATED_SERVER_SLASH_BACKWARDS_AMOUNT = 1;
-    /** World root is already an absolute path from the server; walk up to the run directory. */
-    private static final int INTEGRATED_FROM_WORLD_ROOT_TO_RUN = 2;
     private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
-    public static void checkIn() {
-        LOG.info("Backupper checking in");
+    private static Path rootPath;
+    private static Path chronosFolder;
+    private static Path cacheFolder;
+
+    public static void InitializeBackupper() {
+        // Get the root of what is running this mod. On a client, its the client root.
+        // On a server, its the server root.
+        rootPath = Core.RunningDirectory;
+        chronosFolder = rootPath.resolve(CHRONOS_FOLDER_NAME);
+        cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
+        // Create the chronos folder if it doesn't exist
+        try {
+            Files.createDirectories(chronosFolder);
+            Files.createDirectories(cacheFolder);
+            try {
+                // Attempt to set the cache folder as hidden (Windows only)
+                Files.setAttribute(cacheFolder, "dos:hidden", true, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            } catch (IOException | UnsupportedOperationException ex) {
+                // It's OK to silently ignore if unsupported (non-Windows, etc)
+            }
+        } catch (IOException e) {
+            LOG.severe("Failed to create chronos folder: " + e.getMessage());
+            return;
+        }
+
+        LOG.info("Backupper is ready and on standby...");
     }
 
     public static void runBackup(BackupRuntimeContext context) {
@@ -54,12 +75,10 @@ public final class Backupper {
             return;
         }
 
-        Path rootPath = resolveRootPathFromWorldPath(worldPath, context.isDedicatedServer());
-        Path chronosFolder = rootPath.resolve(CHRONOS_FOLDER_NAME);
-        Path cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
+
         String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
-        Path cacheSnapshotPath = cacheFolder.resolve(backupId);
         Path zipOutputPath = chronosFolder.resolve(backupId + ".zip");
+        Path cacheSnapshotPath = cacheFolder.resolve(backupId);
 
         context.logInfo("Chronos backup started for world " + context.getWorldName() + " -> " + worldPath);
         context.sendChat("Backup started for " + context.getWorldName());
@@ -117,19 +136,6 @@ public final class Backupper {
     }
 
     private Backupper() {
-    }
-
-    private static Path resolveRootPathFromWorldPath(Path worldPath, boolean dedicatedServer) {
-        int slashBackwardsAmount =
-                dedicatedServer ? DEDICATED_SERVER_SLASH_BACKWARDS_AMOUNT : INTEGRATED_FROM_WORLD_ROOT_TO_RUN;
-        Path rootPath = worldPath;
-        for (int i = 0; i < slashBackwardsAmount; i++) {
-            if (rootPath.getParent() == null) {
-                break;
-            }
-            rootPath = rootPath.getParent();
-        }
-        return rootPath;
     }
 
     private static int getDataVersionFromLevelData(Path worldPath) throws IOException {

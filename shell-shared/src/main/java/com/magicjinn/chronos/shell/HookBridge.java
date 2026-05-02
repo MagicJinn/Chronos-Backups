@@ -2,6 +2,7 @@ package com.magicjinn.chronos.shell;
 
 import com.magicjinn.chronos.core.BackupRuntimeContext;
 import com.magicjinn.chronos.core.BackupWorldController;
+import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.ServerEnvironment;
 import com.magicjinn.chronos.core.ShellMessenger;
@@ -44,12 +45,12 @@ public final class HookBridge {
                     "Missing BackupWorldController when calling HookBridge.worldStarted.");
         }
         BackupRuntimeContext context = buildRuntimeContext(environment, serverHandle, messenger, worldController);
-        context.logInfo("Hook checking in");
-        Scheduler.onWorldStarted(context);
+        context.logInfo("Chronos is initializing...");
+        Core.OnWorldStarted(context);
     }
 
     public static void worldStopped() {
-        Scheduler.onWorldStopped();
+        Core.OnWorldStopped();
     }
 
     private HookBridge() {}

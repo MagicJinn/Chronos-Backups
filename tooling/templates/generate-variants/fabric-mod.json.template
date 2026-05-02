@@ -8,7 +8,11 @@
   "license": "${mod_license}",
   "icon": "assets/chronosbackup/icon.png",
   "environment": "*",
-  "entrypoints": { "main": ["com.magicjinn.chronos.shell.fabric.ChronosFabricEntrypoint"] },
+  "entrypoints": {
+    "main": ["com.magicjinn.chronos.shell.fabric.ChronosFabricEntrypoint"],
+    "client": ["com.magicjinn.chronos.shell.fabric.ChronosFabricClientEntrypoint"],
+    "server": ["com.magicjinn.chronos.shell.fabric.ChronosFabricDedicatedServerEntrypoint"]
+  },
   "depends": {
     "fabricloader": ">=0.15.0",
     "minecraft": "${minecraft_dep}",
