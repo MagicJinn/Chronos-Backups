@@ -42,7 +42,7 @@ tasks.register<Copy>("collectAllJars") {
     from(packableSubprojects.map { it.layout.buildDirectory.dir("libs") })
     into(layout.buildDirectory.dir("libs"))
     include("*.jar")
-    exclude("*-sources.jar", "*-javadoc.jar")
+    exclude("*-sources.jar", "*-javadoc.jar", "*-dev.jar")
     duplicatesStrategy = DuplicatesStrategy.FAIL
     dependsOn(cleanCollectedLibs)
     dependsOn(packableSubprojects.map { it.tasks.named("build") })
