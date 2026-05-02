@@ -6,6 +6,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import com.magicjinn.chronos.core.config.Config;
+
 /**
  * Schedules backup work and delegates to {@link Backupper}.
  */
@@ -15,14 +17,14 @@ public final class Scheduler {
     private static ScheduledExecutorService backupScheduler = Executors.newScheduledThreadPool(1);
     private static volatile BackupRuntimeContext runtimeContext;
 
-    // 30 minutes TODO: Make this configurable
-    private static final long BACKUP_INTERVAL_SECONDS = (long) (60 * 60 * 0.5f);
     private static final long BACKUP_INITIAL_DELAY_SECONDS = 10;
     private static final long BACKUP_CHECK_INTERVAL_SECONDS = 1;
     // Set to current time, to prevent immediate backup on startup
     private static long secondsSinceLastBackup = getCurrentTimeSeconds();
 
     public static void InitializeScheduler(BackupRuntimeContext context) {
+
+        Backupper.clearShutdownRequest();
 
         // Just in case the scheduler is already running, shutdown it
         ShutdownScheduler();
@@ -33,7 +35,8 @@ public final class Scheduler {
         Runnable backupTask = () -> {
             try {
                 long currentTimeSeconds = getCurrentTimeSeconds();
-                if (currentTimeSeconds - secondsSinceLastBackup >= BACKUP_INTERVAL_SECONDS) {
+                long interval = Config.getBackupIntervalSeconds();
+                if (currentTimeSeconds - secondsSinceLastBackup >= interval) {
                     secondsSinceLastBackup = currentTimeSeconds;
                     Backupper.runBackup(runtimeContext);
                 }

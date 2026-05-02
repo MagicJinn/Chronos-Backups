@@ -26,6 +26,8 @@ repositories {
     maven("https://jitpack.io")
 }
 
+// Night Config is already on the compile/runtime classpath via NeoForge/FML — do not jar-in-jar or duplicate it here.
+
 dependencies {
     implementation("com.github.Querz:NBT:6.1"){{additionalRuntimeClasspathLines}}
 }

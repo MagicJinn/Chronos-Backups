@@ -48,8 +48,13 @@ configurations {
 }
 
 dependencies {
+    def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
     implementation 'com.github.Querz:NBT:6.1'
     chronosEmbedded 'com.github.Querz:NBT:6.1'
+    implementation "com.electronwill.night-config:core:${nightConfigVer}"
+    implementation "com.electronwill.night-config:toml:${nightConfigVer}"
+    chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"
+    chronosEmbedded "com.electronwill.night-config:toml:${nightConfigVer}"
 }
 
 tasks.named('jar', Jar) {

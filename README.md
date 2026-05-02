@@ -14,6 +14,10 @@ The project is organized as a small, version-agnostic **core** (scheduler + back
 - Focused backups that include critical world files instead of copying everything.
 - Shared core logic with generated loader/version variants for broad compatibility.
 
+## Nightly releases
+
+CI uploads built JARs as workflow artifacts on each push and pull request. To grab the latest builds, open [GitHub Actions](https://github.com/MagicJinn/Chronos-Backups/actions), pick a recent successful run, and download the artifact from the run summary. These are not the same as stable releases on Modrinth, CurseForge or Github Releases.
+
 ## Architecture
 
 Chronos Backup is made of two layers:
@@ -27,9 +31,9 @@ All currently supported versions are listed below in `major.minor.x` format:
 
 | Minecraft | Support | Loader(s) | Backup | Config | Notes |
 | - | - | - | - | - | - |
-| `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🔴 None | - |
-| `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🔴 None | - |
-| `1.20.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🔴 None | 1.20.0 Fabric only, Forge support coming soon. NeoForge and Fabric for 1.20.1-1.20.6 |
+| `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
+| `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
+| `1.20.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | 1.20.0 Fabric only, Forge support coming soon. NeoForge and Fabric for 1.20.1-1.20.6 |
 | `1.19.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.18.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.17.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
@@ -37,7 +41,7 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `1.15.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.14.x` | ❌ Unsupported | Forge / Fabric | ❌ | 🔴 None | - |
 | `1.13.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.12.x` | ✅ Supported | Forge | ✅ | 🔴 None | - |
+| `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.11.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.10.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.9.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
@@ -49,8 +53,6 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `1.3.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
 | `1.2.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
 | `1.1.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
-
-For **1.20.x**, Minecraft **1.20** and **1.20.1** are **Fabric-only**; **Forge** for those versions is not shipped yet but is planned.
 
 ## Development
 

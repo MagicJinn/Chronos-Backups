@@ -3,6 +3,7 @@ package com.magicjinn.chronos.core;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -159,11 +160,17 @@ public final class Pruner {
             throws IOException {
         int prunedChunks = 0; // For logging
         for (DataFolder dataFolder : dataFolders) {
+            if (Backupper.shouldAbortBackupWork()) {
+                throw new InterruptedIOException("Pruning aborted during shutdown");
+            }
             if (!Files.isDirectory(dataFolder.regionDirectory)) {
                 continue;
             }
             try (DirectoryStream<Path> regionFiles = Files.newDirectoryStream(dataFolder.regionDirectory)) {
                 for (Path regionPath : regionFiles) {
+                    if (Backupper.shouldAbortBackupWork()) {
+                        throw new InterruptedIOException("Pruning aborted during shutdown");
+                    }
                     if (!regionPath.getFileName().toString().endsWith(".mca")) {
                         continue;
                     }
@@ -193,6 +200,9 @@ public final class Pruner {
 
                     for (int lz = 0; lz < 32; lz++) {
                         for (int lx = 0; lx < 32; lx++) {
+                            if ((lz * 32 + lx) % 64 == 0 && Backupper.shouldAbortBackupWork()) {
+                                throw new InterruptedIOException("Pruning aborted during shutdown");
+                            }
                             Chunk chunk = regionMca.getChunk(lx, lz);
                             if (chunk == null) {
                                 continue;

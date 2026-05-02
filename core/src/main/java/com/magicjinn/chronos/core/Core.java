@@ -3,6 +3,8 @@ package com.magicjinn.chronos.core;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import com.magicjinn.chronos.core.config.Config;
+
 public class Core {
     public static Path RunningDirectory;
 
@@ -29,6 +31,6 @@ public class Core {
     }
 
     public static void OnWorldStopped() {
-        Scheduler.ShutdownScheduler();
+        Backupper.ShutdownBackupper();
     }
 }

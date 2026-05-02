@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.core;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -13,10 +14,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import com.magicjinn.chronos.core.config.Config;
 
 import net.querz.nbt.io.NBTUtil;
 import net.querz.nbt.io.NamedTag;
@@ -36,15 +40,60 @@ public final class Backupper {
     private static final String FABRIC_ATOMIC_TMP_SUFFIX = ".fabric-tmp";
     private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
-    private static Path rootPath;
     private static Path chronosFolder;
     private static Path cacheFolder;
 
+    /** Whether an in-flight copy / prune / zip work should stop. */
+    private static volatile boolean shutdownRequested;
+
+    /**
+     * User/API requested abort of the current backup (without unloading the world).
+     */
+    private static volatile boolean backupCancelRequested;
+
+    /**
+     * Whether {@link #runBackup} is executing its main work (copy > prune > zip).
+     */
+    private static final AtomicBoolean backupRunActive = new AtomicBoolean(false);
+
+    static boolean isShutdownRequested() {
+        return shutdownRequested || Thread.currentThread().isInterrupted();
+    }
+
+    /**
+     * Whether shutdown, user cancel or interrupt should stop running backup.
+     */
+    static boolean shouldAbortBackupWork() {
+        return shutdownRequested
+                || backupCancelRequested
+                || Thread.currentThread().isInterrupted();
+    }
+
+    /**
+     * Requests the in-flight backup (if any) to abort. Does nothing when no
+     * backup is running.
+     *
+     * @return {@code true} if a backup was active and will receive the signal
+     */
+    public static boolean requestCancelInFlightBackup() {
+        if (!backupRunActive.get()) {
+            return false;
+        }
+        backupCancelRequested = true;
+        return true;
+    }
+
+    /**
+     * Clears the shutdown flag when a new world session starts (after a prior
+     * stop).
+     */
+    static void clearShutdownRequest() {
+        shutdownRequested = false;
+        backupCancelRequested = false;
+    }
+
     public static void InitializeBackupper() {
-        // Get the root of what is running this mod. On a client, its the client root.
-        // On a server, its the server root.
-        rootPath = Core.RunningDirectory;
-        chronosFolder = rootPath.resolve(CHRONOS_FOLDER_NAME);
+        chronosFolder = Core.RunningDirectory.resolve(CHRONOS_FOLDER_NAME);
         cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
         // Create the chronos folder if it doesn't exist
         try {
@@ -69,6 +118,10 @@ public final class Backupper {
             LOG.warning("Backupper skipped: runtime context is unavailable.");
             return;
         }
+        if (isShutdownRequested()) {
+            context.logInfo("Chronos backup skipped: shutdown in progress.");
+            return;
+        }
 
         Path worldPath = context.getWorldSaveRoot();
         if (!Files.isDirectory(worldPath)) {
@@ -76,6 +129,8 @@ public final class Backupper {
             return;
         }
 
+        backupRunActive.set(true);
+        try {
 
         final String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
         final Path zipOutputPath = chronosFolder.resolve(backupId + ".zip");
@@ -87,6 +142,8 @@ public final class Backupper {
         final long backupStartNanos = System.nanoTime();
         BackupWorldController worldController = context.getWorldController();
         boolean attemptedSavingPause = false;
+        boolean backupFinishedSuccessfully = false;
+        boolean announceUserCancelInChat = false;
         try {
             Files.createDirectories(cacheFolder);
 
@@ -103,16 +160,24 @@ public final class Backupper {
 
             final int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
 
-            final int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes // TODO: Make this configurable
             context.logInfo("Chronos backup: pruning snapshot...");
-            Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, pruneTimeRequirementSeconds);
+            Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, Config.getPruneTimeRequirementSeconds());
 
             context.logInfo("Chronos backup: writing zip archive...");
             zipSnapshot(cacheSnapshotPath, zipOutputPath);
 
+            backupFinishedSuccessfully = true;
             final String duration = formatBackupDurationNanos(backupStartNanos);
             context.logInfo("Chronos backup completed in " + duration + ": " + zipOutputPath);
             context.sendChat("Backup completed in " + duration + ".");
+        } catch (InterruptedIOException e) {
+            if (shutdownRequested) {
+                context.logInfo("Chronos backup aborted (shutdown).");
+            } else {
+                context.logInfo("Chronos backup aborted (cancelled).");
+                announceUserCancelInChat = true;
+            }
+            Thread.currentThread().interrupt();
         } catch (Throwable t) {
             String detail = t.getMessage();
             if (detail == null || detail.isEmpty()) {
@@ -126,8 +191,21 @@ public final class Backupper {
                 context.logInfo("Chronos backup: restoring automatic saves...");
                 worldController.setWorldSavingDisabled(context.getServerHandle(), false);
             }
+            if (!backupFinishedSuccessfully) {
+                try {
+                    Files.deleteIfExists(zipOutputPath);
+                } catch (IOException e) {
+                    context.logError(
+                            "Chronos backup: could not remove incomplete zip "
+                                    + zipOutputPath
+                                    + ": "
+                                    + e.getMessage());
+                }
+            }
+            boolean snapshotCacheRemoved = false;
             try {
                 deleteDirectory(cacheSnapshotPath);
+                snapshotCacheRemoved = true;
             } catch (IOException e) {
                 context.logError(
                         "Chronos backup cleanup failed for "
@@ -135,7 +213,22 @@ public final class Backupper {
                                 + ": "
                                 + e.getMessage());
             }
+            if (announceUserCancelInChat) {
+                if (snapshotCacheRemoved) {
+                    context.sendChat(
+                            "Backup cancelled. The run has fully stopped; snapshot cache was cleared and any incomplete"
+                                    + " zip archive was removed.");
+                } else {
+                    context.sendChat(
+                            "Backup cancelled. The run has stopped, but removing the snapshot cache failed. Check the"
+                                    + " server log.");
+                }
+            }
         }
+    } finally {
+        backupCancelRequested = false;
+        backupRunActive.set(false);
+    }
     }
 
     private Backupper() {
@@ -226,6 +319,9 @@ public final class Backupper {
                     @Override
                     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
                             throws IOException {
+                        if (shouldAbortBackupWork()) {
+                            throw new InterruptedIOException("Backup copy aborted during shutdown");
+                        }
                         Path relative = relativizeToWorldRoot(worldRoot, dir);
                         Path destination = cacheSnapshotPath.resolve(relative);
                         Files.createDirectories(destination);
@@ -234,6 +330,9 @@ public final class Backupper {
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        if (shouldAbortBackupWork()) {
+                            throw new InterruptedIOException("Backup copy aborted during shutdown");
+                        }
                         if (SESSION_LOCK_FILE_NAME.equals(file.getFileName().toString())) {
                             return FileVisitResult.CONTINUE;
                         }
@@ -283,6 +382,9 @@ public final class Backupper {
                     new SimpleFileVisitor<Path>() {
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            if (shouldAbortBackupWork()) {
+                                throw new InterruptedIOException("Backup zip aborted during shutdown");
+                            }
                             Path relative = relativizeToWorldRoot(zipRoot, file);
                             String zipEntryName = relative.toString().replace('\\', '/');
                             zipOutputStream.putNextEntry(new ZipEntry(zipEntryName));
@@ -313,5 +415,19 @@ public final class Backupper {
                         return FileVisitResult.CONTINUE;
                     }
                 });
+    }
+
+    public static void ShutdownBackupper() {
+        shutdownRequested = true;
+
+        // Stop scheduled backup checks and cancel queued run-now tasks
+        Scheduler.ShutdownScheduler();
+
+        // Delete the contents of the cache folder
+        try {
+            deleteDirectory(cacheFolder);
+        } catch (IOException e) {
+            LOG.severe("Failed to delete cache folder: " + e.getMessage());
+        }
     }
 }
