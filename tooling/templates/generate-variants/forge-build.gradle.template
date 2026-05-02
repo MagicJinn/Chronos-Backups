@@ -40,8 +40,23 @@ unimined.minecraft {
     defaultRemapJar = true
 }
 
+configurations {
+    chronosEmbedded {
+        canBeResolved = true
+        canBeConsumed = false
+    }
+}
+
 dependencies {
     implementation 'com.github.Querz:NBT:6.1'
+    chronosEmbedded 'com.github.Querz:NBT:6.1'
+}
+
+tasks.named('jar', Jar) {
+    from {
+        configurations.chronosEmbedded.collect { zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 sourceSets.main.java.srcDirs(

@@ -157,6 +157,7 @@ public final class Pruner {
 
     private static void pruneRegionDirectories(List<DataFolder> dataFolders, int spentTimeRequirementTicks)
             throws IOException {
+        int prunedChunks = 0; // For logging
         for (DataFolder dataFolder : dataFolders) {
             if (!Files.isDirectory(dataFolder.regionDirectory)) {
                 continue;
@@ -220,10 +221,11 @@ public final class Pruner {
                     clearMatchingSlotsInSiblingMca(dataFolder.entitiesDirectory, regionFileName, slotsToClear);
                     clearMatchingSlotsInSiblingMca(dataFolder.poiDirectory, regionFileName, slotsToClear);
 
-                    LOG.info("Pruned " + slotsToClear.size() + " chunk columns in " + regionPath);
+                    prunedChunks += slotsToClear.size();
                 }
             }
         }
+        LOG.info("Pruned " + prunedChunks + " chunks in backup.");
     }
 
     /**

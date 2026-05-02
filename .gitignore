@@ -17,3 +17,4 @@ variants/
 
 # OS
 .DS_Store
+/core/bin

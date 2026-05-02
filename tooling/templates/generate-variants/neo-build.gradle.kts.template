@@ -30,6 +30,19 @@ dependencies {
     implementation("com.github.Querz:NBT:6.1")
 }
 
+dependencies {
+    // Embed Querz NBT for production (NeoForge does not put Gradle implementation deps on the game classpath).
+    add(
+            "jarJar",
+            "com.github.Querz:NBT:6.1",
+    ) {
+        version {
+            strictly("[6.1,7)")
+            prefer("6.1")
+        }
+    }
+}
+
 sourceSets.named("main") {
     java.srcDirs(
         rootProject.file("core/src/main/java"),
