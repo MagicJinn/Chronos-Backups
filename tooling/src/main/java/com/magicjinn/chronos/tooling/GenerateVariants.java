@@ -194,6 +194,7 @@ public final class GenerateVariants {
         String archivesName = "chronos-backup-neoforge-" + minecraftLineTag(mc);
         String mcRange = lineRange ? lineRange(mc) : neoRange(mc);
         String javaMajor = mc.startsWith("26.") ? "25" : "21";
+        String additionalRuntimeClasspathLines = neoAdditionalRuntimeClasspathLines(mc);
         write(dir.resolve("build.gradle.kts"), renderTemplate("neoBuildGradleKts", Map.of(
                 "moddevVersion", moddevVersion,
                 "archivesName", archivesName,
@@ -201,7 +202,8 @@ public final class GenerateVariants {
                 "minecraft", mc,
                 "minecraftRange", mcRange,
                 "javaMajor", javaMajor,
-                "neoForgeLineDir", minecraftLineFolder(mc))));
+                "neoForgeLineDir", minecraftLineFolder(mc),
+                "additionalRuntimeClasspathLines", additionalRuntimeClasspathLines)));
 
         Path meta = dir.resolve("src/main/resources/META-INF");
         Files.createDirectories(meta);
@@ -269,6 +271,39 @@ public final class GenerateVariants {
         if (p.length >= 2)
             return p[0] + "." + p[1];
         return minecraftVersion;
+    }
+
+    /**
+     * ModDevGradle documents that as of Minecraft 1.21.9, jar-in-jar libraries load in runs automatically; older
+     * versions need {@code additionalRuntimeClasspath} so plain libraries (e.g. Querz NBT) resolve at userdev runtime.
+     */
+    private static boolean neoNeedsAdditionalRuntimeClasspath(String mc) {
+        String[] p = mc.split("\\.");
+        try {
+            int major = Integer.parseInt(p[0]);
+            if (major > 1)
+                return false;
+            int minor = p.length >= 2 ? Integer.parseInt(p[1]) : 0;
+            if (minor < 21)
+                return true;
+            if (minor > 21)
+                return false;
+            String patchPart = p.length >= 3 ? p[2] : "0";
+            int patchEnd = 0;
+            while (patchEnd < patchPart.length() && Character.isDigit(patchPart.charAt(patchEnd)))
+                patchEnd++;
+            int patch = patchEnd > 0 ? Integer.parseInt(patchPart.substring(0, patchEnd)) : 0;
+            return patch < 9;
+        } catch (RuntimeException e) {
+            return true;
+        }
+    }
+
+    private static String neoAdditionalRuntimeClasspathLines(String mc) {
+        if (!neoNeedsAdditionalRuntimeClasspath(mc))
+            return "";
+        return "\n    // Minecraft < 1.21.9: jar-in-jar deps are not on dev classpath unless listed here (ModDevGradle).\n"
+                + "    add(\"additionalRuntimeClasspath\", \"com.github.Querz:NBT:6.1\")";
     }
 
     private static String primaryLinePrefix(Map<String, Object> group) {

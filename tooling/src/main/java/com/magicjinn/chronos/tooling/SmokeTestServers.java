@@ -276,9 +276,9 @@ public final class SmokeTestServers {
 
             if (p.isAlive()) {
                 Rcon.stopBestEffort(job.label, rconPort, rconPassword);
-                long gracefulEnd = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(90);
+                long gracefulEnd = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(45);
                 while (p.isAlive() && System.currentTimeMillis() < gracefulEnd) {
-                    Thread.sleep(300L);
+                    Thread.sleep(150L);
                 }
             }
 
@@ -501,7 +501,7 @@ public final class SmokeTestServers {
             for (int attempt = 0; attempt < 20; attempt++) {
                 try {
                     return sendOnce(host, port, password, command, readTimeoutMs);
-                } catch (ConnectException | SocketTimeoutException e) {
+                } catch (ConnectException e) {
                     last = e;
                     try {
                         Thread.sleep(150L);
@@ -510,6 +510,8 @@ public final class SmokeTestServers {
                         throw new IOException(ie);
                     }
                 }
+                // Do not retry SocketTimeoutException: sendOnce may have already executed the command (e.g. /chronos
+                // backup). Retrying would issue the command again after readTimeoutMs (default 60s).
             }
             if (last != null)
                 throw last;
@@ -520,10 +522,61 @@ public final class SmokeTestServers {
         static void stopBestEffort(String jobLabel, int rconPort, String rconPassword) {
             System.out.println("[" + jobLabel + "] RCON: stop (graceful server shutdown)");
             try {
-                sendOnce("127.0.0.1", rconPort, rconPassword, "stop", 15_000);
+                sendStopGraceful("127.0.0.1", rconPort, rconPassword);
             } catch (IOException e) {
                 System.out.println("[" + jobLabel + "] RCON stop failed (will destroy process): " + e.getMessage());
             }
+        }
+
+        /**
+         * Sends {@code stop} over RCON. The dedicated server often closes the socket as soon as shutdown begins,
+         * which makes a strict {@link #sendOnce} read loop throw EOF / reset; those cases mean stop was accepted.
+         */
+        static void sendStopGraceful(String host, int port, String password) throws IOException {
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(host, port), 10_000);
+                socket.setSoTimeout(8_000);
+                InputStream in = socket.getInputStream();
+                OutputStream out = socket.getOutputStream();
+                int authId = 0x00112233;
+                writePacket(out, authId, TYPE_AUTH, password);
+                Packet authResp = readPacket(in);
+                if (authResp.requestId == -1)
+                    throw new IOException("RCON authentication failed");
+                int cmdId = 0x00445566;
+                writePacket(out, cmdId, TYPE_COMMAND_STAGE, "stop");
+                boolean gotCommandResponse = false;
+                while (true) {
+                    final Packet resp;
+                    try {
+                        resp = readPacket(in);
+                    } catch (SocketTimeoutException e) {
+                        if (gotCommandResponse)
+                            return;
+                        throw e;
+                    } catch (IOException e) {
+                        if (benignRconShutdownIoMessage(e.getMessage()))
+                            return;
+                        throw e;
+                    }
+                    if (resp.requestId != cmdId || resp.type != TYPE_RESPONSE)
+                        throw new IOException("Unexpected RCON packet (id=" + resp.requestId + " type=" + resp.type
+                                + ")");
+                    gotCommandResponse = true;
+                    if (resp.payload.isEmpty())
+                        break;
+                }
+            }
+        }
+
+        private static boolean benignRconShutdownIoMessage(String message) {
+            if (message == null || message.isEmpty())
+                return false;
+            return message.contains("Unexpected end of stream")
+                    || message.contains("Connection reset")
+                    || message.contains("Broken pipe")
+                    || message.contains("Connection reset by peer")
+                    || message.contains("An established connection was aborted");
         }
 
         private static String sendOnce(String host, int port, String password, String command, int readTimeoutMs)
@@ -541,11 +594,22 @@ public final class SmokeTestServers {
                 int cmdId = 0x00445566;
                 writePacket(out, cmdId, TYPE_COMMAND_STAGE, command);
                 StringBuilder acc = new StringBuilder();
+                boolean gotCommandResponse = false;
                 while (true) {
-                    Packet resp = readPacket(in);
+                    Packet resp;
+                    try {
+                        resp = readPacket(in);
+                    } catch (SocketTimeoutException e) {
+                        // Vanilla often omits the final empty TERMINATOR packet; waiting hits SoTimeout (60s). Returning
+                        // here avoids Rcon.send retrying and issuing the same command twice.
+                        if (gotCommandResponse)
+                            return acc.toString();
+                        throw e;
+                    }
                     if (resp.requestId != cmdId || resp.type != TYPE_RESPONSE)
                         throw new IOException("Unexpected RCON packet (id=" + resp.requestId + " type=" + resp.type
                                 + ")");
+                    gotCommandResponse = true;
                     acc.append(resp.payload);
                     if (resp.payload.isEmpty())
                         break;

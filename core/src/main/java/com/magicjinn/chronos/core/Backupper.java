@@ -12,6 +12,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
@@ -76,13 +77,14 @@ public final class Backupper {
         }
 
 
-        String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
-        Path zipOutputPath = chronosFolder.resolve(backupId + ".zip");
-        Path cacheSnapshotPath = cacheFolder.resolve(backupId);
+        final String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
+        final Path zipOutputPath = chronosFolder.resolve(backupId + ".zip");
+        final Path cacheSnapshotPath = cacheFolder.resolve(backupId);
 
         context.logInfo("Chronos backup started for world " + context.getWorldName() + " -> " + worldPath);
         context.sendChat("Backup started for " + context.getWorldName());
 
+        final long backupStartNanos = System.nanoTime();
         BackupWorldController worldController = context.getWorldController();
         boolean attemptedSavingPause = false;
         try {
@@ -99,17 +101,18 @@ public final class Backupper {
             context.logInfo("Chronos backup: copying world into cache (this can take a while)...");
             copyWorldToCache(worldPath, cacheSnapshotPath, context);
 
-            int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
+            final int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
 
-            int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes // TODO: Make this configurable
+            final int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes // TODO: Make this configurable
             context.logInfo("Chronos backup: pruning snapshot...");
             Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, pruneTimeRequirementSeconds);
 
             context.logInfo("Chronos backup: writing zip archive...");
             zipSnapshot(cacheSnapshotPath, zipOutputPath);
 
-            context.logInfo("Chronos backup completed: " + zipOutputPath);
-            context.sendChat("Backup completed.");
+            final String duration = formatBackupDurationNanos(backupStartNanos);
+            context.logInfo("Chronos backup completed in " + duration + ": " + zipOutputPath);
+            context.sendChat("Backup completed in " + duration + ".");
         } catch (Throwable t) {
             String detail = t.getMessage();
             if (detail == null || detail.isEmpty()) {
@@ -136,6 +139,21 @@ public final class Backupper {
     }
 
     private Backupper() {
+    }
+
+    /**
+     * Elapsed time since {@code startNanos} from {@link System#nanoTime()} for
+     * log/chat messages.
+     */
+    private static String formatBackupDurationNanos(long startNanos) {
+        long elapsedNanos = System.nanoTime() - startNanos;
+        double seconds = elapsedNanos / 1_000_000_000.0;
+        if (seconds < 60) {
+            return String.format(Locale.ROOT, "%.2f s", seconds);
+        }
+        long mins = (long) (seconds / 60);
+        double remainderSeconds = seconds - mins * 60;
+        return String.format(Locale.ROOT, "%d min %.1f s", mins, remainderSeconds);
     }
 
     private static int getDataVersionFromLevelData(Path worldPath) throws IOException {
