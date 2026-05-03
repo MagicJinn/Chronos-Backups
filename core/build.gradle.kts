@@ -7,13 +7,15 @@ version = rootProject.findProperty("chronos.mod.version") as String
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io")
 }
 
 dependencies {
-    implementation("com.github.Querz:NBT:6.1")
     val nightConfigVersion = findProperty("chronos.nightconfig.version") as String? ?: "3.6.7"
     implementation("com.electronwill.night-config:toml:$nightConfigVersion")
+}
+
+sourceSets.named("main") {
+    java.srcDir("vendor/querz-nbt/src/main/java")
 }
 
 java {

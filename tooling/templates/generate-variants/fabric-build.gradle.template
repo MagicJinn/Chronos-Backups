@@ -12,7 +12,6 @@ base { archivesName = "{{archivesName}}" }
 
 repositories {
     mavenCentral()
-    maven { url 'https://jitpack.io' }
 }
 
 loom {
@@ -29,8 +28,6 @@ dependencies {
     {{mappings}}
     {{depConf}} "net.fabricmc:fabric-loader:{{fabricLoader}}"
     {{depConf}} "net.fabricmc.fabric-api:fabric-api:{{fabricApi}}"
-    // Jar-in-jar so Querz NBT is on the runtime classpath outside Gradle (same issue as NeoForge jarJar).
-    include implementation('com.github.Querz:NBT:6.1')
     // Night Config (NeoForge bundles this; Fabric needs both jars — core has ConfigFormat; toml is the TOML backend).
     include implementation("com.electronwill.night-config:core:${nightConfigVer}")
     include implementation("com.electronwill.night-config:toml:${nightConfigVer}")
@@ -38,6 +35,7 @@ dependencies {
 
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
+    rootProject.file('core/vendor/querz-nbt/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
     rootProject.file('shell-brigadier/src/main/java'),
     rootProject.file('shell-mojmap/src/main/java'),

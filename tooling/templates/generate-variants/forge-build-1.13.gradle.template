@@ -20,7 +20,6 @@ unimined.useGlobalCache = true
 
 repositories {
     mavenCentral()
-    maven { url = 'https://jitpack.io' }
     maven { url = 'https://maven.wagyourtail.xyz/releases' }
     maven { url = 'https://maven.minecraftforge.net/' }
 }
@@ -49,8 +48,6 @@ configurations {
 
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
-    implementation 'com.github.Querz:NBT:6.1'
-    chronosEmbedded 'com.github.Querz:NBT:6.1'
     implementation "com.electronwill.night-config:core:${nightConfigVer}"
     implementation "com.electronwill.night-config:toml:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"
@@ -66,6 +63,7 @@ tasks.named('jar', Jar) {
 
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
+    rootProject.file('core/vendor/querz-nbt/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
     rootProject.file('shell-brigadier/src/main/java'),
     rootProject.file('shell-forge/v1_13/src/main/java'),

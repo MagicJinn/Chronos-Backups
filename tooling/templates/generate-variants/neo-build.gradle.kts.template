@@ -23,33 +23,16 @@ neoForge {
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io")
 }
 
 // Night Config is already on the compile/runtime classpath via NeoForge/FML — do not jar-in-jar or duplicate it here.
-
-dependencies {
-    implementation("com.github.Querz:NBT:6.1"){{additionalRuntimeClasspathLines}}
-}
-
-dependencies {
-    // Embed Querz NBT for production (NeoForge does not put Gradle implementation deps on the game classpath).
-    add(
-            "jarJar",
-            "com.github.Querz:NBT:6.1",
-    ) {
-        version {
-            strictly("[6.1,7)")
-            prefer("6.1")
-        }
-    }
-}
 
 sourceSets.named("main") {
     // Shared NeoForge code plus optional line-specific trees under shell-neoforge/<line>/ (e.g. 1.20, 1.21, 26.1).
     // Prefer one unified jar per line; use line folders only when APIs diverge - not separate Gradle modules.
     java.srcDirs(
         rootProject.file("core/src/main/java"),
+        rootProject.file("core/vendor/querz-nbt/src/main/java"),
         rootProject.file("shell-shared/src/main/java"),
         rootProject.file("shell-brigadier/src/main/java"),
         rootProject.file("shell-mojmap/src/main/java"),
