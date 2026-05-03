@@ -49,6 +49,14 @@ public final class SmokeTestServers {
     private static final Path GROUPS = ROOT.resolve("gradle/chronos-compile-groups.json");
     private static final Path SMOKE_CONFIG = ROOT.resolve("tooling/smoke-test-servers.config.json");
 
+    /**
+     * {@link ServerSocket#ServerSocket(int)} with port 0 only reserves a port while
+     * the socket is open. Parallel smoke workers must not interleave picks,
+     * otherwise two jobs can get the same port and one Gradle server fails with
+     * "Address already in use".
+     */
+    private static final Object SMOKE_PORT_ALLOC_LOCK = new Object();
+
     private SmokeTestServers() {
     }
 
@@ -149,7 +157,8 @@ public final class SmokeTestServers {
             System.exit(1);
     }
 
-    private record SmokeConfig(String[] serverReadyMarkers, String[] shutdownMarkers, String rconCommand) {
+    private record SmokeConfig(String[] serverReadyMarkers, String[] failureMarkers, String[] successMarkers,
+            String rconCommand) {
     }
 
     private static final class JobRunner implements Callable<Result> {
@@ -166,8 +175,17 @@ public final class SmokeTestServers {
         @Override
         public Result call() throws Exception {
             String worldName = "smoke_" + safe(job.label) + "_" + UUID.randomUUID().toString().substring(0, 8);
-            int gamePort = pickFreePort();
-            int rconPort = pickFreePort();
+            int gamePort;
+            int rconPort;
+            synchronized (SMOKE_PORT_ALLOC_LOCK) {
+                gamePort = allocatePort();
+                int tries = 0;
+                do {
+                    rconPort = allocatePort();
+                    if (++tries > 64)
+                        throw new IllegalStateException("Could not allocate distinct game and RCON ports");
+                } while (rconPort == gamePort);
+            }
             String rconPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 24);
             for (Path runDir : job.runDirs) {
                 Files.createDirectories(runDir);
@@ -194,6 +212,10 @@ public final class SmokeTestServers {
                 System.out.println("[" + job.label + "] cmd: " + String.join(" ", cmd));
             }
             ProcessBuilder pb = new ProcessBuilder(cmd).directory(job.cwd.toFile());
+            // Root settings.gradle.kts otherwise spawns a nested generateVariantProjects on
+            // every Gradle entry. Parallel smoke runs then race Unimined/Mojang metadata
+            // and unrelated logs show forge-line-1_12 "1.12.2" failures.
+            pb.environment().put("CHRONOS_SKIP_VARIANT_AUTOGEN", "1");
             pb.redirectErrorStream(true);
             Process p = pb.start();
             long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(360);
@@ -222,10 +244,19 @@ public final class SmokeTestServers {
                                 }
                             }
                             if (shutdownSuccess.get() == null) {
-                                for (String m : smoke.shutdownMarkers) {
-                                    if (line.contains(m)) {
-                                        shutdownSuccess.compareAndSet(null, shutdownMarkerMeansSuccess(m));
-                                        System.out.println("[" + job.label + "] Shutdown marker hit: " + m);
+                                for (String marker : smoke.failureMarkers) {
+                                    if (line.contains(marker)) {
+                                        shutdownSuccess.compareAndSet(null, Boolean.FALSE);
+                                        System.out.println("[" + job.label + "] Failure marker hit: " + marker);
+                                        break;
+                                    }
+                                }
+                            }
+                            if (shutdownSuccess.get() == null) {
+                                for (String marker : smoke.successMarkers) {
+                                    if (line.contains(marker)) {
+                                        shutdownSuccess.compareAndSet(null, Boolean.TRUE);
+                                        System.out.println("[" + job.label + "] Success marker hit: " + marker);
                                         break;
                                     }
                                 }
@@ -326,7 +357,7 @@ public final class SmokeTestServers {
     private record Result(String label, boolean ok, String logName) {
     }
 
-    private static int pickFreePort() throws IOException {
+    private static int allocatePort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
         }
@@ -469,16 +500,29 @@ public final class SmokeTestServers {
         List<String> ready = strList(config.get("serverReadyMarkers"));
         if (ready.isEmpty())
             ready = strList(config.get("expectedMarkers"));
-        List<String> shutdown = strList(config.get("shutdownMarkers"));
+        List<String> failureMarkers = new ArrayList<>(strList(config.get("failureMarkers")));
+        List<String> successMarkers = new ArrayList<>(strList(config.get("successMarkers")));
+        if (failureMarkers.isEmpty() && successMarkers.isEmpty()) {
+            List<String> shutdown = strList(config.get("shutdownMarkers"));
+            for (String marker : shutdown) {
+                if (shutdownMarkerMeansSuccess(marker))
+                    successMarkers.add(marker);
+                else
+                    failureMarkers.add(marker);
+            }
+        }
         if (ready.isEmpty())
             throw new IllegalStateException("smoke test config has no serverReadyMarkers (or legacy expectedMarkers): "
                     + SMOKE_CONFIG);
-        if (shutdown.isEmpty())
-            throw new IllegalStateException("smoke test config has no shutdownMarkers: " + SMOKE_CONFIG);
+        if (failureMarkers.isEmpty() && successMarkers.isEmpty())
+            throw new IllegalStateException(
+                    "smoke test config has no failureMarkers/successMarkers (or legacy shutdownMarkers): "
+                            + SMOKE_CONFIG);
         String cmd = str(config.get("rconCommand"));
         if (cmd.isEmpty())
             cmd = "/chronos backup";
-        return new SmokeConfig(ready.toArray(String[]::new), shutdown.toArray(String[]::new), cmd);
+        return new SmokeConfig(ready.toArray(String[]::new), failureMarkers.toArray(String[]::new),
+                successMarkers.toArray(String[]::new), cmd);
     }
 
     private static final class Rcon {

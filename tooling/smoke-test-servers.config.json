@@ -4,8 +4,10 @@
     "Scheduler is ready and on standby...",
     "Backupper is ready and on standby..."
   ],
-  "shutdownMarkers": [
-    "Chronos backup failed",
+  "failureMarkers": [
+    "Chronos backup failed"
+  ],
+  "successMarkers": [
     "Chronos backup completed"
   ]
 }
