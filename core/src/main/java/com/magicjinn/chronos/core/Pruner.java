@@ -53,22 +53,6 @@ public final class Pruner {
     /** Anvil region files store location + timestamp tables (4096 + 4096 bytes) before chunk sectors. */
     private static final long MIN_ANVIL_REGION_FILE_BYTES = 8192L;
 
-    /**
-     * Roots for vanilla overworld, Nether, and End (each contains {@code region/},
-     * {@code entities/}, {@code poi/}, etc.).
-     */
-    public static final class DimensionRoots {
-        public final Path overworld;
-        public final Path nether;
-        public final Path end;
-
-        public DimensionRoots(Path overworld, Path nether, Path end) {
-            this.overworld = overworld;
-            this.nether = nether;
-            this.end = end;
-        }
-    }
-
     private Pruner() {}
 
     public static void PruneMinecraftWorld(Path worldPath, int dataVersion, int spentTimeRequirementSeconds)
