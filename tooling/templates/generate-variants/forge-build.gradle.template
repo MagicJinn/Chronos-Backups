@@ -29,7 +29,7 @@ unimined.minecraft {
 
     mappings {
         searge()
-        mcp 'stable', '39-1.12'
+        mcp '{{mcpChannel}}', '{{mcpVersion}}'
     }
 
     minecraftForge {

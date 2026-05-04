@@ -38,7 +38,9 @@ sourceSets.main.java.srcDirs(
     rootProject.file('core/vendor/querz-nbt/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
     rootProject.file('shell-brigadier/src/main/java'),
-    rootProject.file('shell-mojmap/src/main/java'),
+    rootProject.file('shell-mojmap/common/src/main/java'),
+    {{mojmapNumericGateGroovy}}
+    {{mojmapMojmapSliceGroovy}}
     rootProject.file('shell-fabric/src/main/java'),
 )
 

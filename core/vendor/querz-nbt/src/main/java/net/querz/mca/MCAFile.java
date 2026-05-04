@@ -1,13 +1,11 @@
 package net.querz.mca;
 
 import net.querz.nbt.tag.CompoundTag;
-import net.querz.nbt.tag.Tag;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.Map;
 
 public class MCAFile implements Iterable<Chunk> {
 

@@ -76,6 +76,10 @@ public final class Backupper {
      *
      * @return {@code true} if a backup was active and will receive the signal
      */
+    public static boolean isBackupRunActive() {
+        return backupRunActive.get();
+    }
+
     public static boolean requestCancelInFlightBackup() {
         if (!backupRunActive.get()) {
             return false;
@@ -130,7 +134,14 @@ public final class Backupper {
             return;
         }
 
-        backupRunActive.set(true);
+        // Claim the run atomically so two queued tasks cannot both start (e.g. double
+        // /chronos backup).
+        if (!backupRunActive.compareAndSet(false, true)) {
+            String message = "Backup skipped: another backup is already running.";
+            LOG.warning(message);
+            context.sendChat(message);
+            return;
+        }
         try {
 
         final String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());

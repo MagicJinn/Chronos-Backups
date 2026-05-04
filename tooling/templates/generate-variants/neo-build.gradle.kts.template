@@ -35,7 +35,9 @@ sourceSets.named("main") {
         rootProject.file("core/vendor/querz-nbt/src/main/java"),
         rootProject.file("shell-shared/src/main/java"),
         rootProject.file("shell-brigadier/src/main/java"),
-        rootProject.file("shell-mojmap/src/main/java"),
+        rootProject.file("shell-mojmap/common/src/main/java"),
+        {{mojmapNumericGateKts}}
+        {{mojmapMojmapSliceKts}}
         rootProject.file("shell-neoforge/src/main/java"),
         rootProject.file("shell-neoforge/{{neoForgeLineDir}}/src/main/java"),
     )

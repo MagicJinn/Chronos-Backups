@@ -3,6 +3,7 @@ package com.magicjinn.chronos.shell;
 import com.magicjinn.chronos.core.Backupper;
 import com.magicjinn.chronos.core.BackupRuntimeContext;
 import com.magicjinn.chronos.core.Scheduler;
+import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
 
 /**
  * Shared implementation for {@code /chronos} subcommands. Loader modules register Brigadier (or
@@ -33,9 +34,21 @@ public final class ChronosCommandActions {
         return BackupRuntimeContext.CHAT_PREFIX + "No backup is in progress.";
     }
 
-    /** Queues a manual backup when the world scheduler is active. */
-    public static boolean startManualBackup() {
-        return Scheduler.runBackupNow();
+    public static String messageManualBackupAlreadyRunning() {
+        return BackupRuntimeContext.CHAT_PREFIX + "A backup is already in progress. Request was not queued.";
+    }
+
+    public static String messageChronosUsage() {
+        return BackupRuntimeContext.CHAT_PREFIX + "Usage: " + USAGE_LINE;
+    }
+
+    public static String messageUnknownSubcommand(String sub) {
+        return BackupRuntimeContext.CHAT_PREFIX + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
+    }
+
+    /** Queues a manual backup when the world scheduler is active and no backup is running. */
+    public static ManualBackupStart tryStartManualBackup() {
+        return Scheduler.tryEnqueueManualBackup();
     }
 
     /** Signals the current in-flight backup to stop; no-op if none is running. */

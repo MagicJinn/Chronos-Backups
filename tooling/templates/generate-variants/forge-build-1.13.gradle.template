@@ -29,7 +29,7 @@ unimined.minecraft {
 
     mappings {
         searge()
-        mcp 'snapshot', '20180921-1.13'
+        mcp '{{mcpChannel}}', '{{mcpVersion}}'
     }
 
     minecraftForge {

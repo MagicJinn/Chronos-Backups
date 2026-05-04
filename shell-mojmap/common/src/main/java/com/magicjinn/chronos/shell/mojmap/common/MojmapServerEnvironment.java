@@ -1,4 +1,4 @@
-package com.magicjinn.chronos.shell.mojmap;
+package com.magicjinn.chronos.shell.mojmap.common;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
 import java.io.File;

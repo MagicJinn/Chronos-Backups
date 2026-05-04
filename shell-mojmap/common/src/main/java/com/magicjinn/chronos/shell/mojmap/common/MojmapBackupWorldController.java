@@ -1,4 +1,4 @@
-package com.magicjinn.chronos.shell.mojmap;
+package com.magicjinn.chronos.shell.mojmap.common;
 
 import com.magicjinn.chronos.core.BackupWorldController;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -6,9 +6,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Mojmap: flush with {@link MinecraftServer#saveEverything}, then toggle each dimension's
- * {@link ServerLevel#noSave}. Matches {@code FabricBackupWorldController} so one implementation
- * works from 1.20 through current (1.20.x did not expose {@code MinecraftServer#setAutoSave}).
+ * Saves all world data using {@link MinecraftServer#saveEverything}, then toggles
+ * each dimension's {@link ServerLevel#noSave}. This matches {@code FabricBackupWorldController},
+ * allowing one implementation to support 1.20 and newer (since 1.20.x lacks
+ * {@code MinecraftServer#setAutoSave}).
  */
 public final class MojmapBackupWorldController implements BackupWorldController {
     @Override

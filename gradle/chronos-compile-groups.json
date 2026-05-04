@@ -1,20 +1,42 @@
 {
   "groups": [
     {
-      "id": "minecraft_1_21",
-      "description": "Fabric for 1.20–1.20.6 lives under minecraft_1_20. NeoForge: one unified jar for supported 1.21.x releases.",
-      "minecraftVersionPrefixes": ["1.21"],
+      "id": "minecraft_1_21_0_to_1_21_10",
+      "description": "NeoForge and Fabric unified jars for Minecraft 1.21.0–1.21.10 (pre–PermissionSet command source API).",
+      "minecraftVersionPrefixes": ["1.21.0-1.21.10"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.21.10",
+        "fabricLoader": "0.17.2",
+        "fabricApi": "0.136.0+1.21.10",
+        "minecraftDep": ">=1.21 <1.21.11",
+        "archiveVersionTag": "1.21.0-1.21.10"
+      },
+      "unifiedNeoForgeJar": true,
+      "neoForgeUnified": {
+        "referenceMinecraft": "1.21.10",
+        "neoForge": "21.10.64",
+        "minecraftRange": "[1.21,1.21.11)",
+        "archiveVersionTag": "1.21.0-1.21.10"
+      }
+      }, {
+        "id": "minecraft_1_21_11",
+        "description": "NeoForge and Fabric unified jars for Minecraft 1.21.11+ (PermissionSet on CommandSourceStack).",
+        "minecraftVersionPrefixes": ["1.21.11"],
       "unifiedFabricJar": true,
       "fabricUnified": {
         "referenceMinecraft": "1.21.11",
         "fabricLoader": "0.19.2",
         "fabricApi": "0.141.3+1.21.11",
-        "minecraftDep": ">=1.21 <1.22"
+        "minecraftDep": ">=1.21.11 <1.22",
+        "archiveVersionTag": "1.21.11"
       },
       "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
         "referenceMinecraft": "1.21.11",
-        "neoForge": "21.11.42"
+        "neoForge": "21.11.42",
+        "minecraftRange": "[1.21.11,1.22)",
+        "archiveVersionTag": "1.21.11"
       }
     },
     {
@@ -26,7 +48,8 @@
         "referenceMinecraft": "1.20.6",
         "fabricLoader": "0.16.10",
         "fabricApi": "0.100.8+1.20.6",
-        "minecraftDep": ">=1.20 <1.20.7"
+        "minecraftDep": ">=1.20 <1.20.7",
+        "archiveVersionTag": "1.20.x"
       },
       "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
@@ -34,17 +57,18 @@
         "neoForge": "20.6.139",
         "minecraftRange": "[1.20.1,1.20.7)",
         "archiveVersionTag": "1.20.1-1.20.6"
-        },
-        "unifiedForgeJar": true,
-        "forgeUnified": {
-          "referenceMinecraft": "1.20",
-          "forge": "46.0.14",
-          "archiveVersionTag": "1.20.0"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.20",
+        "forge": "46.0.14",
+        "archiveVersionTag": "1.20.0"
       }
     },
     {
       "id": "minecraft_26_1",
       "description": "Split from 1.21.x because mappings/toolchains diverge. Unified Fabric and NeoForge jars for the 26.1.x line.",
+      "jarTargetLabel": "26.1.x",
       "minecraftVersionPrefixes": ["26.1"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -61,7 +85,12 @@
     {
       "id": "minecraft_1_12",
       "description": "Forge-only. Unified Forge for all 1.12.x.",
+      "jarTargetLabel": "1.12.x",
       "minecraftVersionPrefixes": ["1.12"],
+      "forgeMcp": {
+        "mcpChannel": "stable",
+        "mcpVersion": "39-1.12"
+      },
       "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.12.2",
@@ -70,7 +99,12 @@
     }, {
       "id": "minecraft_1_13",
       "description": "Forge-only. Unified Forge for all 1.13.x.",
+      "jarTargetLabel": "1.13.x",
       "minecraftVersionPrefixes": ["1.13"],
+      "forgeMcp": {
+        "mcpChannel": "snapshot",
+        "mcpVersion": "20180921-1.13"
+      },
       "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.13.2",

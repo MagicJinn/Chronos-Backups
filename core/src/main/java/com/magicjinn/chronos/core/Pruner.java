@@ -18,6 +18,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Logger;
 
+// TODO: Consider moving to a faster library, possibly even a non-java one.
+/*
+- https://github.com/VilleOlof/mca
+ */
 import net.querz.mca.Chunk;
 import net.querz.mca.LoadFlags;
 import net.querz.mca.MCAFile;

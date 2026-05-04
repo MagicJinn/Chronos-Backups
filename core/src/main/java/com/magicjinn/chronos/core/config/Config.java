@@ -74,6 +74,9 @@ public final class Config {
                     defaults.pruneTimeRequirementSeconds);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
+            out.commandRequiredPermissionLevel = cfg.getIntOrElse(
+                    ChronosTomlSpec.KEY_COMMAND_REQUIRED_PERMISSION_LEVEL,
+                    defaults.commandRequiredPermissionLevel);
             loadCopyBlacklist(cfg, out, defaults);
             int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
             if (fileVersion != ChronosTomlSpec.CONFIG_VERSION) {
@@ -113,8 +116,7 @@ public final class Config {
      * built-in defaults as a fresh {@link ModConfig}.
      */
     public static int getBackupIntervalSeconds() {
-        ModConfig c = modConfig;
-        return c != null ? c.backupIntervalSeconds : BUILTIN_DEFAULTS.backupIntervalSeconds;
+        return modConfig != null ? modConfig.backupIntervalSeconds : BUILTIN_DEFAULTS.backupIntervalSeconds;
     }
 
     /**
@@ -123,8 +125,7 @@ public final class Config {
      * same built-in defaults as a fresh {@link ModConfig}.
      */
     public static int getPruneTimeRequirementSeconds() {
-        ModConfig c = modConfig;
-        return c != null ? c.pruneTimeRequirementSeconds : BUILTIN_DEFAULTS.pruneTimeRequirementSeconds;
+        return modConfig != null ? modConfig.pruneTimeRequirementSeconds : BUILTIN_DEFAULTS.pruneTimeRequirementSeconds;
     }
 
     /**
@@ -132,9 +133,19 @@ public final class Config {
      * returns the same built-in defaults as a fresh {@link ModConfig}.
      */
     public static List<String> getCopyBlacklist() {
-        ModConfig c = modConfig;
-        List<String> src = c != null && c.copyBlacklist != null ? c.copyBlacklist : BUILTIN_DEFAULTS.copyBlacklist;
+        List<String> src = modConfig != null && modConfig.copyBlacklist != null ? modConfig.copyBlacklist
+                : BUILTIN_DEFAULTS.copyBlacklist;
         return Collections.unmodifiableList(new ArrayList<>(src));
+    }
+
+    /**
+     * Clamped to 0–4 (vanilla permission levels). When {@link #modConfig} is unset,
+     * returns built-in default (4).
+     */
+    public static int getCommandRequiredPermissionLevel() {
+        int raw = modConfig != null ? modConfig.commandRequiredPermissionLevel
+                : BUILTIN_DEFAULTS.commandRequiredPermissionLevel;
+        return Math.max(0, Math.min(4, raw));
     }
 
     private Config() {

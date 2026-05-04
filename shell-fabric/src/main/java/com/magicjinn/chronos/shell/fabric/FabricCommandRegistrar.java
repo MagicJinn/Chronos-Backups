@@ -2,6 +2,7 @@ package com.magicjinn.chronos.shell.fabric;
 
 import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
+import com.magicjinn.chronos.shell.mojmap.ChronosMojmapCommandGate;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -25,8 +26,7 @@ final class FabricCommandRegistrar implements ShellCommandRegistrar {
 
                                     @Override
                                     public boolean mayExecuteChronos(CommandSourceStack source) {
-                                        return source.hasPermission(
-                                                ChronosBrigadier.REQUIRED_PERMISSION_LEVEL);
+                                return ChronosMojmapCommandGate.mayExecute(source);
                                     }
 
                                     @Override

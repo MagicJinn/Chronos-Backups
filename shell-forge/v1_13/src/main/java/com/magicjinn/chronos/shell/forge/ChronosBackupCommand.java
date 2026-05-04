@@ -1,5 +1,6 @@
 package com.magicjinn.chronos.shell.forge;
 
+import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.command.CommandSource;
@@ -22,8 +23,7 @@ final class ChronosBackupCommand {
 
                     @Override
                     public boolean mayExecuteChronos(CommandSource source) {
-                        return source.hasPermissionLevel(
-                                ChronosBrigadier.REQUIRED_PERMISSION_LEVEL);
+                        return source.hasPermissionLevel(Config.getCommandRequiredPermissionLevel());
                     }
 
                     @Override

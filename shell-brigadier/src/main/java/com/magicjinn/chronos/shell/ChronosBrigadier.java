@@ -1,5 +1,6 @@
 package com.magicjinn.chronos.shell;
 
+import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
@@ -16,13 +17,6 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
  * put Brigadier on the compile classpath, can still compile shared sources.
  */
 public final class ChronosBrigadier {
-    /**
-     * Vanilla permission level 4 (maximum OP tier): matches sensitive commands such
-     * as {@code
-     * /stop}; dedicated-server console and RCON sources satisfy this check.
-     */
-    public static final int REQUIRED_PERMISSION_LEVEL = 4;
-
     private ChronosBrigadier() {
     }
 
@@ -39,8 +33,8 @@ public final class ChronosBrigadier {
         int cancelReturnCode(boolean cancelled);
 
         /**
-         * Whether {@code source} may run Chronos commands
-         * ({@link #REQUIRED_PERMISSION_LEVEL}).
+         * Whether {@code source} may run Chronos commands (see config
+         * {@code commandRequiredPermissionLevel}).
          */
         boolean mayExecuteChronos(S source);
     }
@@ -48,13 +42,23 @@ public final class ChronosBrigadier {
     public static <S> LiteralArgumentBuilder<S> buildRoot(Hooks<S> hooks) {
         return LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.ROOT)
                 .requires(hooks::mayExecuteChronos)
+                .executes(ctx -> {
+                    hooks.feedback(
+                            ctx.getSource(), ChronosCommandActions.messageChronosUsage(), false);
+                    return hooks.backupReturnCode(false);
+                })
                 .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.BACKUP)
                         .executes(ctx -> {
-                            boolean started = ChronosCommandActions.startManualBackup();
-                            if (started) {
+                            ManualBackupStart start = ChronosCommandActions.tryStartManualBackup();
+                            if (start == ManualBackupStart.QUEUED) {
                                 hooks.feedback(
                                         ctx.getSource(),
                                         ChronosCommandActions.messageManualBackupStarted(),
+                                        false);
+                            } else if (start == ManualBackupStart.ALREADY_RUNNING) {
+                                hooks.feedback(
+                                        ctx.getSource(),
+                                        ChronosCommandActions.messageManualBackupAlreadyRunning(),
                                         false);
                             } else {
                                 hooks.feedback(
@@ -62,7 +66,7 @@ public final class ChronosBrigadier {
                                         ChronosCommandActions.messageRuntimeInactive(),
                                         false);
                             }
-                            return hooks.backupReturnCode(started);
+                            return hooks.backupReturnCode(start == ManualBackupStart.QUEUED);
                         }))
                 .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.CANCEL)
                         .executes(ctx -> {

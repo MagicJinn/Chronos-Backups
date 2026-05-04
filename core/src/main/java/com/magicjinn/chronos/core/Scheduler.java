@@ -12,6 +12,16 @@ import com.magicjinn.chronos.core.config.Config;
  * Schedules backup work and delegates to {@link Backupper}.
  */
 public final class Scheduler {
+    /** Result of {@link #tryEnqueueManualBackup()}. */
+    public enum ManualBackupStart {
+        /** A worker will run {@link Backupper#runBackup} soon. */
+        QUEUED,
+        /** Scheduler has no world context (server not ready or shut down). */
+        NO_RUNTIME,
+        /** A backup is already running; the request was not queued. */
+        ALREADY_RUNNING
+    }
+
     private static final Logger LOG = Logger.getLogger(Scheduler.class.getName());
 
     private static ScheduledExecutorService backupScheduler = Executors.newScheduledThreadPool(1);
@@ -70,14 +80,23 @@ public final class Scheduler {
         }
     }
 
-    public static boolean runBackupNow() {
+    /**
+     * Queues a manual backup unless none is active and runtime exists.
+     * <p>
+     * Checks {@link Backupper#isBackupRunActive()} so a second manual request is
+     * cancelled instead of sitting in the queue until the current backup finishes.
+     */
+    public static ManualBackupStart tryEnqueueManualBackup() {
         BackupRuntimeContext context = runtimeContext;
         if (context == null) {
-            return false;
+            return ManualBackupStart.NO_RUNTIME;
+        }
+        if (Backupper.isBackupRunActive()) {
+            return ManualBackupStart.ALREADY_RUNNING;
         }
         secondsSinceLastBackup = getCurrentTimeSeconds();
         backupScheduler.execute(() -> Backupper.runBackup(context));
-        return true;
+        return ManualBackupStart.QUEUED;
     }
 
     private Scheduler() {}

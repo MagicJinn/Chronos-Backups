@@ -2,6 +2,7 @@ package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
+import com.magicjinn.chronos.shell.mojmap.ChronosMojmapCommandGate;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
@@ -27,7 +28,7 @@ final class ForgeCommandRegistrar implements ShellCommandRegistrar {
 
                     @Override
                     public boolean mayExecuteChronos(CommandSourceStack source) {
-                        return source.hasPermission(ChronosBrigadier.REQUIRED_PERMISSION_LEVEL);
+                        return ChronosMojmapCommandGate.mayExecute(source);
                     }
 
                     @Override

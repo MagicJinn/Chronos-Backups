@@ -1,5 +1,7 @@
 package com.magicjinn.chronos.shell.forge;
 
+import com.magicjinn.chronos.core.config.Config;
+import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
 import com.magicjinn.chronos.shell.ChronosCommandActions;
 import com.magicjinn.chronos.shell.ChronosCommandLiterals;
 import java.util.Collections;
@@ -14,7 +16,7 @@ import net.minecraft.util.text.TextComponentString;
 final class ChronosBackupCommand extends CommandBase {
     @Override
     public int getRequiredPermissionLevel() {
-        return 4;
+        return Config.getCommandRequiredPermissionLevel();
     }
 
     @Override
@@ -45,12 +47,17 @@ final class ChronosBackupCommand extends CommandBase {
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
         if (args.length == 0) {
+            sender.sendMessage(new TextComponentString(ChronosCommandActions.messageChronosUsage()));
             return;
         }
         if (ChronosCommandLiterals.BACKUP.equalsIgnoreCase(args[0])) {
-            if (ChronosCommandActions.startManualBackup()) {
+            ManualBackupStart start = ChronosCommandActions.tryStartManualBackup();
+            if (start == ManualBackupStart.QUEUED) {
                 sender.sendMessage(
                         new TextComponentString(ChronosCommandActions.messageManualBackupStarted()));
+            } else if (start == ManualBackupStart.ALREADY_RUNNING) {
+                sender.sendMessage(
+                        new TextComponentString(ChronosCommandActions.messageManualBackupAlreadyRunning()));
             } else {
                 sender.sendMessage(
                         new TextComponentString(ChronosCommandActions.messageRuntimeInactive()));
@@ -62,6 +69,9 @@ final class ChronosBackupCommand extends CommandBase {
                 sender.sendMessage(
                         new TextComponentString(ChronosCommandActions.messageCancelNothingRunning()));
             }
+            return;
         }
+        // If we get here, the subcommand is invalid.
+        throw new CommandException(ChronosCommandActions.messageUnknownSubcommand(args[0]));
     }
 }

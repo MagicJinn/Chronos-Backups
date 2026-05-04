@@ -12,10 +12,11 @@ public final class ChronosTomlSpec {
     public static final String KEY_PRUNE_TIME_REQUIREMENT_SECONDS = "pruneTimeRequirementSeconds";
     public static final String KEY_BACKUP_INTERVAL_SECONDS = "backupIntervalSeconds";
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
+    public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 3; // TODO: reset to 1 on 1.0.0
+    public static final int CONFIG_VERSION = 4; // TODO: reset to 1 on 1.0.0
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
@@ -40,6 +41,10 @@ public final class ChronosTomlSpec {
                 "# Paths to exclude from the backup snapshot copy (names anywhere under the world, or relative paths",
                 "# with /).",
                 renderCopyBlacklistArray(config),
+                "",
+                "# Minimum permission level (0–4) required to run /chronos.",
+                "# 4 matches highly sensitive vanilla commands (e.g. /stop); 0 allows any command source that can run commands.",
+                KEY_COMMAND_REQUIRED_PERMISSION_LEVEL + " = " + config.commandRequiredPermissionLevel,
                 "",
                 "# Internal: Config format version (updated automatically when the layout changes).",
                 KEY_CONFIG_VERSION + " = " + CONFIG_VERSION,
