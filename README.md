@@ -1,8 +1,10 @@
 # Chronos Backups
 
-[![Mod Icon](icon.png)](https://www.artstation.com/mylenakrijnen)
+<a href="https://www.artstation.com/mylenakrijnen"><img src="icon.png" alt="Mod Icon" width="256"></a>
 
-<sup>This wonderful mod icon was created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
+[![Mod Banner](banner.png)](https://www.artstation.com/mylenakrijnen)
+
+<sup>The wonderful mod icon and banner were created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
 
 [![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
 
