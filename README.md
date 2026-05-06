@@ -1,10 +1,12 @@
-# Chronos Backup
+# Chronos Backups
 
-![Mod Icon](icon.png)
+[![Mod Icon](icon.png)](https://www.artstation.com/mylenakrijnen)
 
-[![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backup-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backup) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backup-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backup)
+<sup>This wonderful mod icon was created by [Mylèna Yarah Krijnen on ArtStation](https://www.artstation.com/mylenakrijnen).</sup>
 
-**Chronos Backup** is a multi-loader Minecraft backup utility. Designed to save the most important parts of your world, keeping backups smaller.
+[![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
+
+**Chronos Backups** is a multi-loader Minecraft backup utility. Designed to save the most important parts of your world, keeping backups smaller.
 
 The project is organized as a small, version-agnostic **core** (scheduler + backup runner) plus loader/version-specific **shells**, with one central place to edit mod metadata.
 
@@ -20,7 +22,7 @@ CI uploads built JARs as workflow artifacts on each push and pull request. To gr
 
 ## Architecture
 
-Chronos Backup is made of two layers:
+Chronos Backups is made of two layers:
 
 - **Shell layer**: loader and version specific integration code that hooks into the server/runtime and exposes configuration per platform.
 - **Core layer**: loader-agnostic scheduling and backup execution logic reused across all targets.

@@ -1,5 +1,8 @@
 import groovy.json.JsonSlurper
 import org.gradle.language.jvm.tasks.ProcessResources
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 
 val packableSubprojects = subprojects.filter { it.path != ":core" && it.path != ":tooling" }
 val rustPrunerOutputRoot = layout.buildDirectory.dir("generated/rust-pruner-resources")
@@ -170,6 +173,32 @@ val stageRustPrunerNative =
         }
     }
 
+val generatedBuildIcon = layout.buildDirectory.file("generated/icon-128.png")
+
+val prepareBuildIcon by tasks.registering {
+    group = "build setup"
+    description = "Generates a 128x128 icon for packaging."
+    val sourceIcon = layout.projectDirectory.file("icon.png")
+    inputs.file(sourceIcon)
+    outputs.file(generatedBuildIcon)
+    doLast {
+        val source = sourceIcon.asFile
+        require(source.exists()) { "Missing icon source: ${source.absolutePath}" }
+        val image = ImageIO.read(source)
+            ?: throw IllegalStateException("Failed to read image: ${source.absolutePath}")
+        val resized = BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB)
+        val g = resized.createGraphics()
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.drawImage(image, 0, 0, 128, 128, null)
+        g.dispose()
+        val output = generatedBuildIcon.get().asFile
+        output.parentFile.mkdirs()
+        ImageIO.write(resized, "png", output)
+    }
+}
+
 // Per line slug: optional `jarTargetLabel` (group-wide fallback for collectAllJars).
 @Suppress("UNCHECKED_CAST")
 val jarTargetLabelByLineSlug: Map<String, String> = run {
@@ -229,14 +258,17 @@ configure(packableSubprojects) {
     tasks.withType<ProcessResources>().configureEach {
         dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         from(rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources"))
+        dependsOn(rootProject.tasks.named("prepareBuildIcon"))
         val projectName = project.name
         if (projectName.startsWith("fabric-")) {
-            from(rootProject.layout.projectDirectory.file("icon.png")) {
+            from(rootProject.layout.buildDirectory.file("generated/icon-128.png")) {
                 into("assets/chronosbackup")
+                rename { "icon.png" }
             }
         } else if (projectName.startsWith("neoforge-")) {
-            from(rootProject.layout.projectDirectory.file("icon.png")) {
+            from(rootProject.layout.buildDirectory.file("generated/icon-128.png")) {
                 into("assets/chronosbackup")
+                rename { "icon.png" }
             }
         }
     }

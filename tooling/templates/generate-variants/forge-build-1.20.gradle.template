@@ -73,14 +73,16 @@ sourceSets.main.java.srcDirs(
 )
 
 processResources {
+    dependsOn rootProject.tasks.named('prepareBuildIcon')
     inputs.property 'version', project.version
     inputs.property 'mod_id', rootProject.findProperty('chronos.mod.id')
     inputs.property 'mod_name', rootProject.findProperty('chronos.mod.name')
     inputs.property 'mod_description', rootProject.findProperty('chronos.mod.description')
     inputs.property 'mod_author', rootProject.findProperty('chronos.mod.author')
     inputs.property 'mod_license', rootProject.findProperty('chronos.mod.license')
-    from(rootProject.file('icon.png')) {
+    from(rootProject.layout.buildDirectory.file('generated/icon-128.png')) {
         into ''
+        rename { 'icon.png' }
     }
     filesMatching('**/META-INF/mods.toml') {
         expand(

@@ -73,13 +73,15 @@ sourceSets.main.java.srcDirs(
 sourceSets.main.resources.srcDir(rootProject.file('shell-forge/v1_13/src/main/resources'))
 
 processResources {
+    dependsOn rootProject.tasks.named('prepareBuildIcon')
     inputs.property 'version', project.version
     inputs.property 'mod_id', rootProject.findProperty('chronos.mod.id')
     inputs.property 'mod_name', rootProject.findProperty('chronos.mod.name')
     inputs.property 'mod_description', rootProject.findProperty('chronos.mod.description')
     inputs.property 'mod_author', rootProject.findProperty('chronos.mod.author')
-    from(rootProject.file('icon.png')) {
+    from(rootProject.layout.buildDirectory.file('generated/icon-128.png')) {
         into ''
+        rename { 'icon.png' }
     }
     filesMatching('**/META-INF/mods.toml') {
         expand(
