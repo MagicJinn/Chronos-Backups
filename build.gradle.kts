@@ -206,7 +206,7 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
     out.mapValues { it.value.toMap() }
 }
 
-subprojects {
+configure(packableSubprojects) {
     tasks.withType<ProcessResources>().configureEach {
         dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         from(rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources"))
