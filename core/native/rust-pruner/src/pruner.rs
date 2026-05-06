@@ -42,7 +42,6 @@ pub fn prune_world(
     inhabited_time_seconds_required: u64,
     max_worker_threads: usize,
 ) -> Result<(), std::io::Error> {
-    println!("Pruning world {}", world_folder.display());
     if !world_folder.is_dir() {
         return Ok(());
     }
