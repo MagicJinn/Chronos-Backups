@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class ModConfig {
+    public boolean pruneChunks = true;
     public int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes of playtime
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 

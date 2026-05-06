@@ -172,8 +172,12 @@ public final class Backupper {
 
             final int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
 
-            context.logInfo("Chronos backup: pruning snapshot...");
-            Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, Config.getPruneTimeRequirementSeconds());
+            if (Config.getPruneChunksEnabled()) {
+                context.logInfo("Chronos backup: pruning snapshot...");
+                Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, Config.getPruneTimeRequirementSeconds());
+            } else {
+                context.logInfo("Chronos backup: snapshot pruning disabled by config.");
+            }
 
             context.logInfo("Chronos backup: writing zip archive...");
             zipSnapshot(cacheSnapshotPath, zipOutputPath);

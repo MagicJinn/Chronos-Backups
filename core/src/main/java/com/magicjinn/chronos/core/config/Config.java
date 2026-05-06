@@ -70,6 +70,7 @@ public final class Config {
         try (FileConfig cfg = FileConfig.of(configPath, TomlFormat.instance())) {
             cfg.load();
             ModConfig out = new ModConfig();
+            out.pruneChunks = cfg.getOrElse(ChronosTomlSpec.KEY_PRUNE_CHUNKS, defaults.pruneChunks);
             out.pruneTimeRequirementSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_TIME_REQUIREMENT_SECONDS,
                     defaults.pruneTimeRequirementSeconds);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
@@ -117,6 +118,13 @@ public final class Config {
      */
     public static int getBackupIntervalSeconds() {
         return modConfig != null ? modConfig.backupIntervalSeconds : BUILTIN_DEFAULTS.backupIntervalSeconds;
+    }
+
+    /**
+     * Whether backup snapshots should run chunk pruning.
+     */
+    public static boolean getPruneChunksEnabled() {
+        return modConfig != null ? modConfig.pruneChunks : BUILTIN_DEFAULTS.pruneChunks;
     }
 
     /**
