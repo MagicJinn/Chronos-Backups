@@ -25,6 +25,10 @@ val requestedTasks = gradle.startParameter.taskNames
 val bootstrapVariantGeneration = requestedTasks.any { taskName ->
     taskName == "generateVariantProjects" || taskName.endsWith(":generateVariantProjects")
 }
+val rustOnlyBuild = requestedTasks.isNotEmpty() && requestedTasks.all { taskName ->
+    val bare = taskName.substringAfterLast(':')
+    bare == "buildRust" || bare.startsWith("buildRust_") || bare.startsWith("rustTargetAdd_")
+}
 
 if (System.getenv("CHRONOS_SKIP_VARIANT_AUTOGEN") != "1") {
     val wrapperPath = if (OperatingSystem.current().isWindows) "gradlew.bat" else "gradlew"
@@ -59,7 +63,7 @@ fun File.directoriesSorted(): List<File> =
 
 val variantsRoot = file("variants")
 if (!variantsRoot.isDirectory) {
-    if (!bootstrapVariantGeneration) {
+    if (!bootstrapVariantGeneration && !rustOnlyBuild) {
         throw GradleException(
             "Missing ${variantsRoot.path}. Run: ./gradlew generateVariantProjects",
         )

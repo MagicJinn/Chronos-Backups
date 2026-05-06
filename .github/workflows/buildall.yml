@@ -25,6 +25,10 @@ jobs:
       - name: Set up Rust nightly
         uses: dtolnay/rust-toolchain@nightly
 
+      - name: Make Gradle wrapper executable
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
       - name: Build host native rust-pruner
         shell: bash
         run: ./gradlew buildRust -Pchronos.rust.buildAllTargets=false --no-daemon
