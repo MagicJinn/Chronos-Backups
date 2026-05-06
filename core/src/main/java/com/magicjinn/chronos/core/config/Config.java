@@ -73,6 +73,9 @@ public final class Config {
             out.pruneChunks = cfg.getOrElse(ChronosTomlSpec.KEY_PRUNE_CHUNKS, defaults.pruneChunks);
             out.pruneTimeRequirementSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_TIME_REQUIREMENT_SECONDS,
                     defaults.pruneTimeRequirementSeconds);
+            out.pruneMaxWorkerThreads = cfg.getIntOrElse(
+                    ChronosTomlSpec.KEY_PRUNE_MAX_WORKER_THREADS,
+                    defaults.pruneMaxWorkerThreads);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
             out.commandRequiredPermissionLevel = cfg.getIntOrElse(
@@ -134,6 +137,15 @@ public final class Config {
      */
     public static int getPruneTimeRequirementSeconds() {
         return modConfig != null ? modConfig.pruneTimeRequirementSeconds : BUILTIN_DEFAULTS.pruneTimeRequirementSeconds;
+    }
+
+    /**
+     * Maximum pruning worker threads.
+     * 0 means auto; values less than 0 are clamped to 0.
+     */
+    public static int getPruneMaxWorkerThreads() {
+        int raw = modConfig != null ? modConfig.pruneMaxWorkerThreads : BUILTIN_DEFAULTS.pruneMaxWorkerThreads;
+        return Math.max(0, raw);
     }
 
     /**

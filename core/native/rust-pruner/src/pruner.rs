@@ -40,6 +40,7 @@ pub fn prune_world(
     world_folder: PathBuf,
     data_version: u32,
     inhabited_time_seconds_required: u64,
+    max_worker_threads: usize,
 ) -> Result<(), std::io::Error> {
     println!("Pruning world {}", world_folder.display());
     if !world_folder.is_dir() {
@@ -54,7 +55,7 @@ pub fn prune_world(
 
     let data_folders = get_data_folders(&world_folder, data_version)?;
 
-    let worker_threads = resolve_pruner_threads();
+    let worker_threads = resolve_pruner_threads(max_worker_threads);
     println!(
         "Using {} worker thread{} for pruning",
         worker_threads,
@@ -253,7 +254,11 @@ fn process_region_file(
     Ok(pruned_in_region)
 }
 
-fn resolve_pruner_threads() -> usize {
+fn resolve_pruner_threads(configured_max_worker_threads: usize) -> usize {
+    if configured_max_worker_threads > 0 {
+        return configured_max_worker_threads.max(1);
+    }
+
     if let Ok(raw) = std::env::var("RUST_PRUNER_THREADS") {
         if let Ok(parsed) = raw.trim().parse::<usize>() {
             return parsed.max(1);

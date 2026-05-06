@@ -19,3 +19,7 @@ variants/
 .DS_Store
 /core/bin
 /tooling/bin
+
+# Other
+/core/native/rust-pruner/target
+/core/native/rust-pruner/.cargo/config.toml

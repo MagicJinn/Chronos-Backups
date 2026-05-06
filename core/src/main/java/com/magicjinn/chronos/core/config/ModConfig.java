@@ -7,6 +7,11 @@ import java.util.List;
 public final class ModConfig {
     public boolean pruneChunks = true;
     public int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes of playtime
+    /**
+     * Maximum worker threads for native Rust pruning.
+     * 0 (or less) means "auto" (rust-pruner picks a sensible default).
+     */
+    public int pruneMaxWorkerThreads = 0;
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 
     /**

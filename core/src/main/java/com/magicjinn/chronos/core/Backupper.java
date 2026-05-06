@@ -23,10 +23,6 @@ import java.util.zip.ZipOutputStream;
 
 import com.magicjinn.chronos.core.config.Config;
 
-import net.querz.nbt.io.NBTUtil;
-import net.querz.nbt.io.NamedTag;
-import net.querz.nbt.tag.CompoundTag;
-
 /**
  * Version-agnostic backup implementation.
  */
@@ -170,11 +166,12 @@ public final class Backupper {
             context.logInfo("Chronos backup: copying world into cache (this can take a while)...");
             copyWorldToCache(worldPath, cacheSnapshotPath, context);
 
-            final int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
-
             if (Config.getPruneChunksEnabled()) {
                 context.logInfo("Chronos backup: pruning snapshot...");
-                Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, Config.getPruneTimeRequirementSeconds());
+                RustPrunerBridge.pruneMinecraftWorld(
+                        cacheSnapshotPath,
+                        Config.getPruneTimeRequirementSeconds(),
+                        Config.getPruneMaxWorkerThreads());
             } else {
                 context.logInfo("Chronos backup: snapshot pruning disabled by config.");
             }
@@ -263,23 +260,6 @@ public final class Backupper {
         long mins = (long) (seconds / 60);
         double remainderSeconds = seconds - mins * 60;
         return String.format(Locale.ROOT, "%d min %.1f s", mins, remainderSeconds);
-    }
-
-    private static int getDataVersionFromLevelData(Path worldPath) throws IOException {
-        Path levelDataPath = worldPath.resolve("level.dat");
-        if (!Files.isRegularFile(levelDataPath)) {
-            return 0;
-        }
-        NamedTag namedTag = NBTUtil.read(levelDataPath.toFile());
-        if (!(namedTag.getTag() instanceof CompoundTag)) {
-            return 0;
-        }
-        CompoundTag root = (CompoundTag) namedTag.getTag();
-        CompoundTag data = root.getCompoundTag("Data");
-        if (data == null) {
-            return 0;
-        }
-        return data.getInt("DataVersion");
     }
 
     private static final int COPY_PROGRESS_FILE_INTERVAL = 2000;

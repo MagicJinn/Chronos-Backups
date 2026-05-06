@@ -2,6 +2,154 @@ import groovy.json.JsonSlurper
 import org.gradle.language.jvm.tasks.ProcessResources
 
 val packableSubprojects = subprojects.filter { it.path != ":core" && it.path != ":tooling" }
+val rustPrunerOutputRoot = layout.buildDirectory.dir("generated/rust-pruner-resources")
+data class RustNativeTarget(
+    val osId: String,
+    val archId: String,
+    val libraryFileName: String,
+    val rustTargetTriple: String,
+)
+
+val rustNativeTargets =
+    listOf(
+        RustNativeTarget("windows", "x86_64", "rust_pruner.dll", "x86_64-pc-windows-msvc"),
+        RustNativeTarget("windows", "aarch64", "rust_pruner.dll", "aarch64-pc-windows-msvc"),
+        RustNativeTarget("linux", "x86_64", "librust_pruner.so", "x86_64-unknown-linux-gnu"),
+        RustNativeTarget("linux", "aarch64", "librust_pruner.so", "aarch64-unknown-linux-gnu"),
+        RustNativeTarget("macos", "x86_64", "librust_pruner.dylib", "x86_64-apple-darwin"),
+        RustNativeTarget("macos", "aarch64", "librust_pruner.dylib", "aarch64-apple-darwin"),
+    )
+
+fun currentOsId(): String {
+    val osName = System.getProperty("os.name").lowercase()
+    return when {
+        osName.contains("win") -> "windows"
+        osName.contains("mac") || osName.contains("darwin") -> "macos"
+        else -> "linux"
+    }
+}
+
+fun currentArchId(): String {
+    val arch = System.getProperty("os.arch").lowercase()
+    return when (arch) {
+        "amd64", "x86_64" -> "x86_64"
+        "aarch64", "arm64" -> "aarch64"
+        else -> arch.replace(Regex("[^a-z0-9_]+"), "_")
+    }
+}
+
+val rustProjectDir = rootProject.file("core/native/rust-pruner")
+val cargoCmd = if (currentOsId() == "windows") "cargo.exe" else "cargo"
+val rustupCmd = if (currentOsId() == "windows") "rustup.exe" else "rustup"
+val rustSkipBuildProvider =
+    providers.gradleProperty("chronos.rust.skipBuild")
+        .map { it.equals("true", ignoreCase = true) }
+        .orElse(false)
+val rustBuildAllTargetsProvider =
+    providers.gradleProperty("chronos.rust.buildAllTargets")
+        .map { it.equals("true", ignoreCase = true) }
+        .orElse((System.getenv("CI") ?: "false").equals("true", ignoreCase = true))
+val rustRequireAllTargetsProvider =
+    providers.gradleProperty("chronos.rust.requireAllTargets")
+        .map { it.equals("true", ignoreCase = true) }
+        .orElse(rustBuildAllTargetsProvider)
+val activeRustNativeTargetsProvider =
+    providers.provider {
+        val buildAll = rustBuildAllTargetsProvider.get()
+        val skipBuild = rustSkipBuildProvider.get()
+        if (buildAll || skipBuild) {
+            rustNativeTargets
+        } else {
+            val hostOs = currentOsId()
+            val hostArch = currentArchId()
+            rustNativeTargets.filter { target -> target.osId == hostOs && target.archId == hostArch }
+        }
+    }
+val buildRustTargetTasks =
+    rustNativeTargets.map { target ->
+        val slug = "${target.osId}_${target.archId}".replace('-', '_')
+        val ensureTask =
+            tasks.register<Exec>("rustTargetAdd_$slug") {
+                group = "build"
+                description = "Installs Rust target ${target.rustTargetTriple} (nightly)."
+                workingDir = rustProjectDir
+                onlyIf { activeRustNativeTargetsProvider.get().any { active -> active == target } }
+                commandLine(rustupCmd, "target", "add", target.rustTargetTriple, "--toolchain", "nightly")
+            }
+        tasks.register<Exec>("buildRust_$slug") {
+            group = "build"
+            description = "Builds rust-pruner for ${target.rustTargetTriple}."
+            dependsOn(ensureTask)
+            workingDir = rustProjectDir
+            environment("RUSTUP_TOOLCHAIN", "nightly")
+            onlyIf { activeRustNativeTargetsProvider.get().any { active -> active == target } }
+            commandLine(cargoCmd, "build", "--release", "--target", target.rustTargetTriple)
+        }
+    }
+
+val buildRust =
+    tasks.register("buildRust") {
+        group = "build"
+        description = "Builds rust-pruner native libraries for active OS/arch targets."
+        dependsOn(buildRustTargetTasks)
+        onlyIf { !rustSkipBuildProvider.get() }
+        doFirst {
+            val active = activeRustNativeTargetsProvider.get()
+            logger.lifecycle(
+                "Active Rust native targets: ${active.joinToString { it.rustTargetTriple }} " +
+                    "(set -Pchronos.rust.buildAllTargets=true for full matrix)"
+            )
+        }
+    }
+
+val stageRustPrunerNative =
+    tasks.register("stageRustPrunerNative") {
+        group = "build"
+        description = "Stages all rust-pruner native libs as jar resources."
+        dependsOn(buildRust)
+        doLast {
+            val outputRoot = rustPrunerOutputRoot.get().asFile
+            outputRoot.deleteRecursively()
+            outputRoot.mkdirs()
+            val missing = mutableListOf<String>()
+            val activeTargets = activeRustNativeTargetsProvider.get()
+            val requireAllTargets = rustRequireAllTargetsProvider.get()
+
+            for (target in activeTargets) {
+                val source =
+                    rootProject.file(
+                        "core/native/rust-pruner/target/${target.rustTargetTriple}/release/${target.libraryFileName}"
+                    )
+                if (!source.isFile) {
+                    missing += "${target.osId}-${target.archId}/${target.libraryFileName}"
+                    continue
+                }
+
+                val destinationDir = outputRoot.resolve("natives/${target.osId}-${target.archId}")
+                destinationDir.mkdirs()
+                copy {
+                    from(source)
+                    into(destinationDir)
+                }
+            }
+
+            if (missing.isNotEmpty() && requireAllTargets) {
+                throw GradleException(
+                    "Missing rust-pruner native libraries for active targets: ${
+                        missing.joinToString(", ")
+                    }. " +
+                        "Expected them under core/native/rust-pruner/target/<rust-target>/release/. " +
+                        "Run './gradlew buildRust --stacktrace' to diagnose cross-compilation issues."
+                )
+            }
+            if (missing.isNotEmpty()) {
+                logger.lifecycle(
+                    "Some rust-pruner targets are missing and were not staged: ${missing.joinToString(", ")}. " +
+                        "Set -Pchronos.rust.requireAllTargets=true to fail when any target is missing."
+                )
+            }
+        }
+    }
 
 // Per line slug: optional `jarTargetLabel` (group-wide fallback for collectAllJars).
 @Suppress("UNCHECKED_CAST")
@@ -60,6 +208,8 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
 
 subprojects {
     tasks.withType<ProcessResources>().configureEach {
+        dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
+        from(rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources"))
         val projectName = project.name
         if (projectName.startsWith("fabric-")) {
             from(rootProject.layout.projectDirectory.file("icon.png")) {
