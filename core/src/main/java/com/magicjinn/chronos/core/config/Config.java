@@ -70,8 +70,12 @@ public final class Config {
         try (FileConfig cfg = FileConfig.of(configPath, TomlFormat.instance())) {
             cfg.load();
             ModConfig out = new ModConfig();
+            out.pruneChunks = cfg.getOrElse(ChronosTomlSpec.KEY_PRUNE_CHUNKS, defaults.pruneChunks);
             out.pruneTimeRequirementSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_TIME_REQUIREMENT_SECONDS,
                     defaults.pruneTimeRequirementSeconds);
+            out.pruneMaxWorkerThreads = cfg.getIntOrElse(
+                    ChronosTomlSpec.KEY_PRUNE_MAX_WORKER_THREADS,
+                    defaults.pruneMaxWorkerThreads);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
             out.commandRequiredPermissionLevel = cfg.getIntOrElse(
@@ -120,12 +124,28 @@ public final class Config {
     }
 
     /**
+     * Whether backup snapshots should run chunk pruning.
+     */
+    public static boolean getPruneChunksEnabled() {
+        return modConfig != null ? modConfig.pruneChunks : BUILTIN_DEFAULTS.pruneChunks;
+    }
+
+    /**
      * Minimum in-world playtime (seconds) before a chunk may no longer be pruned. When
      * {@link #modConfig} is unset, returns the
      * same built-in defaults as a fresh {@link ModConfig}.
      */
     public static int getPruneTimeRequirementSeconds() {
         return modConfig != null ? modConfig.pruneTimeRequirementSeconds : BUILTIN_DEFAULTS.pruneTimeRequirementSeconds;
+    }
+
+    /**
+     * Maximum pruning worker threads.
+     * 0 means auto; values less than 0 are clamped to 0.
+     */
+    public static int getPruneMaxWorkerThreads() {
+        int raw = modConfig != null ? modConfig.pruneMaxWorkerThreads : BUILTIN_DEFAULTS.pruneMaxWorkerThreads;
+        return Math.max(0, raw);
     }
 
     /**

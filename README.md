@@ -62,10 +62,43 @@ All currently supported versions are listed below in `major.minor.x` format:
 
 ## Development
 
+Chronos Backup is dedicated to making the development of this mod as easy as possible, on any OS, in any IDE, with simple automatic setups and tools for testing and building, but there are still some manual steps required.
+
 ### Prerequisites
 
-- Install **JDK 25+** and set `JAVA_HOME` to it.
-- Older variants use a Java 8, 17 or 21 toolchain via Gradle/Foojay automatically.
+- Install **JDK 25+** and set `JAVA_HOME` to it. Older variants use a Java 8, 17 or 21 toolchain via Gradle/Foojay automatically.
+- Install **[Rustup](https://rustup.rs/)** and ensure `cargo` / `rustup` are on `PATH`, and install Rust **nightly** toolchain:
+
+```powershell
+rustup toolchain install nightly
+```
+
+### Rust native library
+
+Chronos bundles the native custom built Rust pruner library for all supported platforms in each mod jar. This happens automatically during normal Gradle builds and run tasks through `buildRust`.
+
+By default, local development builds compile and stage only the current host OS/arch native target, so setup stays simple and automatic.
+In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced CI jars include all supported native platforms.
+
+> [!NOTE]
+> Local host-native builds are intended for development. Release/nightly artifacts from [GitHub Actions](https://github.com/MagicJinn/Chronos-Backups/actions) are the unified jars with all rust-pruner native binaries included.
+
+The full target matrix is:
+
+- `x86_64-pc-windows-msvc`
+- `aarch64-pc-windows-msvc`
+- `x86_64-unknown-linux-gnu`
+- `aarch64-unknown-linux-gnu`
+- `x86_64-apple-darwin`
+- `aarch64-apple-darwin`
+
+On Windows, cross-linking non-Windows targets requires an actual cross-linker. If not configured, you can hit linker errors. CI is configured to build host-native binaries on each OS runner automatically.
+
+```powershell
+.\gradlew.bat buildRust
+```
+
+`buildRust` runs automatically as part of mod builds and run tasks. Running it directly is the fastest way to validate your Rust environment.
 
 ### Commands
 
@@ -82,6 +115,7 @@ Use the Gradle wrapper from the repo root.
 ### Most useful tasks
 
 - `buildAll` - builds all enabled variants (Fabric, NeoForge, Forge), then collects output jars.
+- `buildRust` - builds native `rust-pruner` libraries for active targets (host-native by default, auto-run by build/run tasks).
 - `collectAllJars` - copies final jars to root `build/libs/`. Automatically run by `buildAll`.
 - `:fabric-line-1_21_0-1_21_10:build`, `:fabric-line-1_21_11:build` - build one target.
 - `:<version>-line-<compileGroup>:runClient` - Runs the client for the given version and compile group.

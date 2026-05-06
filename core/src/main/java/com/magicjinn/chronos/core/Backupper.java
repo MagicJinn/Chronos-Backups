@@ -17,15 +17,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.magicjinn.chronos.core.config.Config;
-
-import net.querz.nbt.io.NBTUtil;
-import net.querz.nbt.io.NamedTag;
-import net.querz.nbt.tag.CompoundTag;
 
 /**
  * Version-agnostic backup implementation.
@@ -169,11 +166,21 @@ public final class Backupper {
 
             context.logInfo("Chronos backup: copying world into cache (this can take a while)...");
             copyWorldToCache(worldPath, cacheSnapshotPath, context);
+            if (attemptedSavingPause && worldController != null) {
+                context.logInfo("Chronos backup: restoring automatic saves...");
+                worldController.setWorldSavingDisabled(context.getServerHandle(), false);
+                attemptedSavingPause = false;
+            }
 
-            final int dataVersion = getDataVersionFromLevelData(cacheSnapshotPath);
-
-            context.logInfo("Chronos backup: pruning snapshot...");
-            Pruner.PruneMinecraftWorld(cacheSnapshotPath, dataVersion, Config.getPruneTimeRequirementSeconds());
+            if (Config.getPruneChunksEnabled()) {
+                context.logInfo("Chronos backup: pruning snapshot...");
+                RustPrunerBridge.pruneMinecraftWorld(
+                        cacheSnapshotPath,
+                        Config.getPruneTimeRequirementSeconds(),
+                        Config.getPruneMaxWorkerThreads());
+            } else {
+                context.logInfo("Chronos backup: snapshot pruning disabled by config.");
+            }
 
             context.logInfo("Chronos backup: writing zip archive...");
             zipSnapshot(cacheSnapshotPath, zipOutputPath);
@@ -200,7 +207,7 @@ public final class Backupper {
             t.printStackTrace();
         } finally {
             if (attemptedSavingPause && worldController != null) {
-                context.logInfo("Chronos backup: restoring automatic saves...");
+                // Safety net for interrupted/failed copy paths before the normal early-restore point.
                 worldController.setWorldSavingDisabled(context.getServerHandle(), false);
             }
             if (!backupFinishedSuccessfully) {
@@ -261,24 +268,7 @@ public final class Backupper {
         return String.format(Locale.ROOT, "%d min %.1f s", mins, remainderSeconds);
     }
 
-    private static int getDataVersionFromLevelData(Path worldPath) throws IOException {
-        Path levelDataPath = worldPath.resolve("level.dat");
-        if (!Files.isRegularFile(levelDataPath)) {
-            return 0;
-        }
-        NamedTag namedTag = NBTUtil.read(levelDataPath.toFile());
-        if (!(namedTag.getTag() instanceof CompoundTag)) {
-            return 0;
-        }
-        CompoundTag root = (CompoundTag) namedTag.getTag();
-        CompoundTag data = root.getCompoundTag("Data");
-        if (data == null) {
-            return 0;
-        }
-        return data.getInt("DataVersion");
-    }
-
-    private static final int COPY_PROGRESS_FILE_INTERVAL = 2000;
+    private static final long COPY_PROGRESS_LOG_INTERVAL_NANOS = 5_000_000_000L;
 
     /**
      * {@link Path#relativize} throws {@link IllegalArgumentException} when roots differ (common on
@@ -361,6 +351,7 @@ public final class Backupper {
 
         final List<String> copyBlacklist = Config.getCopyBlacklist();
         AtomicInteger fileCounter = new AtomicInteger();
+        AtomicLong nextProgressLogNanos = new AtomicLong(System.nanoTime() + COPY_PROGRESS_LOG_INTERVAL_NANOS);
 
         Files.walkFileTree(
                 worldRoot,
@@ -404,8 +395,15 @@ public final class Backupper {
                             LOG.fine("Skipping vanished file during backup copy: " + file);
                         }
                         int n = fileCounter.incrementAndGet();
-                        if (context != null && n % COPY_PROGRESS_FILE_INTERVAL == 0) {
-                            context.logInfo("Chronos backup: copied " + n + " files so far...");
+                        if (context != null) {
+                            long now = System.nanoTime();
+                            long dueAt = nextProgressLogNanos.get();
+                            if (now >= dueAt
+                                    && nextProgressLogNanos.compareAndSet(
+                                            dueAt,
+                                            now + COPY_PROGRESS_LOG_INTERVAL_NANOS)) {
+                                context.logInfo("Chronos backup: copied " + n + " files so far...");
+                            }
                         }
                         return FileVisitResult.CONTINUE;
                     }
