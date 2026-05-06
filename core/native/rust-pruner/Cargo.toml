@@ -1,0 +1,10 @@
+[package]
+name = "rust-pruner"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mca = "2.1.2"
+simdnbt = "0.10.0"
+flate2 = "1"
+rayon = "1"
