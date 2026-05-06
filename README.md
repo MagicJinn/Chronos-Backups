@@ -1,7 +1,5 @@
 # Chronos Backups
 
-<a href="https://www.artstation.com/mylenakrijnen"><img src="icon.png" alt="Mod Icon" width="256"></a>
-
 [![Mod Banner](banner.png)](https://www.artstation.com/mylenakrijnen)
 
 <sup>The wonderful mod icon and banner were created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
