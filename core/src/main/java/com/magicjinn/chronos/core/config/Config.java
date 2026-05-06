@@ -168,6 +168,14 @@ public final class Config {
         return Math.max(0, Math.min(4, raw));
     }
 
+    /**
+     * The name of the folder that will contain the backups. When {@link #modConfig}
+     * is unset, returns built-in default ("chronos").
+     */
+    public static String getBackupFolderName() {
+        return modConfig != null ? modConfig.backupFolderName : BUILTIN_DEFAULTS.backupFolderName;
+    }
+
     private Config() {
     }
 }

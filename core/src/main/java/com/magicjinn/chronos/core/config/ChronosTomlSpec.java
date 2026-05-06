@@ -9,6 +9,7 @@ import java.util.List;
  * for the structure of the config file. (see {@link #CONFIG_VERSION}).
  */
 public final class ChronosTomlSpec {
+    public static final String KEY_BACKUP_FOLDER_NAME = "backupFolderName";
     public static final String KEY_PRUNE_CHUNKS = "pruneChunks";
     public static final String KEY_PRUNE_TIME_REQUIREMENT_SECONDS = "pruneTimeRequirementSeconds";
     public static final String KEY_PRUNE_MAX_WORKER_THREADS = "pruneMaxWorkerThreads";
@@ -18,7 +19,7 @@ public final class ChronosTomlSpec {
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 6; // TODO: reset to 1 on 1.0.0
+    public static final int CONFIG_VERSION = 7; // TODO: reset to 1 on 1.0.0
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
@@ -32,6 +33,10 @@ public final class ChronosTomlSpec {
                 "#",
                 "# These values load once when Minecraft starts (client or dedicated server). Editing this file requires a full restart—reloading the world does not apply changes.",
                 "#",
+                "# The name of the folder that will contain the backups.",
+                "# Example: \"chronos\"",
+                KEY_BACKUP_FOLDER_NAME + " = " + config.backupFolderName,
+                "",
                 "# Whether chunk pruning is enabled for backup snapshots.",
                 "# If false, Chronos copies and zips the world snapshot without pruning any chunk data.",
                 KEY_PRUNE_CHUNKS + " = " + config.pruneChunks,

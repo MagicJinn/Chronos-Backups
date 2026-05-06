@@ -5,6 +5,9 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class ModConfig {
+    /* The name of the folder that will contain the backups */
+    public String backupFolderName = "chronos";
+
     public boolean pruneChunks = true;
     public int pruneTimeRequirementSeconds = 60 * 5; // 5 minutes of playtime
     /**
@@ -20,8 +23,10 @@ public final class ModConfig {
     public int commandRequiredPermissionLevel = 4;
 
     /**
-     * World-relative path segments or names to skip when copying the save for a backup.
-     * A single segment (no {@code /}) matches any file or folder with that name; paths with
+     * World-relative path segments or names to skip when copying the save for a
+     * backup.
+     * A single segment (no {@code /}) matches any file or folder with that name;
+     * paths with
      * {@code /} match as a prefix under the world root.
      */
     public List<String> copyBlacklist = new ArrayList<>(

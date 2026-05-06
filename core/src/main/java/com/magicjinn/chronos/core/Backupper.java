@@ -30,7 +30,6 @@ import com.magicjinn.chronos.core.config.Config;
 public final class Backupper {
     private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
 
-    private static final String CHRONOS_FOLDER_NAME = "chronos";
     private static final String CACHE_FOLDER_NAME = ".cache";
     private static final String SESSION_LOCK_FILE_NAME = "session.lock";
     /** Loader atomic-write temps — copied mid-rename causes NoSuchFileException on Windows. */
@@ -95,7 +94,7 @@ public final class Backupper {
     }
 
     public static void InitializeBackupper() {
-        chronosFolder = Core.RunningDirectory.resolve(CHRONOS_FOLDER_NAME);
+        chronosFolder = Core.RunningDirectory.resolve(Config.getBackupFolderName());
         cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
         // Create the chronos folder if it doesn't exist
         try {
