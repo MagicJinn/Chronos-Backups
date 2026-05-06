@@ -2,7 +2,7 @@
 
 [![Mod Icon](icon.png)](https://www.artstation.com/mylenakrijnen)
 
-<sup>This wonderful mod icon was created by [Mylèna Yarah Krijnen on ArtStation](https://www.artstation.com/mylenakrijnen).</sup>
+<sup>This wonderful mod icon was created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
 
 [![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
 
@@ -27,10 +27,6 @@ Chronos Backups is made of two layers:
 - **Shell layer**: loader and version specific integration code that hooks into the server/runtime and exposes configuration per platform.
 - **Core layer**: loader-agnostic scheduling and backup execution logic reused across all targets.
 
-## NBT library (vendored)
-
-World backup logic in the core layer reads and writes Minecraft NBT and region data using **[Querz/NBT](https://github.com/Querz/NBT)**. We compile those sources from `core/vendor/querz-nbt/` and commit them to this repository instead of depending on a published Maven coordinate. Shipping the library in-tree avoids dependency hell.
-
 ## Supported and moddable targets
 
 All currently supported versions are listed below in `major.minor.x` format:
@@ -48,7 +44,7 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `1.14.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
 | `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.11.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | Forge 1.11 and 1.11.2 (no Forge build exists for 1.11.1). |
 | `1.10.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.9.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.8.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |

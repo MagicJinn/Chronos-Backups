@@ -29,7 +29,8 @@ public final class GenerateVariants {
             Map.entry("fabricModJson", "fabric-mod.json.template"),
             Map.entry("neoBuildGradleKts", "neo-build.gradle.kts.template"),
             Map.entry("neoModsToml", "neo-neoforge.mods.toml.template"),
-            Map.entry("forgeBuildGradle", "forge-build.gradle.template"),
+            Map.entry("forgeBuildGradle111", "forge-build-1.11.gradle.template"),
+            Map.entry("forgeBuildGradle112", "forge-build-1.12.gradle.template"),
             Map.entry("forgeBuildGradle113", "forge-build-1.13.gradle.template"),
             Map.entry("forgeBuildGradle120", "forge-build-1.20.gradle.template"),
             Map.entry("forgeMcmodInfo", "forge-mcmod.info.template"),
@@ -239,10 +240,23 @@ public final class GenerateVariants {
                 """.formatted(compileGroup, mc, forgeVersion));
 
         String archivesName = "chronos-backup-forge-" + archiveSuffix(unifiedArchiveSource, mc);
+        boolean forge111 = mc.startsWith("1.11");
+        boolean forge112 = mc.startsWith("1.12");
         boolean forge113 = mc.startsWith("1.13");
         boolean forge120 = mc.startsWith("1.20");
-        String gradleTemplate = forge113 ? "forgeBuildGradle113"
-                : (forge120 ? "forgeBuildGradle120" : "forgeBuildGradle");
+        final String gradleTemplate;
+        if (forge111) {
+            gradleTemplate = "forgeBuildGradle111";
+        } else if (forge112) {
+            gradleTemplate = "forgeBuildGradle112";
+        } else if (forge113) {
+            gradleTemplate = "forgeBuildGradle113";
+        } else if (forge120) {
+            gradleTemplate = "forgeBuildGradle120";
+        } else {
+            throw new IllegalStateException(
+                    "No Forge build.gradle template for Minecraft " + mc + " (expected 1.11 / 1.12 / 1.13 / 1.20 line).");
+        }
         Map<String, String> forgeGradleValues = new HashMap<>();
         forgeGradleValues.put("archivesName", archivesName);
         forgeGradleValues.put("minecraft", mc);

@@ -32,7 +32,6 @@ sourceSets.named("main") {
     // Prefer one unified jar per line; use line folders only when APIs diverge - not separate Gradle modules.
     java.srcDirs(
         rootProject.file("core/src/main/java"),
-        rootProject.file("core/vendor/querz-nbt/src/main/java"),
         rootProject.file("shell-shared/src/main/java"),
         rootProject.file("shell-brigadier/src/main/java"),
         rootProject.file("shell-mojmap/common/src/main/java"),

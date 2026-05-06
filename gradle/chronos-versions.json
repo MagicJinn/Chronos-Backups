@@ -1,4 +1,6 @@
 [
+  {"minecraft": "1.11", "compileGroup": "minecraft_1_11", "loaders": ["forge"], "forge": "13.19.1.2189"},
+  {"minecraft": "1.11.2", "compileGroup": "minecraft_1_11", "loaders": ["forge"], "forge": "13.20.1.2588"},
   {"minecraft": "1.12.2", "compileGroup": "minecraft_1_12", "loaders": ["forge"], "forge": "14.23.5.2864"},
   {"minecraft": "1.13.2", "compileGroup": "minecraft_1_13", "loaders": ["forge"], "forge": "25.0.223"},
   {"minecraft": "1.20", "compileGroup": "minecraft_1_20", "loaders": ["fabric"]},

@@ -14,10 +14,6 @@ dependencies {
     implementation("com.electronwill.night-config:toml:$nightConfigVersion")
 }
 
-sourceSets.named("main") {
-    java.srcDir("vendor/querz-nbt/src/main/java")
-}
-
 java {
     withSourcesJar()
     toolchain {

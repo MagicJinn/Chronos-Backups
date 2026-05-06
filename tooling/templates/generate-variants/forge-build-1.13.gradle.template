@@ -63,7 +63,6 @@ tasks.named('jar', Jar) {
 
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
-    rootProject.file('core/vendor/querz-nbt/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
     rootProject.file('shell-brigadier/src/main/java'),
     rootProject.file('shell-forge/v1_13/src/main/java'),
