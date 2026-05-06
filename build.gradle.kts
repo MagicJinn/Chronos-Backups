@@ -41,18 +41,31 @@ fun currentArchId(): String {
 val rustProjectDir = rootProject.file("core/native/rust-pruner")
 val cargoCmd = if (currentOsId() == "windows") "cargo.exe" else "cargo"
 val rustupCmd = if (currentOsId() == "windows") "rustup.exe" else "rustup"
+fun gradleBooleanProperty(defaultValue: Boolean, vararg keys: String): Provider<Boolean> =
+    providers.provider {
+        keys.firstNotNullOfOrNull { key ->
+            providers.gradleProperty(key).orNull?.equals("true", ignoreCase = true)
+        } ?: defaultValue
+    }
+
 val rustSkipBuildProvider =
-    providers.gradleProperty("chronos.rust.skipBuild")
-        .map { it.equals("true", ignoreCase = true) }
-        .orElse(false)
+    gradleBooleanProperty(
+        false,
+        "chronosRustSkipBuild",
+        "chronos.rust.skipBuild",
+    )
 val rustBuildAllTargetsProvider =
-    providers.gradleProperty("chronos.rust.buildAllTargets")
-        .map { it.equals("true", ignoreCase = true) }
-        .orElse((System.getenv("CI") ?: "false").equals("true", ignoreCase = true))
+    gradleBooleanProperty(
+        (System.getenv("CI") ?: "false").equals("true", ignoreCase = true),
+        "chronosRustBuildAllTargets",
+        "chronos.rust.buildAllTargets",
+    )
 val rustRequireAllTargetsProvider =
-    providers.gradleProperty("chronos.rust.requireAllTargets")
-        .map { it.equals("true", ignoreCase = true) }
-        .orElse(rustBuildAllTargetsProvider)
+    gradleBooleanProperty(
+        rustBuildAllTargetsProvider.get(),
+        "chronosRustRequireAllTargets",
+        "chronos.rust.requireAllTargets",
+    )
 val activeRustNativeTargetsProvider =
     providers.provider {
         val buildAll = rustBuildAllTargetsProvider.get()
