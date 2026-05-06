@@ -86,7 +86,10 @@ val buildRustTargetTasks =
                 group = "build"
                 description = "Installs Rust target ${target.rustTargetTriple} (nightly)."
                 workingDir = rustProjectDir
-                onlyIf { activeRustNativeTargetsProvider.get().any { active -> active == target } }
+                onlyIf {
+                    !rustSkipBuildProvider.get() &&
+                        activeRustNativeTargetsProvider.get().any { active -> active == target }
+                }
                 commandLine(rustupCmd, "target", "add", target.rustTargetTriple, "--toolchain", "nightly")
             }
         tasks.register<Exec>("buildRust_$slug") {
@@ -95,7 +98,10 @@ val buildRustTargetTasks =
             dependsOn(ensureTask)
             workingDir = rustProjectDir
             environment("RUSTUP_TOOLCHAIN", "nightly")
-            onlyIf { activeRustNativeTargetsProvider.get().any { active -> active == target } }
+            onlyIf {
+                !rustSkipBuildProvider.get() &&
+                    activeRustNativeTargetsProvider.get().any { active -> active == target }
+            }
             commandLine(cargoCmd, "build", "--release", "--target", target.rustTargetTriple)
         }
     }
