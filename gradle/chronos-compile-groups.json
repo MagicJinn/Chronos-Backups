@@ -83,21 +83,6 @@
       }
     },
     {
-      "id": "minecraft_1_11",
-      "description": "Forge-only. Unified Forge for all 1.11.x.",
-      "jarTargetLabel": "1.11.x",
-      "minecraftVersionPrefixes": ["1.11"],
-      "forgeMcp": {
-        "mcpChannel": "stable",
-        "mcpVersion": "32-1.11"
-      },
-      "unifiedForgeJar": true,
-      "forgeUnified": {
-        "referenceMinecraft": "1.11.2",
-        "forge": "13.20.1.2588"
-      }
-    },
-    {
       "id": "minecraft_1_12",
       "description": "Forge-only. Unified Forge for all 1.12.x.",
       "jarTargetLabel": "1.12.x",

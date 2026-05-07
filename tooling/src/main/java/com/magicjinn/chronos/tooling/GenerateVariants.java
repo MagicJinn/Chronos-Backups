@@ -21,7 +21,6 @@ public final class GenerateVariants {
     private static final Gson GSON = new Gson();
 
     private static final Path ROOT = locateRepoRoot();
-    private static final Path VERSIONS_FILE = ROOT.resolve("gradle/chronos-versions.json");
     private static final Path GROUPS_FILE = ROOT.resolve("gradle/chronos-compile-groups.json");
     private static final Path TEMPLATES_DIR = ROOT.resolve("tooling/templates/generate-variants");
     private static final Map<String, String> TEMPLATE_FILES = Map.ofEntries(
@@ -43,13 +42,13 @@ public final class GenerateVariants {
     }
 
     public static void main(String[] args) throws Exception {
-        if (!Files.exists(VERSIONS_FILE) || !Files.exists(GROUPS_FILE)) {
-            throw new IllegalStateException("Missing matrix files under gradle/.");
+        if (!Files.exists(GROUPS_FILE)) {
+            throw new IllegalStateException("Missing matrix file under gradle/: chronos-compile-groups.json");
         }
 
-        List<Map<String, Object>> rows = readRows(VERSIONS_FILE);
         Map<String, Object> groupsJson = readObject(GROUPS_FILE);
         List<Map<String, Object>> groups = castList(groupsJson.get("groups"));
+        List<Map<String, Object>> rows = collectRowsFromGroups(groups);
 
         Map<String, String> rootProps = readRootProps();
         String loomVersion = rootProps.getOrDefault("loom.version", "1.10.1");
@@ -438,6 +437,20 @@ public final class GenerateVariants {
         return pfx.stream().min(Comparator.comparingInt(String::length)).orElse("");
     }
 
+    private static List<Map<String, Object>> collectRowsFromGroups(List<Map<String, Object>> groups) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> group : groups) {
+            String groupId = str(group.get("id"));
+            List<Map<String, Object>> variants = castList(group.get("variants"));
+            for (Map<String, Object> variant : variants) {
+                Map<String, Object> row = new HashMap<>(variant);
+                row.put("compileGroup", groupId);
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
     private static void pruneStaleVariantDirs(Set<Path> validPaths) throws IOException {
         if (!Files.isDirectory(VARIANTS_ROOT))
             return;
@@ -488,12 +501,6 @@ public final class GenerateVariants {
             out.put(pair[0].trim(), pair[1].trim());
         }
         return out;
-    }
-
-    private static List<Map<String, Object>> readRows(Path file) throws IOException {
-        Type type = new TypeToken<List<Map<String, Object>>>() {
-        }.getType();
-        return GSON.fromJson(Files.readString(file), type);
     }
 
     private static Map<String, Object> readObject(Path file) throws IOException {
@@ -559,9 +566,8 @@ public final class GenerateVariants {
         Path cwd = Path.of("").toAbsolutePath().normalize();
         Path cursor = cwd;
         for (int i = 0; i < 6 && cursor != null; i++) {
-            Path versions = cursor.resolve("gradle/chronos-versions.json");
             Path groups = cursor.resolve("gradle/chronos-compile-groups.json");
-            if (Files.exists(versions) && Files.exists(groups))
+            if (Files.exists(groups))
                 return cursor;
             cursor = cursor.getParent();
         }

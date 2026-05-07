@@ -1,4 +1,3 @@
-import groovy.json.JsonSlurper
 import java.io.File
 import org.gradle.internal.os.OperatingSystem
 
@@ -50,13 +49,10 @@ if (System.getenv("CHRONOS_SKIP_VARIANT_AUTOGEN") != "1") {
     }
 }
 
-val versionsFile = file("gradle/chronos-versions.json")
-if (!versionsFile.exists()) {
-    throw GradleException("Missing ${versionsFile.path}. Run: ./gradlew generateVariantProjects")
+val compileGroupsFile = file("gradle/chronos-compile-groups.json")
+if (!compileGroupsFile.exists()) {
+    throw GradleException("Missing ${compileGroupsFile.path}. Run: ./gradlew generateVariantProjects")
 }
-
-@Suppress("UNCHECKED_CAST")
-val chronosVersions = JsonSlurper().parseText(versionsFile.readText()) as List<Map<String, Any>>
 
 fun File.directoriesSorted(): List<File> =
     listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList()

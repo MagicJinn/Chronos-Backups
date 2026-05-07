@@ -9,7 +9,6 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Type;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -41,11 +40,7 @@ import java.util.stream.Collectors;
 
 public final class SmokeTestServers {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Type LIST_OF_MAP = new TypeToken<List<Map<String, Object>>>() {
-    }.getType();
-
     private static final Path ROOT = locateRepoRoot();
-    private static final Path VERSIONS = ROOT.resolve("gradle/chronos-versions.json");
     private static final Path GROUPS = ROOT.resolve("gradle/chronos-compile-groups.json");
     private static final Path SMOKE_CONFIG = ROOT.resolve("tooling/smoke-test-servers.config.json");
 
@@ -63,10 +58,10 @@ public final class SmokeTestServers {
     public static void main(String[] args) throws Exception {
         Args cfg = Args.parse(args);
         SmokeConfig smoke = readSmokeConfig();
-        List<Map<String, Object>> rows = GSON.fromJson(Files.readString(VERSIONS), LIST_OF_MAP);
         Map<String, Object> groupsJson = GSON.fromJson(Files.readString(GROUPS), new TypeToken<Map<String, Object>>() {
         }.getType());
         List<Map<String, Object>> groups = castList(groupsJson.get("groups"));
+        List<Map<String, Object>> rows = collectRowsFromGroups(groups);
 
         Set<String> unifiedFabric = groups.stream()
                 .filter(g -> bool(g.get("unifiedFabricJar")) && g.containsKey("fabricUnified"))
@@ -401,6 +396,20 @@ public final class SmokeTestServers {
     private static String primaryLinePrefix(Map<String, Object> group) {
         List<String> pfx = strList(group.get("minecraftVersionPrefixes"));
         return pfx.stream().min(Comparator.comparingInt(String::length)).orElse("");
+    }
+
+    private static List<Map<String, Object>> collectRowsFromGroups(List<Map<String, Object>> groups) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> group : groups) {
+            String groupId = str(group.get("id"));
+            List<Map<String, Object>> variants = castList(group.get("variants"));
+            for (Map<String, Object> variant : variants) {
+                Map<String, Object> row = new HashMap<>(variant);
+                row.put("compileGroup", groupId);
+                rows.add(row);
+            }
+        }
+        return rows;
     }
 
     @SuppressWarnings("unchecked")
@@ -745,9 +754,8 @@ public final class SmokeTestServers {
         Path cwd = Path.of("").toAbsolutePath().normalize();
         Path cursor = cwd;
         for (int i = 0; i < 6 && cursor != null; i++) {
-            Path versions = cursor.resolve("gradle/chronos-versions.json");
             Path groups = cursor.resolve("gradle/chronos-compile-groups.json");
-            if (Files.exists(versions) && Files.exists(groups))
+            if (Files.exists(groups))
                 return cursor;
             cursor = cursor.getParent();
         }
