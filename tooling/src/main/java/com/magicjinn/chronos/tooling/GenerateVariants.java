@@ -451,9 +451,11 @@ public final class GenerateVariants {
     }
 
     /**
-     * Minecraft 1.14–1.15 use {@code TextComponent}-based messenger, exclude shared
-     * messenger.
-     * Uses {@link #fabricShellMessengerCompat118()} for 1.18 only.
+     * Mojmap messenger overrides: exclude {@code MojmapShellMessenger} from
+     * {@code shell-mojmap/common}. For 1.14–1.17 the matching slice directory is
+     * registered only in {@link #fabricMojmapLegacyWorldBlock(String)} so Gradle does not
+     * list the same folder twice (breaks {@code sourcesJar}). Uses
+     * {@link #fabricShellMessengerCompat118()} for 1.18 only.
      */
     private static String fabricShellMessengerCompatBlock(String mc) {
         try {
@@ -482,7 +484,6 @@ public final class GenerateVariants {
                     details.file.absolutePath.replace(java.io.File.separator, '/').contains('shell-mojmap/common/src/main/java')
                             && details.name == 'MojmapShellMessenger.java'
                 }
-                sourceSets.main.java.srcDir(rootProject.file('shell-mojmap/v1_14-v1_15/src/main/java'))
                 """
                 .stripLeading();
     }
@@ -508,7 +509,6 @@ public final class GenerateVariants {
                     details.file.absolutePath.replace(java.io.File.separator, '/').contains('shell-mojmap/common/src/main/java')
                             && details.name == 'MojmapShellMessenger.java'
                 }
-                sourceSets.main.java.srcDir(rootProject.file('shell-mojmap/v1_16-v1_17/src/main/java'))
                 """
                 .stripLeading();
     }

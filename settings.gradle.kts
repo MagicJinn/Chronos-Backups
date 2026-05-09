@@ -3,6 +3,8 @@ import org.gradle.internal.os.OperatingSystem
 
 pluginManagement {
     repositories {
+        // Resolve plugin dependencies (Kotlin, Guava, etc.) from Central as well as loader mirrors.
+        mavenCentral()
         maven("https://maven.fabricmc.net/")
         maven("https://maven.minecraftforge.net/")
         maven("https://maven.neoforged.net/releases")

@@ -21,6 +21,14 @@ unimined.useGlobalCache = true
 repositories {
     // MCP config + Forge artifacts (must precede mirrors that omit de.oceanlabs.mcp)
     maven { url = 'https://maven.minecraftforge.net/' }
+    exclusiveContent {
+        forRepository {
+            maven { url = 'https://maven.neoforged.net/releases' }
+        }
+        filter {
+            includeGroupByRegex('net\\.neoforged(\\..*)?')
+        }
+    }
     mavenCentral()
     maven { url = 'https://maven.wagyourtail.xyz/releases' }
 }
