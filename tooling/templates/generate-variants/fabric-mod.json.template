@@ -14,9 +14,9 @@
     "server": ["com.magicjinn.chronos.shell.fabric.ChronosFabricDedicatedServerEntrypoint"]
   },
   "depends": {
-    "fabricloader": ">=0.15.0",
+    "fabricloader": "{{fabricLoaderDep}}",
     "minecraft": "${minecraft_dep}",
     "java": "${java_dep}",
-    "fabric-api": "*"
+    "{{fabricDependencyModId}}": "*"
   }
 }

@@ -28,7 +28,7 @@ dependencies {
     {{mappings}}
     {{depConf}} "net.fabricmc:fabric-loader:{{fabricLoader}}"
     {{depConf}} "net.fabricmc.fabric-api:fabric-api:{{fabricApi}}"
-    // Night Config (NeoForge bundles this; Fabric needs both jars — core has ConfigFormat; toml is the TOML backend).
+    // Night Config (NeoForge bundles this, Fabric needs both jars - core has ConfigFormat, toml is the TOML backend).
     include implementation("com.electronwill.night-config:core:${nightConfigVer}")
     include implementation("com.electronwill.night-config:toml:${nightConfigVer}")
 }
@@ -40,8 +40,13 @@ sourceSets.main.java.srcDirs(
     rootProject.file('shell-mojmap/common/src/main/java'),
     {{mojmapNumericGateGroovy}}
     {{mojmapMojmapSliceGroovy}}
+    {{fabricRegistrarSliceGroovy}}
     rootProject.file('shell-fabric/src/main/java'),
 )
+
+{{fabricShellMessengerCompatGroovy}}
+
+{{fabricMojmapLegacyWorldGroovy}}
 
 processResources {
     inputs.property 'version', project.version
@@ -66,12 +71,19 @@ processResources {
 
 java {
     withSourcesJar()
-    toolchain { languageVersion = JavaLanguageVersion.of({{javaMajor}}) }
+    toolchain { languageVersion = JavaLanguageVersion.of({{toolchainMajor}}) }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = {{javaMajor}}
+    // JDK 8's javac does not seem to support --release. Loom may fork compilation with a Java 8 compiler for old MC lines.
+    def chronosRelease = {{javaMajor}} as int
+    if (chronosRelease >= 9) {
+        options.release = chronosRelease
+    } else {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
 }
 
 def chronosSelectFreePort = {

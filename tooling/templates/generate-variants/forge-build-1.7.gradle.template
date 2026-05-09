@@ -64,6 +64,8 @@ tasks.named('jar', Jar) {
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
+    rootProject.file('shell-forge/forge-shared-command-registrar/src/main/java'),
+    rootProject.file('shell-forge/forge-common-1_7-1_8/src/main/java'),
     rootProject.file('shell-forge/v1_7_10/src/main/java'),
 )
 
@@ -93,7 +95,7 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-/** Dev: vanilla dedicated server exits until eula.txt exists; create once, never overwrite. */
+/** Dev: vanilla dedicated server exits until eula.txt exists, create once, never overwrite. */
 def chronosPrepareForgeRunServer = tasks.register('chronosPrepareForgeRunServer') {
     doLast {
         def serverRunDir = file('run/server')

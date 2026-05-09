@@ -385,8 +385,8 @@ public final class SmokeTestServers {
         Files.write(props, lines, StandardCharsets.UTF_8);
     }
 
-    // Typical layouts: Fabric/Loom use run/; Forge dev runs use run/server;
-    // JavaExec cwd is often the variant root.
+    // Typical layouts: Fabric/Loom use run/, Forge dev runs use run/server,
+            // JavaExec cwd is often the variant root.
     private static List<Path> smokeRunDirs(String compileGroupId, String projectName) {
         Path variantRoot = ROOT.resolve("variants").resolve(compileGroupId).resolve(projectName);
         Path runDir = variantRoot.resolve("run");
@@ -572,7 +572,10 @@ public final class SmokeTestServers {
             throw new IOException("RCON failed after retries");
         }
 
-        /** One attempt; used so shutdown does not retry if the server is already closing the socket. */
+        /**
+         * One attempt, used so shutdown does not retry if the server is already closing
+         * the socket.
+         */
         static void stopBestEffort(String jobLabel, int rconPort, String rconPassword) {
             System.out.println("[" + jobLabel + "] RCON: stop (graceful server shutdown)");
             try {
@@ -583,8 +586,10 @@ public final class SmokeTestServers {
         }
 
         /**
-         * Sends {@code stop} over RCON. The dedicated server often closes the socket as soon as shutdown begins,
-         * which makes a strict {@link #sendOnce} read loop throw EOF / reset; those cases mean stop was accepted.
+         * Sends {@code stop} over RCON. The dedicated server often closes the socket as
+         * soon as shutdown begins,
+         * which makes a strict {@link #sendOnce} read loop throw EOF / reset, those
+         * cases mean stop was accepted.
          */
         static void sendStopGraceful(String host, int port, String password) throws IOException {
             try (Socket socket = new Socket()) {
@@ -654,7 +659,8 @@ public final class SmokeTestServers {
                     try {
                         resp = readPacket(in);
                     } catch (SocketTimeoutException e) {
-                        // Vanilla often omits the final empty TERMINATOR packet; waiting hits SoTimeout (60s). Returning
+                        // Vanilla often omits the final empty TERMINATOR packet, waiting hits SoTimeout
+                        // (60s). Returning
                         // here avoids Rcon.send retrying and issuing the same command twice.
                         if (gotCommandResponse)
                             return acc.toString();

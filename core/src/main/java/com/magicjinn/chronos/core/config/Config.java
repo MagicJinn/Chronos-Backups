@@ -70,6 +70,7 @@ public final class Config {
         try (FileConfig cfg = FileConfig.of(configPath, TomlFormat.instance())) {
             cfg.load();
             ModConfig out = new ModConfig();
+            out.backupFolderName = cfg.getOrElse(ChronosTomlSpec.KEY_BACKUP_FOLDER_NAME, defaults.backupFolderName);
             out.pruneChunks = cfg.getOrElse(ChronosTomlSpec.KEY_PRUNE_CHUNKS, defaults.pruneChunks);
             out.pruneTimeRequirementSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_TIME_REQUIREMENT_SECONDS,
                     defaults.pruneTimeRequirementSeconds);
@@ -141,7 +142,7 @@ public final class Config {
 
     /**
      * Maximum pruning worker threads.
-     * 0 means auto; values less than 0 are clamped to 0.
+     * 0 means auto, values less than 0 are clamped to 0.
      */
     public static int getPruneMaxWorkerThreads() {
         int raw = modConfig != null ? modConfig.pruneMaxWorkerThreads : BUILTIN_DEFAULTS.pruneMaxWorkerThreads;

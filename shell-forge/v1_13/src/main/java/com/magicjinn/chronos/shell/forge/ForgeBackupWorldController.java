@@ -6,7 +6,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 
 /**
- * Forge 1.13 — flush players and chunks
+ * Forge 1.13 - flush players and chunks
  * ({@link MinecraftServer#saveAllWorlds}), then toggle
  * {@link WorldServer#disableLevelSaving} while copying files. Uses Forge's
  * world map so every loaded dimension is covered, including mod-registered

@@ -1,0 +1,11 @@
+{ // Markdownlint VSCode extension configuration
+    "MD001": false, // Allow non-incremental headings
+    "MD013": false, // Ignore maximum line length
+    "MD024": false, // Allow duplicate headings
+    "MD025": false, // Allow multiple top level headings in the same file
+    "MD033": false, // Allow inline HTML,
+    "MD041": false, // Allow first line in file to not be a top level heading
+    "MD045": false, // Allow images without alt text
+    "MD056": false, // Allow missing collums in tables
+    "MD060": false // Allow misaligned table columns
+}

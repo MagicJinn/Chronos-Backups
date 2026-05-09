@@ -100,7 +100,7 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 17
 }
 
-/** Dev: vanilla dedicated server exits until eula.txt exists; create once, never overwrite. */
+/** Dev: vanilla dedicated server exits until eula.txt exists, create once, never overwrite. */
 def chronosPrepareForgeRunServer = tasks.register('chronosPrepareForgeRunServer') {
     doLast {
         def serverRunDir = file('run/server')

@@ -9,7 +9,7 @@ public class Core {
     public static Path RunningDirectory;
 
     /**
-     * Where the mod first loads — before title screen or worlds; excludes
+     * Where the mod first loads - before title screen or worlds, excludes
      * integrated SP server inside a client.
      */
     public enum LoaderEnvironment {

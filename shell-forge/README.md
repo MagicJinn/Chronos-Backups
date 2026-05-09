@@ -1,57 +1,49 @@
 # Shell Forge
 
-This module contains Forge integration code across multiple Minecraft version lines. Because Forge APIs differ heavily by era, sources are split by version directories.
+Forge integration across Minecraft version lines. Forge and MCP APIs diverge by era, so most code still lives in per-line directories, identical or era-stable pieces are pulled in through extra Gradle `sourceSets` (see **Shared source trees** below).
 
 ## What lives here
 
 - Forge mod/bootstrap entrypoints for each supported Forge line.
-- Command registration hooks plus line-specific command wrappers around shared command behavior.
-- Version-specific server environment and world controller adapters where API differences require them.
+- Command registration and `/chronos` wiring (legacy `ICommand` or Brigadier, depending on era).
+- Server environment, world backup coordination, and chat/logging adapters where mappings differ.
 
-## Structure
+## Shared source trees
 
-- `v1_7_10/` - oldest supported legacy Forge/FML line (pre-Brigadier, legacy command + environment adapters).
-- `v1_8/` - legacy Forge line (pre-Brigadier era, legacy command + environment adapters).
-- `v1_9/` - legacy Forge line (pre-Brigadier era, legacy command + environment adapters).
-- `v1_10/` - legacy Forge line (pre-Brigadier era, legacy command + environment adapters).
-- `v1_11/` - legacy Forge line (pre-Brigadier era, legacy command + environment adapters).
-- `v1_12/` - legacy Forge line (pre-Brigadier era, legacy command + environment adapters).
-- `v1_13/` - transitional Forge line with its own command and lifecycle wiring.
-- `v1_20/` - modern Forge (Mojmap-era) line with event-based lifecycle and command registration.
+These directories are not standalone projects, variant `build.gradle` files (from `tooling/templates/generate-variants/`) add their `src/main/java` paths alongside `core`, `shell-shared`, and the line folder.
 
-Each folder is intentionally self-contained to keep cross-version compatibility code isolated.
+| Directory | Role |
+|-|-|
+| `forge-common-1_8-1_12/` | Shared `ChronosForgeMod` for old FML (`@Mod`, `FMLServerStartedEvent`, …). Each line under `v1_8`–`v1_12` still supplies `ForgeShellMcRange` (compile-time `acceptedMinecraftVersions` for `@Mod`). |
+| `forge-shared-command-registrar/` | Single `ForgeCommandRegistrar` for all pre-1.13 Forge lines. Kept separate from `forge-common-1_8-1_12` so `v1_7_10` does not pull in the shared `ChronosForgeMod`. |
+| `forge-common-1_7-1_8/` | Shared `ForgeShellMessenger` for 1.7.10 and 1.8 (`ChatComponentText`, legacy player list APIs). |
+| `forge-common-1_9-1_10/` | Shared `ForgeShellMessenger` for 1.9 and 1.10 (`TextComponentString`, `sendChatMsg`). |
+| `forge-common-1_11-1_12/` | Shared `ForgeShellMessenger` for 1.11 and 1.12 (`PlayerList#sendMessage`). |
+| `forge-common-1_10-1_12/` | Shared `ChronosBackupCommand` where `CommandBase` uses `getName` / `execute` / `sendMessage` (same shape for 1.10–1.12). |
 
-## Subdirectory contents
+## Structure (per-line folders)
 
-### Legacy lines: `v1_7_10/`, `v1_8/`, `v1_9/`, `v1_10/`, `v1_11/`, `v1_12/`
+- `v1_7_10/` - oldest Forge/FML line (pre-Brigadier). Own `ChronosForgeMod`, `ChronosBackupCommand`, line-specific adapters, shares registrar + messenger via trees above.
+- `v1_8/` … `v1_12/` - Old FML lifecycle and legacy commands, each folder holds what still differs by Minecraft version (`ForgeServerEnvironment`, `ForgeBackupWorldController`, `FMLSecurityManager`, `ForgeShellMcRange`, …).
+- `v1_13/` - Transitional Forge (Brigadier + older event wiring).
+- `v1_20/` - Modern Forge (Mojmap-era), aligned with shared Mojmap helpers elsewhere in the repo.
 
-These folders all use old Forge/FML lifecycle patterns and the legacy `ICommand` path (no Brigadier). Each directory is self-contained for its target runtime but follows the same role split:
+## Subdirectory contents (typical roles)
 
-- `ChronosForgeMod` - mod entrypoint (`@Mod`) and FML lifecycle handlers (`init`, server start/stop).
-- `ChronosBackupCommand` - line-specific legacy command adapter for `/chronos`, delegating shared backup/cancel/usage behavior through `shell-shared`'s `LegacyCommandSupport`.
-- `ForgeCommandRegistrar` - registers `ChronosBackupCommand` into `ServerCommandManager`.
-- `ForgeServerEnvironment` - adapts version-specific server APIs to `core`'s `ServerEnvironment`.
-- `ForgeShellMessenger` - sends shell/user-facing messages through line-appropriate text/chat APIs.
-- `ForgeBackupWorldController` - world-save and backup coordination adapted to each line's server internals.
-- `FMLSecurityManager` - line-specific bridge class that extends `shell-shared` security-manager behavior under the package expected by that Forge/FML line.
+### Old Forge lines: `v1_7_10/`, `v1_8/`, …, `v1_12/`
+
+- `ChronosForgeMod` - In `forge-common-1_8-1_12` for 1.8–1.12, still under `v1_7_10` for 1.7.10 only. FML init and server start/stop hooks.
+- `ChronosBackupCommand` - Per line where the `CommandBase` API differs (1.7, 1.8, 1.9), shared from `forge-common-1_10-1_12` for 1.10–1.12. Delegates to `shell-shared` `LegacyCommandSupport`.
+- `ForgeCommandRegistrar` - Shared from `forge-shared-command-registrar`.
+- `ForgeShellMessenger` - Shared from the `forge-common-1_*_*` messenger trees where the chat API matches.
+- `ForgeServerEnvironment` - Usually per line (`worldServers` vs `worlds`, and related MCP names).
+- `ForgeBackupWorldController` - Per line (save paths and server/world APIs change across versions).
+- `FMLSecurityManager` - Thin subclass of `shell-shared` `AbstractFmlSecurityManager` in the package name expected on the classpath for that FML line.
 
 ### `v1_13/`
 
-Forge 1.13 is transitional: it already uses Brigadier dispatchers but still has older Forge/FML lifecycle/event patterns compared to modern lines.
-
-- `ChronosForgeMod` - lifecycle/event wiring for startup, command registration, and server start/stop.
-- `ChronosBackupCommand` - Brigadier tree wiring for `/chronos`, backed by shared command action/state behavior.
-- `ForgeCommandRegistrar` - connects the Forge command registration context to the line's command tree.
-- `ForgeServerEnvironment` - 1.13-specific adapter to `core` server environment expectations.
-- `ForgeShellMessenger` - message bridge for 1.13 server/player feedback APIs.
-- `ForgeBackupWorldController` - world/IO coordination adapted to 1.13 internals.
-- `src/main/resources/pack.mcmeta` - resource metadata needed by this line's packaging/runtime.
+Brigadier dispatchers plus Forge/FML lifecycle for that era. Own `ChronosForgeMod`, command tree, environment, messenger, and backup controller, see sources under `v1_13/src`.
 
 ### `v1_20/`
 
-Forge 1.20.x (in this repo, modern Mojmap-era Forge) aligns closely with NeoForge-style runtime hooks and reuses shared Mojmap adapters where possible.
-
-- `ChronosForgeMod` - modern Forge entrypoint using mod bus + global event bus, hooks server start/stop and command registration.
-- `ForgeCommandRegistrar` - registers the shared `shell-brigadier` command tree (using shared command actions) and adapts Forge return/feedback behavior via hooks.
-
-Compared to older folders, `v1_20/` is smaller because common Mojmap adapters and shared command logic live in `shell-mojmap`, `shell-brigadier`, and `shell-shared`.
+Modern Forge entrypoint and `ForgeCommandRegistrar` integrating shared Brigadier command logic (`shell-brigadier`, `shell-mojmap`, `shell-shared`).

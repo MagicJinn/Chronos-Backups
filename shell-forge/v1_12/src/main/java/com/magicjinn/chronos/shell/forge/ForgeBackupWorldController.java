@@ -6,7 +6,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 
 /**
- * Forge 1.12 — flush players and loaded chunks
+ * Forge 1.12 - flush players and loaded chunks
  * ({@link MinecraftServer#saveAllWorlds}), then toggle
  * {@link WorldServer#disableLevelSaving} while copying files.
  */

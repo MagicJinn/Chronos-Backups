@@ -7,7 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
 /**
- * Mojmap {@link MinecraftServer} — shared by Fabric and NeoForge lines using
+ * Mojmap {@link MinecraftServer} - shared by Fabric and NeoForge lines using
  * official mappings.
  */
 public final class MojmapServerEnvironment implements ServerEnvironment {
@@ -40,7 +40,12 @@ public final class MojmapServerEnvironment implements ServerEnvironment {
     @Override
     public Path getRunDirectory() {
         Object root = server.getServerDirectory();
-        Path base = root instanceof Path p ? p : ((File) root).toPath();
+        Path base;
+        if (root instanceof Path) {
+            base = (Path) root;
+        } else {
+            base = ((File) root).toPath();
+        }
         return base.toAbsolutePath().normalize();
     }
 

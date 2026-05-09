@@ -51,7 +51,7 @@ public final class ChronosCommandActions {
         return Scheduler.tryEnqueueManualBackup();
     }
 
-    /** Signals the current in-flight backup to stop; no-op if none is running. */
+    /** Signals the current in-flight backup to stop, no-op if none is running. */
     public static boolean requestCancelInFlightBackup() {
         return Backupper.requestCancelInFlightBackup();
     }

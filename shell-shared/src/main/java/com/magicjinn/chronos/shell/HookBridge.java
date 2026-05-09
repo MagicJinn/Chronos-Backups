@@ -27,7 +27,7 @@ public final class HookBridge {
 
                 @Override
                 public void sendChat(String message) {
-                    // No server handle / messenger — chat is unavailable.
+                    // No server handle / messenger - chat is unavailable.
                 }
             };
 

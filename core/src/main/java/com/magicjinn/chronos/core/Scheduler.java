@@ -18,7 +18,7 @@ public final class Scheduler {
         QUEUED,
         /** Scheduler has no world context (server not ready or shut down). */
         NO_RUNTIME,
-        /** A backup is already running; the request was not queued. */
+        /** A backup is already running, the request was not queued. */
         ALREADY_RUNNING
     }
 

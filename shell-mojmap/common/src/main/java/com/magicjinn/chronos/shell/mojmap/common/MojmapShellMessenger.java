@@ -5,12 +5,12 @@ import com.magicjinn.chronos.shell.ChronosConstants;
 import java.util.function.Supplier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Logging and chat for Mojmap servers (Fabric / NeoForge). */
 public final class MojmapShellMessenger implements ShellMessenger {
-    private static final Logger LOG = LoggerFactory.getLogger(ChronosConstants.LOG_NAME);
+    private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
 
     private final Supplier<MinecraftServer> server;
 

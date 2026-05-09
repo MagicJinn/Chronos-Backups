@@ -36,25 +36,24 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0. Fabric 1.20.x. NeoForge 1.20.1 - 1.20.6. |
-| `1.19.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
-| `1.18.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
-| `1.17.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
-| `1.16.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
-| `1.15.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
-| `1.14.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
+| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
+| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
+| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
+| `1.16.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
+| `1.15.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
+| `1.14.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
 | `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.7.x` | ✅ Supported | Legacy Forge | ✅ | 🟠 File-only | - |
-| `1.6.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
-| `1.5.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
-| `1.4.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
-| `1.3.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
-| `1.2.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
-| `1.1.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
+| `1.6.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.5.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.4.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.3.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.2.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 
 ## Development
 

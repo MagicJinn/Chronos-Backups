@@ -21,7 +21,7 @@ import net.minecraftforge.fml.event.lifecycle.FMLDedicatedServerSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
- * Forge 1.20.6+ (Java FML 50.x, Mojang mappings) — same hooks as {@linkplain
+ * Forge 1.20.6+ (Java FML 50.x, Mojang mappings) - same hooks as {@linkplain
  * com.magicjinn.chronos.shell.neoforge.ChronosNeoForgeMod NeoForge}, using
  * LexForge / MinecraftForge
  * events.

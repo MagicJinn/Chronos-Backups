@@ -69,6 +69,84 @@
       }
     },
     {
+      "id": "minecraft_1_18",
+      "description": "Fabric unified jar for Minecraft 1.18.x (before 1.20).",
+      "minecraftVersionPrefixes": ["1.18"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.18.2",
+        "fabricLoader": "0.14.25",
+        "fabricApi": "0.77.0+1.18.2",
+        "minecraftDep": ">=1.18 <1.19",
+        "archiveVersionTag": "1.18.x"
+      }
+    },
+    {
+      "id": "minecraft_1_19",
+      "description": "Fabric unified jar for Minecraft 1.19.x (before 1.20).",
+      "minecraftVersionPrefixes": ["1.19"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.19.4",
+        "fabricLoader": "0.14.25",
+        "fabricApi": "0.87.2+1.19.4",
+        "minecraftDep": ">=1.19 <1.20",
+        "archiveVersionTag": "1.19.x"
+      }
+    },
+    {
+      "id": "minecraft_1_14",
+      "description": "Fabric unified jar for Minecraft 1.14.x (loader/API versions aligned with templates/template-mod-template-1.14.4).",
+      "minecraftVersionPrefixes": ["1.14"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.14.4",
+        "fabricLoader": "0.19.2",
+        "fabricApi": "0.28.5+1.14",
+        "minecraftDep": ">=1.14 <1.15",
+        "archiveVersionTag": "1.14.x"
+      }
+    },
+    {
+      "id": "minecraft_1_15",
+      "description": "Fabric unified jar for Minecraft 1.15.x (loader/API versions aligned with templates/template-mod-template-1.15.2).",
+      "minecraftVersionPrefixes": ["1.15"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.15.2",
+        "fabricLoader": "0.19.2",
+        "fabricApi": "0.28.5+1.15",
+        "minecraftDep": ">=1.15 <1.16",
+        "archiveVersionTag": "1.15.x"
+      }
+    },
+    {
+      "id": "minecraft_1_16",
+      "description": "Fabric unified jar for Minecraft 1.16.x (loader/API versions aligned with templates/template-mod-template-1.16.5).",
+      "minecraftVersionPrefixes": ["1.16"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.16.5",
+        "fabricLoader": "0.19.2",
+        "fabricApi": "0.42.0+1.16",
+        "minecraftDep": ">=1.16 <1.17",
+        "archiveVersionTag": "1.16.x"
+      }
+    },
+    {
+      "id": "minecraft_1_17",
+      "description": "Fabric unified jar for Minecraft 1.17.x (loader/API versions aligned with templates/template-mod-template-1.17.1).",
+      "minecraftVersionPrefixes": ["1.17"],
+      "unifiedFabricJar": true,
+      "fabricUnified": {
+        "referenceMinecraft": "1.17.1",
+        "fabricLoader": "0.19.2",
+        "fabricApi": "0.46.1+1.17",
+        "minecraftDep": ">=1.17 <1.18",
+        "archiveVersionTag": "1.17.x"
+      }
+    },
+    {
       "id": "minecraft_26_1",
       "description": "Split from 1.21.x because mappings/toolchains diverge. Unified Fabric and NeoForge jars for the 26.1.x line.",
       "jarTargetLabel": "26.1.x",

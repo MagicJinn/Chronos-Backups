@@ -32,7 +32,10 @@ public final class Backupper {
 
     private static final String CACHE_FOLDER_NAME = ".cache";
     private static final String SESSION_LOCK_FILE_NAME = "session.lock";
-    /** Loader atomic-write temps — copied mid-rename causes NoSuchFileException on Windows. */
+    /**
+     * Loader atomic-write temps - copied mid-rename causes NoSuchFileException on
+     * Windows.
+     */
     private static final String NEOFORGE_ATOMIC_TMP_SUFFIX = ".neoforge-tmp";
     private static final String FABRIC_ATOMIC_TMP_SUFFIX = ".fabric-tmp";
     private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
@@ -234,7 +237,7 @@ public final class Backupper {
             if (announceUserCancelInChat) {
                 if (snapshotCacheRemoved) {
                     context.sendChat(
-                            "Backup cancelled. The run has fully stopped; snapshot cache was cleared and any incomplete"
+                            "Backup cancelled. The run has fully stopped. Snapshot cache was cleared and any incomplete"
                                     + " zip archive was removed.");
                 } else {
                     context.sendChat(
@@ -292,8 +295,8 @@ public final class Backupper {
     }
 
     /**
-     * {@code pattern} without {@code /} matches the last path segment; with {@code /}, matches a path prefix under the
-     * world root (forward-slash form).
+     * {@code pattern} without {@code /} matches the last path segment, with
+     * {@code /}, matches a path prefix under the world root (forward-slash form).
      */
     private static boolean isCopyBlacklisted(Path relativeToWorldRoot, List<String> patterns) {
         if (patterns == null || patterns.isEmpty()) {
@@ -390,7 +393,8 @@ public final class Backupper {
                         try {
                             Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
                         } catch (NoSuchFileException e) {
-                            // File disappeared between directory scan and copy (temp rename); omit from backup.
+                            // File disappeared between directory scan and copy (temp rename), omit from
+                            // backup.
                             LOG.fine("Skipping vanished file during backup copy: " + file);
                         }
                         int n = fileCounter.incrementAndGet();
@@ -413,7 +417,7 @@ public final class Backupper {
                             context.logError(
                                     "Chronos backups: could not read a world file or folder during copy: "
                                             + file
-                                            + " — "
+                                            + " - "
                                             + exc);
                         }
                         throw exc;

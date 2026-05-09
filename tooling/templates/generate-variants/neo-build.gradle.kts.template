@@ -25,11 +25,11 @@ repositories {
     mavenCentral()
 }
 
-// Night Config is already on the compile/runtime classpath via NeoForge/FML — do not jar-in-jar or duplicate it here.
+// Night Config is already on the compile/runtime classpath via NeoForge/FML - do not jar-in-jar or duplicate it here.
 
 sourceSets.named("main") {
     // Shared NeoForge code plus optional line-specific trees under shell-neoforge/<line>/ (e.g. 1.20, 1.21, 26.1).
-    // Prefer one unified jar per line; use line folders only when APIs diverge - not separate Gradle modules.
+    // Prefer one unified jar per line, use line folders only when APIs diverge, not separate Gradle modules.
     java.srcDirs(
         rootProject.file("core/src/main/java"),
         rootProject.file("shell-shared/src/main/java"),

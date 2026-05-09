@@ -14,17 +14,19 @@ import net.minecraft.server.level.ServerLevel;
 public final class MojmapBackupWorldController implements BackupWorldController {
     @Override
     public void saveAllWorldData(Object serverHandle) {
-        if (!(serverHandle instanceof MinecraftServer server)) {
+        if (!(serverHandle instanceof MinecraftServer)) {
             return;
         }
+        MinecraftServer server = (MinecraftServer) serverHandle;
         server.executeBlocking(() -> server.saveEverything(true, false, true));
     }
 
     @Override
     public boolean setWorldSavingDisabled(Object serverHandle, boolean disabled) {
-        if (!(serverHandle instanceof MinecraftServer server)) {
+        if (!(serverHandle instanceof MinecraftServer)) {
             return false;
         }
+        MinecraftServer server = (MinecraftServer) serverHandle;
         AtomicBoolean touchedLevel = new AtomicBoolean(false);
         server.executeBlocking(
                 () -> {

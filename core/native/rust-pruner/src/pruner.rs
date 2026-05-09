@@ -393,7 +393,7 @@ fn is_slot_marked(slots: &[bool; REGION_SLOT_COUNT], x: u8, z: u8) -> bool {
 }
 
 /// Cumulative player time in ticks.
-/// Older chunks store this under `Level`; 1.18+ stores it on the chunk root.
+/// Older chunks store this under `Level`, 1.18+ stores it on the chunk root.
 fn read_inhabited_time_ticks(chunk_nbt: &[u8]) -> u64 {
     let mut cursor = Cursor::new(chunk_nbt);
     let root = match simdnbt::borrow::read(&mut cursor) {
