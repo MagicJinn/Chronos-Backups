@@ -44,11 +44,11 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `1.14.x` | ❌ Unsupported | Forge + Fabric | ❌ | 🔴 None | - |
 | `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.11.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.10.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.9.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.8.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.7.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
+| `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
+| `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
+| `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
+| `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
+| `1.7.x` | ✅ Supported | Legacy Forge | ✅ | 🟠 File-only | - |
 | `1.6.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
 | `1.5.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
 | `1.4.x` | ❌ Unsupported | Legacy Forge | ❌ | 🔴 None | - |
@@ -58,7 +58,7 @@ All currently supported versions are listed below in `major.minor.x` format:
 
 ## Development
 
-Chronos Backup is dedicated to making the development of this mod as easy as possible, on any OS, in any IDE, with simple automatic setups and tools for testing and building, but there are still some manual steps required.
+Chronos Backups is dedicated to making the development of this mod as easy as possible, on any OS, in any IDE, with simple automatic setups and tools for testing and building, but there are still some manual steps required.
 
 ### Prerequisites
 

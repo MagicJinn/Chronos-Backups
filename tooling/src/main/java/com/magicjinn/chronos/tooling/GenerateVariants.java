@@ -23,18 +23,7 @@ public final class GenerateVariants {
     private static final Path ROOT = locateRepoRoot();
     private static final Path GROUPS_FILE = ROOT.resolve("gradle/chronos-compile-groups.json");
     private static final Path TEMPLATES_DIR = ROOT.resolve("tooling/templates/generate-variants");
-    private static final Map<String, String> TEMPLATE_FILES = Map.ofEntries(
-            Map.entry("fabricBuildGradle", "fabric-build.gradle.template"),
-            Map.entry("fabricModJson", "fabric-mod.json.template"),
-            Map.entry("neoBuildGradleKts", "neo-build.gradle.kts.template"),
-            Map.entry("neoModsToml", "neo-neoforge.mods.toml.template"),
-            Map.entry("forgeBuildGradle111", "forge-build-1.11.gradle.template"),
-            Map.entry("forgeBuildGradle112", "forge-build-1.12.gradle.template"),
-            Map.entry("forgeBuildGradle113", "forge-build-1.13.gradle.template"),
-            Map.entry("forgeBuildGradle120", "forge-build-1.20.gradle.template"),
-            Map.entry("forgeMcmodInfo", "forge-mcmod.info.template"),
-            Map.entry("forgeModsToml113", "forge-mods-1.13.toml.template"),
-            Map.entry("forgeModsToml120", "forge-mods-1.20.toml.template"));
+    private static final Map<String, String> TEMPLATE_FILES = readTemplateFiles();
     private static final Path VARIANTS_ROOT = ROOT.resolve("variants");
     private static final Map<String, String> TEMPLATES = readTemplates();
 
@@ -55,8 +44,11 @@ public final class GenerateVariants {
         String neoforgeModdev = rootProps.getOrDefault("neoforge.moddev.plugin.version", "2.0.141");
 
         Map<String, Map<String, Object>> groupsById = new HashMap<>();
-        for (Map<String, Object> g : groups)
+        for (Map<String, Object> g : groups) {
+            if (!shouldBuildGroup(g))
+                continue;
             groupsById.put(str(g.get("id")), g);
+        }
 
         Set<Path> validPaths = new HashSet<>();
         int generated = 0;
@@ -110,6 +102,8 @@ public final class GenerateVariants {
         }
 
         for (Map<String, Object> g : groups) {
+            if (!shouldBuildGroup(g))
+                continue;
             String gid = str(g.get("id"));
             if (bool(g.get("unifiedFabricJar")) && g.containsKey("fabricUnified")) {
                 Map<String, Object> fu = castMap(g.get("fabricUnified"));
@@ -239,48 +233,41 @@ public final class GenerateVariants {
                 """.formatted(compileGroup, mc, forgeVersion));
 
         String archivesName = "chronos-backup-forge-" + archiveSuffix(unifiedArchiveSource, mc);
-        boolean forge111 = mc.startsWith("1.11");
-        boolean forge112 = mc.startsWith("1.12");
-        boolean forge113 = mc.startsWith("1.13");
-        boolean forge120 = mc.startsWith("1.20");
-        final String gradleTemplate;
-        if (forge111) {
-            gradleTemplate = "forgeBuildGradle111";
-        } else if (forge112) {
-            gradleTemplate = "forgeBuildGradle112";
-        } else if (forge113) {
-            gradleTemplate = "forgeBuildGradle113";
-        } else if (forge120) {
-            gradleTemplate = "forgeBuildGradle120";
-        } else {
-            throw new IllegalStateException(
-                    "No Forge build.gradle template for Minecraft " + mc + " (expected 1.11 / 1.12 / 1.13 / 1.20 line).");
+        String gradleTemplate = str(unifiedArchiveSource.get("buildTemplateKey"));
+        String mappingsKind = str(unifiedArchiveSource.get("mappingsKind"));
+        String metadataTemplate = str(unifiedArchiveSource.get("metadataTemplate"));
+        if (gradleTemplate.isBlank() || mappingsKind.isBlank() || metadataTemplate.isBlank()) {
+            throw new IllegalStateException("compile group \"" + compileGroup
+                    + "\" forgeUnified must define buildTemplateKey, mappingsKind, and metadataTemplate in "
+                    + GROUPS_FILE.toAbsolutePath().normalize());
         }
         Map<String, String> forgeGradleValues = new HashMap<>();
         forgeGradleValues.put("archivesName", archivesName);
         forgeGradleValues.put("minecraft", mc);
         forgeGradleValues.put("forgeVersion", forgeVersion);
-        if (forge120) {
+        if ("mojmap".equalsIgnoreCase(mappingsKind)) {
             putMojmapSourceDirLines(forgeGradleValues, mc);
-        }
-        if (!forge120) {
+        } else {
             putForgeMcpMappings(forgeGradleValues, unifiedArchiveSource, groupForgeMcp, compileGroup);
         }
         write(dir.resolve("build.gradle"), renderTemplate(gradleTemplate, forgeGradleValues));
 
         Path resources = dir.resolve("src/main/resources");
         Files.createDirectories(resources);
-        if (forge113) {
+        if ("forgeModsToml113".equals(metadataTemplate)) {
             Path meta = resources.resolve("META-INF");
             Files.createDirectories(meta);
             write(meta.resolve("mods.toml"), renderTemplate("forgeModsToml113", Map.of()));
-        } else if (forge120) {
+        } else if ("forgeModsToml120".equals(metadataTemplate)) {
             Path meta = resources.resolve("META-INF");
             Files.createDirectories(meta);
             write(meta.resolve("mods.toml"), renderTemplate("forgeModsToml120", Map.of()));
-        } else {
+        } else if ("forgeMcmodInfo".equals(metadataTemplate)) {
             write(resources.resolve("mcmod.info"), renderTemplate("forgeMcmodInfo", Map.of(
                     "minecraft", mc)));
+        } else {
+            throw new IllegalStateException("Unknown Forge metadata template key \"" + metadataTemplate
+                    + "\" for compile group \"" + compileGroup + "\"");
         }
     }
 
@@ -440,6 +427,8 @@ public final class GenerateVariants {
     private static List<Map<String, Object>> collectRowsFromGroups(List<Map<String, Object>> groups) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Map<String, Object> group : groups) {
+            if (!shouldBuildGroup(group))
+                continue;
             String groupId = str(group.get("id"));
             List<Map<String, Object>> variants = castList(group.get("variants"));
             for (Map<String, Object> variant : variants) {
@@ -509,6 +498,42 @@ public final class GenerateVariants {
         return GSON.fromJson(Files.readString(file), type);
     }
 
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> readTemplateFiles() {
+        try {
+            if (!Files.isRegularFile(GROUPS_FILE)) {
+                throw new IllegalStateException("Missing matrix file under gradle/: chronos-compile-groups.json");
+            }
+            Map<String, Object> root = readObject(GROUPS_FILE);
+            Object gvObj = root.get("generateVariants");
+            if (!(gvObj instanceof Map)) {
+                throw new IllegalStateException(GROUPS_FILE + " must define generateVariants.templateFiles");
+            }
+            Map<String, Object> gv = (Map<String, Object>) gvObj;
+            Object tfObj = gv.get("templateFiles");
+            if (!(tfObj instanceof Map)) {
+                throw new IllegalStateException(
+                        GROUPS_FILE + " must define generateVariants.templateFiles as a JSON object");
+            }
+            Map<String, Object> tf = (Map<String, Object>) tfObj;
+            Map<String, String> out = new HashMap<>();
+            for (Map.Entry<String, Object> e : tf.entrySet()) {
+                String v = str(e.getValue());
+                if (v.isBlank()) {
+                    throw new IllegalStateException("generateVariants.templateFiles[\"" + e.getKey()
+                            + "\"] must be non-blank in " + GROUPS_FILE);
+                }
+                out.put(e.getKey(), v);
+            }
+            if (out.isEmpty()) {
+                throw new IllegalStateException("generateVariants.templateFiles must not be empty in " + GROUPS_FILE);
+            }
+            return Map.copyOf(out);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to read " + GROUPS_FILE, ex);
+        }
+    }
+
     private static Map<String, String> readTemplates() {
         Map<String, String> out = new HashMap<>();
         for (Map.Entry<String, String> e : TEMPLATE_FILES.entrySet()) {
@@ -556,6 +581,12 @@ public final class GenerateVariants {
 
     private static boolean bool(Object value) {
         return value instanceof Boolean b && b;
+    }
+
+    /* shouldBuild flag in JSON determines if the group is built */
+    private static boolean shouldBuildGroup(Map<String, Object> group) {
+        Object value = group.get("shouldBuild");
+        return !(value instanceof Boolean b) || b;
     }
 
     private static String str(Object value) {

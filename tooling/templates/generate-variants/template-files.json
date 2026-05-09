@@ -1,0 +1,17 @@
+{
+  "fabricBuildGradle": "fabric-build.gradle.template",
+  "fabricModJson": "fabric-mod.json.template",
+  "neoBuildGradleKts": "neo-build.gradle.kts.template",
+  "neoModsToml": "neo-neoforge.mods.toml.template",
+  "forgeBuildGradle111": "forge-build-1.11.gradle.template",
+  "forgeBuildGradle19": "forge-build-1.9.gradle.template",
+  "forgeBuildGradle110": "forge-build-1.10.gradle.template",
+  "forgeBuildGradle18": "forge-build-1.8.gradle.template",
+  "forgeBuildGradle17": "forge-build-1.7.gradle.template",
+  "forgeBuildGradle112": "forge-build-1.12.gradle.template",
+  "forgeBuildGradle113": "forge-build-1.13.gradle.template",
+  "forgeBuildGradle120": "forge-build-1.20.gradle.template",
+  "forgeMcmodInfo": "forge-mcmod.info.template",
+  "forgeModsToml113": "forge-mods-1.13.toml.template",
+  "forgeModsToml120": "forge-mods-1.20.toml.template"
+}

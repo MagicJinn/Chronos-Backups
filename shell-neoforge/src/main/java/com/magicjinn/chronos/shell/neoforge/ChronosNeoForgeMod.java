@@ -2,6 +2,7 @@ package com.magicjinn.chronos.shell.neoforge;
 
 import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.ShellMessenger;
+import com.magicjinn.chronos.shell.ChronosConstants;
 import com.magicjinn.chronos.shell.HookBridge;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
 import com.magicjinn.chronos.shell.mojmap.common.MojmapBackupWorldController;
@@ -20,7 +21,7 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 @Mod(ChronosNeoForgeMod.MOD_ID)
 public final class ChronosNeoForgeMod {
-    public static final String MOD_ID = "chronosbackup";
+    public static final String MOD_ID = ChronosConstants.MODID;
     private static volatile MinecraftServer activeServer;
     private static final MojmapBackupWorldController WORLD_CONTROLLER = new MojmapBackupWorldController();
     private static final ShellMessenger MESSENGER = new MojmapShellMessenger(() -> activeServer);

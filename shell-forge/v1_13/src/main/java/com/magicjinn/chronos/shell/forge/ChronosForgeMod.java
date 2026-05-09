@@ -2,6 +2,7 @@ package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.ShellMessenger;
+import com.magicjinn.chronos.shell.ChronosConstants;
 import com.magicjinn.chronos.shell.HookBridge;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
 import com.mojang.brigadier.CommandDispatcher;
@@ -17,10 +18,10 @@ import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
-@Mod("chronosbackup")
+@Mod(ChronosForgeMod.MODID)
 public final class ChronosForgeMod {
-    public static final String MODID = "chronosbackup";
-    public static final String NAME = "Chronos Backup";
+    public static final String MODID = ChronosConstants.MODID;
+    public static final String NAME = ChronosConstants.NAME;
     public static final String VERSION = "@VERSION@";
     private static volatile MinecraftServer activeServer;
     private static final ForgeBackupWorldController WORLD_CONTROLLER = new ForgeBackupWorldController();

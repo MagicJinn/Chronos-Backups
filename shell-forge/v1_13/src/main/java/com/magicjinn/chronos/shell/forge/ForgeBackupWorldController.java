@@ -54,6 +54,7 @@ public final class ForgeBackupWorldController implements BackupWorldController {
     }
 
     private static void runOnServerThread(MinecraftServer server, Runnable task) {
+        // Backup hooks can run off-thread, world operations must run on server thread
         if (SERVER_THREAD_NAME.equals(Thread.currentThread().getName())) {
             task.run();
             return;
