@@ -156,32 +156,32 @@ public final class Backupper {
             Files.createDirectories(cacheFolder);
 
             if (worldController != null) {
-                context.logInfo("Chronos backup: flushing world to disk...");
+                context.logInfo("Chronos backups: flushing world to disk...");
                 worldController.saveAllWorldData(context.getServerHandle());
-                context.logInfo("Chronos backup: pausing automatic saves...");
+                context.logInfo("Chronos backups: pausing automatic saves...");
                 worldController.setWorldSavingDisabled(context.getServerHandle(), true);
                 attemptedSavingPause = true;
             }
 
-            context.logInfo("Chronos backup: copying world into cache (this can take a while)...");
+            context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
             copyWorldToCache(worldPath, cacheSnapshotPath, context);
             if (attemptedSavingPause && worldController != null) {
-                context.logInfo("Chronos backup: restoring automatic saves...");
+                context.logInfo("Chronos backups: restoring automatic saves...");
                 worldController.setWorldSavingDisabled(context.getServerHandle(), false);
                 attemptedSavingPause = false;
             }
 
             if (Config.getPruneChunksEnabled()) {
-                context.logInfo("Chronos backup: pruning snapshot...");
+                context.logInfo("Chronos backups: pruning snapshot...");
                 RustPrunerBridge.pruneMinecraftWorld(
                         cacheSnapshotPath,
                         Config.getPruneTimeRequirementSeconds(),
                         Config.getPruneMaxWorkerThreads());
             } else {
-                context.logInfo("Chronos backup: snapshot pruning disabled by config.");
+                context.logInfo("Chronos backups: snapshot pruning disabled by config.");
             }
 
-            context.logInfo("Chronos backup: writing zip archive...");
+            context.logInfo("Chronos backups: writing zip archive...");
             zipSnapshot(cacheSnapshotPath, zipOutputPath);
 
             backupFinishedSuccessfully = true;
@@ -214,7 +214,7 @@ public final class Backupper {
                     Files.deleteIfExists(zipOutputPath);
                 } catch (IOException e) {
                     context.logError(
-                            "Chronos backup: could not remove incomplete zip "
+                            "Chronos backups: could not remove incomplete zip "
                                     + zipOutputPath
                                     + ": "
                                     + e.getMessage());
@@ -401,7 +401,7 @@ public final class Backupper {
                                     && nextProgressLogNanos.compareAndSet(
                                             dueAt,
                                             now + COPY_PROGRESS_LOG_INTERVAL_NANOS)) {
-                                context.logInfo("Chronos backup: copied " + n + " files so far...");
+                                context.logInfo("Chronos backups: copied " + n + " files so far...");
                             }
                         }
                         return FileVisitResult.CONTINUE;
@@ -411,7 +411,7 @@ public final class Backupper {
                     public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
                         if (context != null) {
                             context.logError(
-                                    "Chronos backup: could not read a world file or folder during copy: "
+                                    "Chronos backups: could not read a world file or folder during copy: "
                                             + file
                                             + " — "
                                             + exc);
@@ -421,7 +421,7 @@ public final class Backupper {
                 });
         if (context != null) {
             context.logInfo(
-                    "Chronos backup: finished copying " + fileCounter.get() + " files into cache.");
+                    "Chronos backups: finished copying " + fileCounter.get() + " files into cache.");
         }
     }
 

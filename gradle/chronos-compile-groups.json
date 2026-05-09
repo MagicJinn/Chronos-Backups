@@ -62,7 +62,10 @@
       "forgeUnified": {
         "referenceMinecraft": "1.20",
         "forge": "46.0.14",
-        "archiveVersionTag": "1.20.0"
+        "archiveVersionTag": "1.20.0",
+        "buildTemplateKey": "forgeBuildGradle120",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml120"
       }
     },
     {
@@ -94,7 +97,99 @@
       "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.12.2",
-        "forge": "14.23.5.2864"
+        "forge": "14.23.5.2864",
+        "buildTemplateKey": "forgeBuildGradle112",
+        "mappingsKind": "mcp",
+        "metadataTemplate": "forgeMcmodInfo"
+        }
+        }, {
+          "id": "minecraft_1_11",
+          "description": "Forge-only. Unified Forge for all 1.11.x.",
+          "shouldBuild": true,
+          "jarTargetLabel": "1.11.x",
+          "minecraftVersionPrefixes": ["1.11"],
+          "forgeMcp": {
+            "mcpChannel": "stable",
+            "mcpVersion": "32-1.11"
+          },
+          "unifiedForgeJar": true,
+          "forgeUnified": {
+            "referenceMinecraft": "1.11.2",
+            "forge": "13.20.1.2588",
+            "buildTemplateKey": "forgeBuildGradle111",
+            "mappingsKind": "mcp",
+            "metadataTemplate": "forgeMcmodInfo"
+          }
+        }, {
+          "id": "minecraft_1_10",
+          "description": "Forge-only. Unified Forge for all 1.10.x.",
+          "shouldBuild": true,
+          "jarTargetLabel": "1.10.x",
+          "minecraftVersionPrefixes": ["1.10"],
+          "forgeMcp": {
+            "mcpChannel": "stable",
+            "mcpVersion": "29-1.10.2"
+          },
+          "unifiedForgeJar": true,
+          "forgeUnified": {
+            "referenceMinecraft": "1.10.2",
+            "forge": "12.18.3.2511",
+            "buildTemplateKey": "forgeBuildGradle110",
+            "mappingsKind": "mcp",
+            "metadataTemplate": "forgeMcmodInfo"
+          }
+        }, {
+          "id": "minecraft_1_9",
+          "description": "Forge-only. Unified Forge for all 1.9.x.",
+          "shouldBuild": true,
+          "jarTargetLabel": "1.9.x",
+          "minecraftVersionPrefixes": ["1.9"],
+          "forgeMcp": {
+            "mcpChannel": "stable",
+            "mcpVersion": "26-1.9.4"
+          },
+          "unifiedForgeJar": true,
+          "forgeUnified": {
+            "referenceMinecraft": "1.9.4",
+            "forge": "12.17.0.2317-1.9.4",
+            "buildTemplateKey": "forgeBuildGradle19",
+            "mappingsKind": "mcp",
+            "metadataTemplate": "forgeMcmodInfo"
+          }
+        }, {
+          "id": "minecraft_1_8",
+          "description": "Forge-only. Unified Forge for all 1.8.x.",
+          "jarTargetLabel": "1.8.x",
+          "minecraftVersionPrefixes": ["1.8"],
+          "forgeMcp": {
+            "mcpChannel": "stable",
+            "mcpVersion": "22-1.8.9"
+          },
+          "unifiedForgeJar": true,
+          "forgeUnified": {
+            "referenceMinecraft": "1.8.9",
+            "forge": "11.15.1.2318-1.8.9",
+            "buildTemplateKey": "forgeBuildGradle18",
+            "mappingsKind": "mcp",
+            "metadataTemplate": "forgeMcmodInfo"
+          }
+        }, {
+          "id": "minecraft_1_7",
+          "description": "Forge-only. Unified Forge for all 1.7.x (centered on 1.7.10).",
+          "jarTargetLabel": "1.7.x",
+          "minecraftVersionPrefixes": ["1.7"],
+          "forgeMcp": {
+            "mcpChannel": "stable",
+            "mcpVersion": "12-1.7.10"
+          },
+          "unifiedForgeJar": true,
+          "forgeUnified": {
+            "referenceMinecraft": "1.7.10",
+            "forge": "10.13.4.1614-1.7.10",
+            "archiveVersionTag": "1.7.10",
+            "buildTemplateKey": "forgeBuildGradle17",
+            "mappingsKind": "mcp",
+            "metadataTemplate": "forgeMcmodInfo"
       }
     }, {
       "id": "minecraft_1_13",
@@ -108,8 +203,30 @@
       "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.13.2",
-        "forge": "25.0.223"
-      }
+        "forge": "25.0.223",
+        "buildTemplateKey": "forgeBuildGradle113",
+        "mappingsKind": "mcp",
+        "metadataTemplate": "forgeModsToml113"
+        }
+        }
+  ],
+  "generateVariants": {
+    "templateFiles": {
+      "fabricBuildGradle": "fabric-build.gradle.template",
+      "fabricModJson": "fabric-mod.json.template",
+      "neoBuildGradleKts": "neo-build.gradle.kts.template",
+      "neoModsToml": "neo-neoforge.mods.toml.template",
+      "forgeBuildGradle111": "forge-build-1.11.gradle.template",
+      "forgeBuildGradle19": "forge-build-1.9.gradle.template",
+      "forgeBuildGradle110": "forge-build-1.10.gradle.template",
+      "forgeBuildGradle18": "forge-build-1.8.gradle.template",
+      "forgeBuildGradle17": "forge-build-1.7.gradle.template",
+      "forgeBuildGradle112": "forge-build-1.12.gradle.template",
+      "forgeBuildGradle113": "forge-build-1.13.gradle.template",
+      "forgeBuildGradle120": "forge-build-1.20.gradle.template",
+      "forgeMcmodInfo": "forge-mcmod.info.template",
+      "forgeModsToml113": "forge-mods-1.13.toml.template",
+      "forgeModsToml120": "forge-mods-1.20.toml.template"
     }
-  ]
+  }
 }

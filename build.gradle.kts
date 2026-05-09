@@ -329,7 +329,7 @@ tasks.register<Copy>("collectAllJars") {
     duplicatesStrategy = DuplicatesStrategy.FAIL
     dependsOn(packableSubprojects.map { it.tasks.named("build") })
     val modId =
-        (findProperty("chronos.mod.id") ?: "chronosbackup").toString().lowercase()
+        (findProperty("chronos.mod.id") ?: "chronosbackups").toString().lowercase()
     val modVersion = (findProperty("chronos.mod.version") ?: "0.0.0").toString()
     for (sub in packableSubprojects) {
         from(sub.layout.buildDirectory.dir("libs")) {
