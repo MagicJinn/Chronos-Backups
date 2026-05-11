@@ -274,16 +274,16 @@ configure(packableSubprojects) {
     }
 }
 
-tasks.register("generateVariantProjects") {
+tasks.register("generateVariants") {
     group = "chronos"
     description = "Generates variants/<compileGroup> via Java tooling."
-    dependsOn(":tooling:runGenerateVariantProjects")
+    dependsOn(":tooling:runGenerateVariants")
 }
 
-tasks.register("smokeTestServers") {
+tasks.register("smokeTest") {
     group = "verification"
     description = "Runs dedicated server smoke tests via Java tooling."
-    dependsOn(":tooling:runSmokeTestServers")
+    dependsOn(":tooling:runSmokeTest")
 }
 
 fun collectedJarPrefix(variantProjectName: String): String {
@@ -324,7 +324,7 @@ fun variantSlugToVersionLabel(loader: String, slug: String): String =
 tasks.register<Copy>("collectAllJars") {
     group = "build"
     description =
-        "Copies each variant production JAR into root build/libs (renamed), then deletes those JARs from the variant build/libs folders."
+        "Copies each variant production JAR into root build/libs (renamed). Variant build/libs are left intact so Gradle incremental builds keep valid remap/jar outputs."
     into(layout.buildDirectory.dir("libs"))
     duplicatesStrategy = DuplicatesStrategy.FAIL
     dependsOn(packableSubprojects.map { it.tasks.named("build") })
@@ -336,18 +336,6 @@ tasks.register<Copy>("collectAllJars") {
             include("*.jar")
             exclude("*-sources.jar", "*-javadoc.jar", "*-dev.jar")
             rename { collectedJarName(modId, modVersion, sub.name) }
-        }
-    }
-    doLast {
-        for (sub in packableSubprojects) {
-            val libsDir = sub.layout.buildDirectory.dir("libs").get().asFile
-            if (!libsDir.isDirectory) continue
-            libsDir.listFiles { _, name ->
-                name.endsWith(".jar") &&
-                    !name.endsWith("-sources.jar") &&
-                    !name.endsWith("-javadoc.jar") &&
-                    !name.endsWith("-dev.jar")
-            }?.forEach { it.delete() }
         }
     }
 }

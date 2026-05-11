@@ -24,23 +24,29 @@ include(":tooling")
 
 val requestedTasks = gradle.startParameter.taskNames
 val bootstrapVariantGeneration = requestedTasks.any { taskName ->
-    taskName == "generateVariantProjects" || taskName.endsWith(":generateVariantProjects")
+    taskName == "generateVariants" || taskName.endsWith(":generateVariants")
 }
 val rustOnlyBuild = requestedTasks.isNotEmpty() && requestedTasks.all { taskName ->
     val bare = taskName.substringAfterLast(':')
     bare == "buildRust" || bare.startsWith("buildRust_") || bare.startsWith("rustTargetAdd_")
 }
 
-if (System.getenv("CHRONOS_SKIP_VARIANT_AUTOGEN") != "1") {
+fun chronosVariantGenerationSkipRequested(): Boolean {
+    val raw = System.getenv("CHRONOS_VARIANT_GENERATION") ?: return false
+    val v = raw.trim().lowercase()
+    return v == "skip" || v == "0" || v == "false" || v == "off"
+}
+
+if (!chronosVariantGenerationSkipRequested()) {
     val wrapperPath = if (OperatingSystem.current().isWindows) "gradlew.bat" else "gradlew"
     val wrapper = file(wrapperPath)
     if (wrapper.exists()) {
-        val command = mutableListOf(wrapper.absolutePath, "generateVariantProjects", "--quiet", "--no-daemon")
+        val command = mutableListOf(wrapper.absolutePath, "generateVariants", "--quiet", "--no-daemon")
         val process = ProcessBuilder(command)
             .directory(rootDir)
             .redirectErrorStream(true)
             .apply {
-                environment()["CHRONOS_SKIP_VARIANT_AUTOGEN"] = "1"
+                environment()["CHRONOS_VARIANT_GENERATION"] = "skip"
             }
             .start()
         val output = process.inputStream.bufferedReader().readText()
@@ -53,7 +59,7 @@ if (System.getenv("CHRONOS_SKIP_VARIANT_AUTOGEN") != "1") {
 
 val compileGroupsFile = file("gradle/chronos-compile-groups.json")
 if (!compileGroupsFile.exists()) {
-    throw GradleException("Missing ${compileGroupsFile.path}. Run: ./gradlew generateVariantProjects")
+    throw GradleException("Missing ${compileGroupsFile.path}. Run: ./gradlew generateVariants")
 }
 
 fun File.directoriesSorted(): List<File> =
@@ -63,7 +69,7 @@ val variantsRoot = file("variants")
 if (!variantsRoot.isDirectory) {
     if (!bootstrapVariantGeneration && !rustOnlyBuild) {
         throw GradleException(
-            "Missing ${variantsRoot.path}. Run: ./gradlew generateVariantProjects",
+            "Missing ${variantsRoot.path}. Run: ./gradlew generateVariants",
         )
     }
 } else {

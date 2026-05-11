@@ -38,25 +38,24 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+/**
+ * Dedicated-server smoke: each job runs {@code runServer} from the repo root,
+ * waits for Chronos log markers, triggers backup via RCON.
+ */
 public final class SmokeTestServers {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path ROOT = locateRepoRoot();
     private static final Path GROUPS = ROOT.resolve("gradle/chronos-compile-groups.json");
     private static final Path SMOKE_CONFIG = ROOT.resolve("tooling/smoke-test-servers.config.json");
 
-    /**
-     * {@link ServerSocket#ServerSocket(int)} with port 0 only reserves a port while
-     * the socket is open. Parallel smoke workers must not interleave picks,
-     * otherwise two jobs can get the same port and one Gradle server fails with
-     * "Address already in use".
-     */
-    private static final Object SMOKE_PORT_ALLOC_LOCK = new Object();
+    private static volatile boolean reuseGradleDaemonForWorkers;
 
     private SmokeTestServers() {
     }
 
     public static void main(String[] args) throws Exception {
         Args cfg = Args.parse(args);
+        reuseGradleDaemonForWorkers = cfg.reuseGradleDaemon;
         SmokeConfig smoke = readSmokeConfig();
         Map<String, Object> groupsJson = GSON.fromJson(Files.readString(GROUPS), new TypeToken<Map<String, Object>>() {
         }.getType());
@@ -79,15 +78,15 @@ public final class SmokeTestServers {
             String line = primaryLinePrefix(g).replace(".", "_");
             if (unifiedFabric.contains(gid)) {
                 String name = "fabric-line-" + line;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name)));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name), Map.of()));
             }
             if (unifiedNeo.contains(gid)) {
                 String name = "neoforge-line-" + line;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name)));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name), Map.of()));
             }
             if (unifiedForge.contains(gid)) {
                 String name = "forge-line-" + line;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name)));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name), Map.of()));
             }
         }
         for (Map<String, Object> row : rows) {
@@ -99,15 +98,15 @@ public final class SmokeTestServers {
             String slug = mc.replace(".", "_");
             if (loaders.contains("fabric") && !unifiedFabric.contains(cg)) {
                 String name = "fabric-" + slug;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name)));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name), Map.of()));
             }
             if (loaders.contains("neoforge") && !unifiedNeo.contains(cg)) {
                 String name = "neoforge-" + slug;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name)));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name), Map.of()));
             }
             if (loaders.contains("forge") && !unifiedForge.contains(cg)) {
                 String name = "forge-" + slug;
-                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name)));
+                jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name), Map.of()));
             }
         }
         if (!cfg.only.isEmpty())
@@ -120,7 +119,8 @@ public final class SmokeTestServers {
         Path sessionDir = ROOT.resolve("build/smoke-server-logs").resolve(runId);
         Files.createDirectories(sessionDir);
         System.out.println("Session logs: " + sessionDir);
-        System.out.println("Planned jobs: " + jobs.size() + ", workers: " + cfg.workers);
+        System.out.println("Planned jobs: " + jobs.size() + ", workers: " + cfg.workers
+                + (cfg.reuseGradleDaemon ? ", reuseGradleDaemon: on" : ""));
         for (Job job : jobs) {
             System.out.println(" - " + job.label + " (cwd=" + job.cwd + ")");
         }
@@ -167,20 +167,25 @@ public final class SmokeTestServers {
             this.smoke = smoke;
         }
 
+        private static boolean jobRunnerCfgReuseDaemon() {
+            return SmokeTestServers.reuseGradleDaemonForWorkers;
+        }
+
         @Override
         public Result call() throws Exception {
+            return runSmoke();
+        }
+
+        private Result runSmoke() throws Exception {
             String worldName = "smoke_" + safe(job.label) + "_" + UUID.randomUUID().toString().substring(0, 8);
-            int gamePort;
+            int gamePort = allocatePort();
             int rconPort;
-            synchronized (SMOKE_PORT_ALLOC_LOCK) {
-                gamePort = allocatePort();
-                int tries = 0;
-                do {
-                    rconPort = allocatePort();
-                    if (++tries > 64)
-                        throw new IllegalStateException("Could not allocate distinct game and RCON ports");
-                } while (rconPort == gamePort);
-            }
+            int tries = 0;
+            do {
+                rconPort = allocatePort();
+                if (++tries > 64)
+                    throw new IllegalStateException("Could not allocate distinct game and RCON ports");
+            } while (rconPort == gamePort);
             String rconPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 24);
             for (Path runDir : job.runDirs) {
                 Files.createDirectories(runDir);
@@ -191,8 +196,13 @@ public final class SmokeTestServers {
 
             List<String> cmd = new ArrayList<>();
             cmd.add(gradleWrapperCommand(job.cwd));
+            for (Map.Entry<String, String> e : job.gradleProjectProperties.entrySet()) {
+                cmd.add("-P" + e.getKey() + "=" + e.getValue());
+            }
             cmd.addAll(job.gradleArgs);
-            cmd.add("--no-daemon");
+            if (!jobRunnerCfgReuseDaemon()) {
+                cmd.add("--no-daemon");
+            }
             cmd.add("--configure-on-demand");
             cmd.add("-Dorg.gradle.console=plain");
 
@@ -207,10 +217,10 @@ public final class SmokeTestServers {
                 System.out.println("[" + job.label + "] cmd: " + String.join(" ", cmd));
             }
             ProcessBuilder pb = new ProcessBuilder(cmd).directory(job.cwd.toFile());
-            // Root settings.gradle.kts otherwise spawns a nested generateVariantProjects on
+            // Root settings.gradle.kts otherwise spawns a nested generateVariants on
             // every Gradle entry. Parallel smoke runs then race Unimined/Mojang metadata
             // and unrelated logs show forge-line-1_12 "1.12.2" failures.
-            pb.environment().put("CHRONOS_SKIP_VARIANT_AUTOGEN", "1");
+            pb.environment().put("CHRONOS_VARIANT_GENERATION", "skip");
             pb.redirectErrorStream(true);
             Process p = pb.start();
             long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(360);
@@ -346,7 +356,8 @@ public final class SmokeTestServers {
         return false;
     }
 
-    private record Job(String label, Path cwd, List<String> gradleArgs, List<Path> runDirs) {
+    private record Job(String label, Path cwd, List<String> gradleArgs, List<Path> runDirs,
+            Map<String, String> gradleProjectProperties) {
     }
 
     private record Result(String label, boolean ok, String logName) {
@@ -727,26 +738,31 @@ public final class SmokeTestServers {
     private static final class Args {
         final int workers;
         final Set<String> only;
+        final boolean reuseGradleDaemon;
 
-        private Args(int workers, Set<String> only) {
+        private Args(int workers, Set<String> only, boolean reuseGradleDaemon) {
             this.workers = workers;
             this.only = only;
+            this.reuseGradleDaemon = reuseGradleDaemon;
         }
 
         static Args parse(String[] args) {
             int workers = 4;
             Set<String> only = new java.util.HashSet<>();
             boolean verbose = false;
+            boolean reuseGradleDaemon = false;
             for (int i = 0; i < args.length; i++) {
                 if ("--workers".equals(args[i]) && i + 1 < args.length)
                     workers = Integer.parseInt(args[++i]);
-                if ("--only".equals(args[i]) && i + 1 < args.length)
+                else if ("--only".equals(args[i]) && i + 1 < args.length)
                     only.add(args[++i]);
-                if ("--verbose".equals(args[i]))
+                else if ("--verbose".equals(args[i]))
                     verbose = true;
+                else if ("--reuse-gradle-daemon".equals(args[i]))
+                    reuseGradleDaemon = true;
             }
             VERBOSE = verbose;
-            return new Args(workers, only);
+            return new Args(workers, only, reuseGradleDaemon);
         }
     }
 

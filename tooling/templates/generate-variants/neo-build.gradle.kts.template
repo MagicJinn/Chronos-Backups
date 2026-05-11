@@ -8,8 +8,11 @@ version = rootProject.findProperty("chronos.mod.version") as String
 
 base { archivesName.set("{{archivesName}}") }
 
+val chronosSmokeNeo = findProperty("chronos.smokeTest.neoForge") as String?
+val chronosSmokeMcRange = findProperty("chronos.smokeTest.minecraftRange") as String?
+
 neoForge {
-    version = "{{neoVersion}}"
+    version = chronosSmokeNeo ?: "{{neoVersion}}"
     mods {
         register("chronosbackups") { sourceSet(sourceSets["main"]) }
     }
@@ -44,7 +47,7 @@ sourceSets.named("main") {
 
 tasks.processResources {
     inputs.property("version", project.version)
-    inputs.property("minecraft", "{{minecraft}}")
+    inputs.property("minecraft", findProperty("chronos.smokeTest.minecraft") ?: "{{minecraft}}")
     inputs.property("mod_id", rootProject.findProperty("chronos.mod.id") as String)
     inputs.property("mod_name", rootProject.findProperty("chronos.mod.name") as String)
     inputs.property("mod_description", rootProject.findProperty("chronos.mod.description") as String)
@@ -54,7 +57,7 @@ tasks.processResources {
         expand(
             mapOf(
                 "version" to project.version,
-                "minecraft_range" to "{{minecraftRange}}",
+                "minecraft_range" to (chronosSmokeMcRange ?: "{{minecraftRange}}"),
                 "neo_version" to "{{neoVersion}}",
                 "mod_id" to (rootProject.findProperty("chronos.mod.id") as String),
                 "mod_name" to (rootProject.findProperty("chronos.mod.name") as String),

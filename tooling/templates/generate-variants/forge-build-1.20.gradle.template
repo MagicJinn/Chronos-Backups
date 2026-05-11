@@ -18,6 +18,9 @@ java {
 
 unimined.useGlobalCache = true
 
+def chronosSmokeForgeMc = findProperty('chronos.smokeTest.minecraft') ?: '{{minecraft}}'
+def chronosSmokeForgeLoader = findProperty('chronos.smokeTest.forge') ?: '{{forgeVersion}}'
+
 repositories {
     // MCP config + Forge artifacts (must precede mirrors that omit de.oceanlabs.mcp)
     maven { url = 'https://maven.minecraftforge.net/' }
@@ -34,14 +37,14 @@ repositories {
 }
 
 unimined.minecraft {
-    version '{{minecraft}}'
+    version chronosSmokeForgeMc.toString()
 
     mappings {
         mojmap()
     }
 
     minecraftForge {
-        loader '{{forgeVersion}}'
+        loader chronosSmokeForgeLoader.toString()
     }
 
     defaultRemapJar = true

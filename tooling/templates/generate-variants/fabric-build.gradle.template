@@ -10,6 +10,12 @@ version = rootProject.findProperty('chronos.mod.version')
 
 base { archivesName = "{{archivesName}}" }
 
+def chronosSmokeMc = findProperty('chronos.smokeTest.minecraft') ?: '{{minecraft}}'
+def chronosSmokeFabricLoader = findProperty('chronos.smokeTest.fabricLoader') ?: '{{fabricLoader}}'
+def chronosSmokeFabricApi = findProperty('chronos.smokeTest.fabricApi') ?: '{{fabricApi}}'
+def chronosSmokeMcDep = findProperty('chronos.smokeTest.minecraftDep') ?: '{{minecraftDep}}'
+def chronosSmokeJavaDep = findProperty('chronos.smokeTest.javaDep') ?: '{{javaDep}}'
+
 repositories {
     mavenCentral()
 }
@@ -24,10 +30,10 @@ loom {
 
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
-    minecraft "com.mojang:minecraft:{{minecraft}}"
+    minecraft "com.mojang:minecraft:${chronosSmokeMc}"
     {{mappings}}
-    {{depConf}} "net.fabricmc:fabric-loader:{{fabricLoader}}"
-    {{depConf}} "net.fabricmc.fabric-api:fabric-api:{{fabricApi}}"
+    {{depConf}} "net.fabricmc:fabric-loader:${chronosSmokeFabricLoader}"
+    {{depConf}} "net.fabricmc.fabric-api:fabric-api:${chronosSmokeFabricApi}"
     // Night Config (NeoForge bundles this, Fabric needs both jars - core has ConfigFormat, toml is the TOML backend).
     include implementation("com.electronwill.night-config:core:${nightConfigVer}")
     include implementation("com.electronwill.night-config:toml:${nightConfigVer}")
@@ -50,7 +56,7 @@ sourceSets.main.java.srcDirs(
 
 processResources {
     inputs.property 'version', project.version
-    inputs.property 'minecraft', '{{minecraft}}'
+    inputs.property 'minecraft', chronosSmokeMc
     inputs.property 'mod_id', rootProject.findProperty('chronos.mod.id')
     inputs.property 'mod_name', rootProject.findProperty('chronos.mod.name')
     inputs.property 'mod_description', rootProject.findProperty('chronos.mod.description')
@@ -58,9 +64,9 @@ processResources {
     inputs.property 'mod_license', rootProject.findProperty('chronos.mod.license')
     filesMatching('fabric.mod.json') {
         expand 'version': project.version,
-               'minecraft': '{{minecraft}}',
-               'minecraft_dep': '{{minecraftDep}}',
-               'java_dep': '{{javaDep}}',
+               'minecraft': chronosSmokeMc,
+               'minecraft_dep': chronosSmokeMcDep,
+               'java_dep': chronosSmokeJavaDep,
                'mod_id': rootProject.findProperty('chronos.mod.id'),
                'mod_name': rootProject.findProperty('chronos.mod.name'),
                'mod_description': rootProject.findProperty('chronos.mod.description'),

@@ -37,20 +37,18 @@ fun parseCliArgs(raw: String): List<String> {
         .toList()
 }
 
-val runGenerateVariantProjects by tasks.registering(JavaExec::class) {
+val runGenerateVariants by tasks.registering(JavaExec::class) {
     group = "chronos"
     description = "Regenerates variants/<compileGroup> from JSON matrix files."
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.magicjinn.chronos.tooling.GenerateVariants")
 }
 
-val runSmokeTestServers by tasks.registering(JavaExec::class) {
+val runSmokeTest by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs dedicated server smoke tests in parallel."
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.magicjinn.chronos.tooling.SmokeTestServers")
-    val rawArgs = project.findProperty("chronos.smoke.args")?.toString()
-        ?: project.findProperty("chronosSmokeArgs")?.toString()
-        ?: ""
+    val rawArgs = project.findProperty("chronos.smoke.args")?.toString() ?: ""
     args = parseCliArgs(rawArgs)
 }

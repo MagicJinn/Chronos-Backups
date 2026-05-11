@@ -1,0 +1,37 @@
+{
+  "yearMinorMcPrefix": "26.",
+  "fabric": {
+    "modJsonJavaMajor": {
+      "nonLegacyFormatDefault": "25",
+      "preYearlyRules": [{
+          "minorMax": 16,
+          "javaMajor": "8"
+        },
+        {
+          "minorEquals": 17,
+          "javaMajor": "16"
+        },
+        {
+          "minorMin": 18,
+          "minorMax": 19,
+          "javaMajor": "17"
+        },
+        {
+          "minorMin": 20,
+          "javaMajor": "21"
+        }
+      ]
+    },
+    "gradleToolchainMajor": {
+      "whenMatches": "25",
+      "default": "21"
+    },
+    "javaDependencyForYearMinorFormat": ">=25"
+  },
+  "neoForge": {
+    "javaMajor": {
+      "whenMatches": "25",
+      "default": "21"
+    }
+  }
+}

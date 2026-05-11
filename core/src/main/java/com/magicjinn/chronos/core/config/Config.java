@@ -56,6 +56,9 @@ public final class Config {
 
     private static void writeTomlDocument(Path path, ModConfig config) {
         try {
+            Path parent = path.getParent();
+            if (parent != null)
+                Files.createDirectories(parent);
             Files.write(
                     path,
                     ChronosTomlSpec.renderDocument(config).getBytes(StandardCharsets.UTF_8),

@@ -97,36 +97,69 @@ On Windows, cross-linking non-Windows targets requires an actual cross-linker. I
 
 ### Commands
 
-Use the Gradle wrapper from the repo root.
-
-#### PowerShell
+Use the Gradle wrapper from the repo root. Examples below use Windows (`.\gradlew.bat`); on Unix use `./gradlew`.
 
 ```powershell
 .\gradlew.bat buildAll
-.\gradlew.bat smokeTestServers
-.\gradlew.bat smokeTestServers -PchronosSmokeArgs="--workers 16"
+.\gradlew.bat generateVariants
+.\gradlew.bat smokeTest
 ```
+
+### Variant generation (`generateVariants`)
+
+Gradle loads every project under `variants/` during **settings** evaluation. If `variants/` is missing or stale, the root `settings.gradle.kts` runs **`generateVariants`** in a nested Gradle invocation so the IDE and CLI always see an up-to-date variant layout.
+
+#### Environment: `CHRONOS_VARIANT_GENERATION`
+
+By convention, **environment variables use uppercase** so they stand out in CI logs and match common POSIX shells (`export VAR=value`). Chronos uses one flag for the nested generator:
+
+| Value | Effect |
+|-------|--------|
+| *(unset)* | Allow automatic nested `generateVariants` during settings when needed. |
+| `skip`, `0`, `false`, `off` | Skip nested variant generation (CI and scripted builds set this when variants are generated explicitly). |
+
+Variant definitions live in **`gradle/chronos-compile-groups.json`**. Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files are driven by **`gradle/chronos-java-matrix.json`** so version breakpoints are not scattered through Java code.
+
+### Smoke testing (`smokeTest`)
+
+The **`smokeTest`** task runs `SmokeTestServers`: it starts each variant’s **`runServer`** (or a filtered subset), waits for Chronos log markers, sends an RCON backup command, and asserts shutdown markers. Logs land under `build/smoke-server-logs/<session-id>/`.
+
+**Gradle arguments** are passed only through **`-Pchronos.smoke.args="..."`** (quoted). That string is tokenized and forwarded to the Java `main` as program arguments.
+
+**CLI flags** (passed via `-Pchronos.smoke.args`):
+
+| Flag | Meaning |
+|------|---------|
+| `--workers <n>` | Thread pool size (default `4`). Multiple smoke jobs may run concurrently, each with its own `./gradlew` subprocess. |
+| `--only <label>` | Restrict to one job label (repeat flag for multiple). Labels match Gradle project names, e.g. `fabric-line-1_21_11`. |
+| `--reuse-gradle-daemon` | Omit `--no-daemon` on subprocess Gradle invocations so daemons can stay warm between jobs (faster local runs; default remains cold subprocesses for isolation). |
+| `--verbose` | Mirror child Gradle output to the console. |
+
+**`--workers` and Gradle:** Each smoke job runs **`./gradlew` from the repo root** for its variant. Higher `--workers` runs more jobs in parallel; use **`--workers 1`** if you prefer strictly sequential smoke or hit rare OS file-lock contention on shared paths.
+
+**Optional Gradle overrides:** Unified-line variant builds accept **`-Pchronos.smokeTest.*`** properties (see generated `build.gradle` / `build.gradle.kts`) so you can pin Minecraft, loader, and API or NeoForge coordinates when experimenting locally.
+
+**Minecraft version strings** must match **Mojang / Loom** ids (see `com.mojang:minecraft` resolution). For example the first **1.21** Java release is typically **`1.21`**, not `1.21.0`; using a non-existent id makes Loom fail with “Failed to find minecraft version”.
 
 ### Most useful tasks
 
-- `buildAll` - builds all enabled variants (Fabric, NeoForge, Forge), then collects output jars.
-- `buildRust` - builds native `rust-pruner` libraries for active targets (host-native by default, auto-run by build/run tasks).
-- `collectAllJars` - copies final jars to root `build/libs/`. Automatically run by `buildAll`.
-- `:fabric-line-1_21_0-1_21_10:build`, `:fabric-line-1_21_11:build` - build one target.
-- `:<version>-line-<compileGroup>:runClient` - Runs the client for the given version and compile group.
-- `:<version>-line-<compileGroup>:runServer` - Runs the server for the given version and compile group. (will not automatically shut down like `smokeTestServers` does)
-- `generateVariantProjects` - generates variant projects from `gradle/chronos-compile-groups.json`. Should be run automaticaly.
-- `smokeTestServers` - runs dev servers and checks expected Chronos startup lines. Smoke tests are run against the highest supported minor version of the target line, meaning that Forge 1.20.0 will test against 1.20.0, and Fabric 1.20.x will test against 1.20.6. Arguments: `--workers <number>` (default 4), `--only <label>` (repeatable).
+- **`buildAll`** — builds all enabled variants, then collects output jars.
+- **`buildRust`** — builds native `rust-pruner` libraries (host-native by default; auto-run by build/run tasks).
+- **`collectAllJars`** — copies final jars to root `build/libs/` (runs as part of `buildAll`).
+- **`generateVariants`** — regenerates `variants/` from `gradle/chronos-compile-groups.json` (also invoked automatically from settings when appropriate).
+- **`smokeTest`** — automated dedicated-server smoke runs (see above).
+- **`:fabric-line-…:build`** / **`:neoforge-line-…:build`** — build a single unified line.
+- **`:…:runClient`** / **`:…:runServer`** — interactive dev runs (do not auto-stop; unlike `smokeTest`).
 
-Example Run command:
+Examples:
 
 ```powershell
 .\gradlew.bat :fabric-line-26_1:runClient
 .\gradlew.bat :neoforge-line-1_21_11:runServer
+.\gradlew.bat smokeTest "-Pchronos.smoke.args=--workers 8 --only fabric-line-1_21_11"
+.\gradlew.bat smokeTest "-Pchronos.smoke.args=--reuse-gradle-daemon --workers 4"
 ```
 
-Example Smoke Test command:
+### Speed notes
 
-```powershell
-.\gradlew.bat smokeTestServers -PchronosSmokeArgs="--workers 2 --only fabric-line-1_21_11"
-```
+Root **`gradle.properties`** already enables **`org.gradle.parallel`** and **`org.gradle.caching`**. Smoke runs pass **`--configure-on-demand`** to subprocess Gradle invocations. **`--reuse-gradle-daemon`** trades stronger isolation for faster repeated smoke locally.
