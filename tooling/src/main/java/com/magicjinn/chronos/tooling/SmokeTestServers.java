@@ -79,6 +79,8 @@ public final class SmokeTestServers {
 
         List<Job> jobs = new ArrayList<>();
         for (Map<String, Object> g : groups) {
+            if (!shouldBuildGroup(g))
+                continue;
             String gid = str(g.get("id"));
             String line = primaryLinePrefix(g).replace(".", "_");
             if (unifiedFabric.contains(gid)) {
@@ -95,8 +97,8 @@ public final class SmokeTestServers {
             }
         }
         for (Map<String, Object> row : rows) {
-            String mc = str(row.get("minecraft"));
             String cg = str(row.get("compileGroup"));
+            String mc = str(row.get("minecraft"));
             List<String> loaders = strList(row.get("loaders"));
             if (loaders.isEmpty())
                 loaders = List.of("fabric", "neoforge");
@@ -537,7 +539,8 @@ public final class SmokeTestServers {
      * Labels under {@code smokeTestServers.skipSmoke} in
      * {@code gradle/chronos-compile-groups.json}
      * (Gradle project names such as {@code forge-line-1_17}) are dropped from the
-     * smoke job list.
+     * smoke job list. Compile groups with {@code shouldBuild: false} are omitted earlier
+     * (same rule as {@link GenerateVariants}).
      */
     private static Set<String> readSkipSmoke(Map<String, Object> root) {
         Object wrapper = root.get("smokeTestServers");
@@ -557,6 +560,8 @@ public final class SmokeTestServers {
     private static List<Map<String, Object>> collectRowsFromGroups(List<Map<String, Object>> groups) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Map<String, Object> group : groups) {
+            if (!shouldBuildGroup(group))
+                continue;
             String groupId = str(group.get("id"));
             List<Map<String, Object>> variants = castList(group.get("variants"));
             for (Map<String, Object> variant : variants) {
@@ -566,6 +571,17 @@ public final class SmokeTestServers {
             }
         }
         return rows;
+    }
+
+    /**
+     * Matches {@link GenerateVariants}: {@code shouldBuild: false} omits a compile group from
+     * variant generation and from smoke jobs so Gradle never targets a missing project.
+     */
+    private static boolean shouldBuildGroup(Map<String, Object> group) {
+        if (group == null || group.isEmpty())
+            return true;
+        Object value = group.get("shouldBuild");
+        return !(value instanceof Boolean b) || b;
     }
 
     @SuppressWarnings("unchecked")

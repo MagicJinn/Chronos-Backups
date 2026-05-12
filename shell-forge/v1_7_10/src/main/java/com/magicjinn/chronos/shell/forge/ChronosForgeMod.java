@@ -14,7 +14,7 @@ import cpw.mods.fml.relauncher.FMLLaunchHandler;
 import cpw.mods.fml.relauncher.Side;
 import net.minecraft.server.MinecraftServer;
 
-@Mod(modid = ChronosForgeMod.MODID, name = ChronosForgeMod.NAME, version = ChronosForgeMod.VERSION, acceptableRemoteVersions = "*", acceptedMinecraftVersions = "[1.7,1.8)")
+@Mod(modid = ChronosForgeMod.MODID, name = ChronosForgeMod.NAME, version = ChronosForgeMod.VERSION, acceptableRemoteVersions = "*", acceptedMinecraftVersions = ForgeShellMcManifest.ACCEPTED_MINECRAFT_VERSIONS)
 public final class ChronosForgeMod {
     public static final String MODID = ChronosConstants.MODID;
     public static final String NAME = ChronosConstants.NAME;

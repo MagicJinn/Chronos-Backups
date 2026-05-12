@@ -48,7 +48,7 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
+| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | Forge **1.7.2** does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)). |
 | `1.6.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.5.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | `1.4.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |

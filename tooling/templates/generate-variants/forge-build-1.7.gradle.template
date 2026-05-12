@@ -36,7 +36,7 @@ unimined.minecraft {
     version '{{minecraft}}'
 
     mappings {
-        searge()
+        {{seargeInvocation}}
         mcp '{{mcpChannel}}', '{{mcpVersion}}'
     }
 
@@ -77,8 +77,8 @@ sourceSets.main.java.srcDirs(
     rootProject.file('shell-shared/src/main/java'),
     rootProject.file('shell-forge/forge-shared-command-registrar/src/main/java'),
     rootProject.file('shell-forge/forge-common-1_7-1_8/src/main/java'),
-    rootProject.file('shell-forge/v1_7_10/src/main/java'),
 )
+{{forge17LineSourcesGroovy}}
 
 processResources {
     dependsOn rootProject.tasks.named('prepareBuildIcon')

@@ -28,6 +28,8 @@ public final class GenerateVariants {
     private static final Map<String, String> TEMPLATES = readTemplates();
     private static final Path JAVA_MATRIX_FILE = ROOT.resolve("gradle/chronos-java-matrix.json");
     private static final JavaMatrix JAVA_MATRIX = loadJavaMatrix(JAVA_MATRIX_FILE);
+    private static final Path FORGE_PACK_FORMAT_FILE = ROOT.resolve("gradle/chronos-forge-pack-format.json");
+    private static final ForgePackFormatMatrix FORGE_PACK_FORMAT = loadForgePackFormat(FORGE_PACK_FORMAT_FILE);
 
     private GenerateVariants() {
     }
@@ -264,6 +266,7 @@ public final class GenerateVariants {
         } else {
             putForgeMcpMappings(forgeGradleValues, unifiedArchiveSource, groupForgeMcp, compileGroup);
         }
+        putForge17LineSourcesGroovy(forgeGradleValues, gradleTemplate, mc);
         write(dir.resolve("build.gradle"), renderTemplate(gradleTemplate, forgeGradleValues));
 
         Path resources = dir.resolve("src/main/resources");
@@ -286,57 +289,12 @@ public final class GenerateVariants {
 
     /**
      * Matches {@code logoFile} / root {@code icon.png}, pack_format follows
-     * Minecraft Java resource pack versions for {@code referenceMinecraft}.
+     * Minecraft Java resource pack versions for {@code referenceMinecraft} (see
+     * {@code gradle/chronos-forge-pack-format.json}).
      */
     private static String forgePackMcmeta(String mc) {
-        int pf = forgePackFormatForMc(mc);
+        int pf = FORGE_PACK_FORMAT.packFormatForMc(mc);
         return "{\n  \"pack\": {\n    \"pack_format\": " + pf + ",\n    \"description\": \"Chronos Backup\"\n  }\n}\n";
-    }
-
-    private static int forgePackFormatForMc(String mc) {
-        String[] parts = mc.split("\\.");
-        try {
-            if (parts.length >= 2 && "1".equals(parts[0])) {
-                int minor = Integer.parseInt(parts[1]);
-                int patch = 0;
-                if (parts.length >= 3) {
-                    String patchRaw = parts[2].replaceAll("[^0-9].*", "");
-                    if (!patchRaw.isEmpty())
-                        patch = Integer.parseInt(patchRaw);
-                }
-                return switch (minor) {
-                    case 12 -> 3;
-                    case 13 -> 4;
-                    case 14 -> 4;
-                    case 15 -> 5;
-                    case 16 -> patch >= 2 ? 6 : 5;
-                    case 17 -> 7;
-                    case 18 -> 8;
-                    case 19 -> 9;
-                    case 20 -> forgePackFormat120(patch);
-                    case 21 -> forgePackFormat121(patch);
-                    default -> minor >= 21 ? 48 : 15;
-                };
-            }
-        } catch (NumberFormatException ignored) {
-        }
-        return 15;
-    }
-
-    private static int forgePackFormat120(int patch) {
-        if (patch <= 1)
-            return 15;
-        if (patch <= 4)
-            return 18;
-        if (patch <= 6)
-            return 22;
-        return 32;
-    }
-
-    private static int forgePackFormat121(int patch) {
-        if (patch <= 4)
-            return 34;
-        return 42;
     }
 
     private static String fabricMcDep(String mc) {
@@ -488,6 +446,36 @@ public final class GenerateVariants {
         }
         out.put("mcpChannel", channel);
         out.put("mcpVersion", artifact);
+    }
+
+    /**
+     * Forge 1.7.10 vs 1.7.2 share {@code shell-forge/v1_7_10} sources but need
+     * different
+     * {@link cpw.mods.fml.common.Mod#acceptedMinecraftVersions()} (via
+     * {@code ForgeShellMcManifest}) and different game/loader resolution
+     * (launchwrapper 1.9 vs 1.12).
+     */
+    private static void putForge17LineSourcesGroovy(Map<String, String> forgeGradleValues, String gradleTemplateKey,
+            String referenceMinecraft) {
+        if (!"forgeBuildGradle17".equals(gradleTemplateKey)) {
+            forgeGradleValues.put("forge17LineSourcesGroovy", "");
+            forgeGradleValues.put("seargeInvocation", "searge()");
+            return;
+        }
+        if ("1.7.2".equals(referenceMinecraft)) {
+            forgeGradleValues.put("seargeInvocation", "searge(\"1.7.10\")");
+            forgeGradleValues.put("forge17LineSourcesGroovy",
+                    """
+                            sourceSets.main.java.srcDir(rootProject.file('shell-forge/v1_7_2/src/main/java'))
+                            sourceSets.main.java.srcDir(rootProject.fileTree([dir: rootProject.file('shell-forge/v1_7_10/src/main/java'), excludes: ['**/ForgeShellMcManifest.java']]))
+                            """
+                            .stripLeading());
+        } else {
+            forgeGradleValues.put("seargeInvocation", "searge()");
+            forgeGradleValues.put("forge17LineSourcesGroovy", """
+                    sourceSets.main.java.srcDir(rootProject.file('shell-forge/v1_7_10/src/main/java'))
+                    """.stripLeading());
+        }
     }
 
     private static Map<String, String> forgeMcpFromGroup(Map<String, Object> group) {
@@ -919,6 +907,142 @@ public final class GenerateVariants {
             cursor = cursor.getParent();
         }
         return cwd;
+    }
+
+    private static ForgePackFormatMatrix loadForgePackFormat(Path file) {
+        try {
+            if (!Files.isRegularFile(file))
+                throw new IOException("Missing Forge pack format file: " + file);
+            Map<String, Object> root = readObject(file);
+            int fallback = intProp(root.get("nonLegacyFallbackPackFormat"), 15);
+            String legacyMajor = str(root.get("legacyMajor"));
+            if (legacyMajor.isEmpty())
+                legacyMajor = "1";
+            Map<Integer, Integer> fixedMinor = new HashMap<>();
+            for (Map<String, Object> row : castList(root.get("fixedMinor"))) {
+                int minor = intProp(row.get("minor"), -1);
+                int pf = intProp(row.get("packFormat"), -1);
+                if (minor >= 0 && pf >= 0)
+                    fixedMinor.put(minor, pf);
+            }
+            Map<String, Object> m16 = castMap(root.get("minor16"));
+            int m16Low = intProp(m16.get("packFormatWhenPatchBelow"), 5);
+            int m16PatchAtLeast = intProp(m16.get("patchAtLeast"), 2);
+            int m16High = intProp(m16.get("packFormatWhenPatchAtLeast"), 6);
+            List<PatchThreshold> t20 = readPatchThresholds(castList(root.get("minor20PatchThresholds")), file);
+            List<PatchThreshold> t21 = readPatchThresholds(castList(root.get("minor21PatchThresholds")), file);
+            Map<String, Object> unmatched = castMap(root.get("unmatchedLegacyMinor"));
+            int uAtLeast = intProp(unmatched.get("minorAtLeast"), 21);
+            int uHigh = intProp(unmatched.get("packFormatWhenAtLeast"), 48);
+            int uLow = intProp(unmatched.get("packFormatOtherwise"), 15);
+            return new ForgePackFormatMatrix(fallback, legacyMajor, fixedMinor, m16Low, m16PatchAtLeast, m16High, t20,
+                    t21, uAtLeast, uHigh, uLow);
+        } catch (IOException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private static List<PatchThreshold> readPatchThresholds(List<Map<String, Object>> rows, Path sourceFile) {
+        if (rows == null || rows.isEmpty())
+            throw new IllegalStateException("Patch thresholds must be non-empty in " + sourceFile);
+        List<PatchThreshold> out = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            int max = intProp(row.get("patchMaxInclusive"), -1);
+            int pf = intProp(row.get("packFormat"), -1);
+            if (max < 0 || pf < 0)
+                throw new IllegalStateException("Invalid patch threshold row in " + sourceFile + ": " + row);
+            out.add(new PatchThreshold(max, pf));
+        }
+        return List.copyOf(out);
+    }
+
+    private static int intProp(Object value, int defaultValue) {
+        if (value instanceof Number n)
+            return n.intValue();
+        if (value instanceof String s && !s.isBlank()) {
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    private record PatchThreshold(int patchMaxInclusive, int packFormat) {
+    }
+
+    private static final class ForgePackFormatMatrix {
+        private final int nonLegacyFallbackPackFormat;
+        private final String legacyMajor;
+        private final Map<Integer, Integer> fixedMinor;
+        private final int minor16Low;
+        private final int minor16PatchAtLeast;
+        private final int minor16High;
+        private final List<PatchThreshold> minor20Thresholds;
+        private final List<PatchThreshold> minor21Thresholds;
+        private final int unmatchedMinorAtLeast;
+        private final int unmatchedPackHigh;
+        private final int unmatchedPackLow;
+
+        private ForgePackFormatMatrix(int nonLegacyFallbackPackFormat, String legacyMajor,
+                Map<Integer, Integer> fixedMinor, int minor16Low, int minor16PatchAtLeast, int minor16High,
+                List<PatchThreshold> minor20Thresholds, List<PatchThreshold> minor21Thresholds,
+                int unmatchedMinorAtLeast, int unmatchedPackHigh, int unmatchedPackLow) {
+            this.nonLegacyFallbackPackFormat = nonLegacyFallbackPackFormat;
+            this.legacyMajor = legacyMajor;
+            this.fixedMinor = Map.copyOf(fixedMinor);
+            this.minor16Low = minor16Low;
+            this.minor16PatchAtLeast = minor16PatchAtLeast;
+            this.minor16High = minor16High;
+            this.minor20Thresholds = minor20Thresholds;
+            this.minor21Thresholds = minor21Thresholds;
+            this.unmatchedMinorAtLeast = unmatchedMinorAtLeast;
+            this.unmatchedPackHigh = unmatchedPackHigh;
+            this.unmatchedPackLow = unmatchedPackLow;
+        }
+
+        private int packFormatForMc(String mc) {
+            if (mc == null || mc.isBlank())
+                return nonLegacyFallbackPackFormat;
+            String[] parts = mc.split("\\.");
+            try {
+                if (parts.length >= 2 && legacyMajor.equals(parts[0])) {
+                    int minor = Integer.parseInt(parts[1]);
+                    int patch = parsePatch(parts);
+                    Integer fixed = fixedMinor.get(minor);
+                    if (fixed != null)
+                        return fixed;
+                    if (minor == 16)
+                        return patch >= minor16PatchAtLeast ? minor16High : minor16Low;
+                    if (minor == 20)
+                        return resolvePatchThreshold(minor20Thresholds, patch);
+                    if (minor == 21)
+                        return resolvePatchThreshold(minor21Thresholds, patch);
+                    return minor >= unmatchedMinorAtLeast ? unmatchedPackHigh : unmatchedPackLow;
+                }
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+            return nonLegacyFallbackPackFormat;
+        }
+
+        private static int parsePatch(String[] parts) {
+            if (parts.length < 3)
+                return 0;
+            String patchRaw = parts[2].replaceAll("[^0-9].*", "");
+            if (patchRaw.isEmpty())
+                return 0;
+            return Integer.parseInt(patchRaw);
+        }
+
+        private static int resolvePatchThreshold(List<PatchThreshold> thresholds, int patch) {
+            for (PatchThreshold t : thresholds) {
+                if (patch <= t.patchMaxInclusive)
+                    return t.packFormat;
+            }
+            return thresholds.get(thresholds.size() - 1).packFormat;
+        }
     }
 
     private static final class JavaMatrix {

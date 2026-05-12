@@ -343,10 +343,10 @@
             "metadataTemplate": "forgeMcmodInfo"
           }
         }, {
-          "id": "minecraft_1_7",
-          "description": "Forge-only. Unified Forge for all 1.7.x (centered on 1.7.10).",
-          "jarTargetLabel": "1.7.x",
-          "minecraftVersionPrefixes": ["1.7"],
+          "id": "minecraft_1_7_10",
+          "description": "Forge-only. Unified Forge for Minecraft 1.7.10.",
+          "jarTargetLabel": "1.7.10",
+          "minecraftVersionPrefixes": ["1.7.10"],
           "forgeMcp": {
             "mcpChannel": "stable",
             "mcpVersion": "12-1.7.10"
@@ -359,8 +359,27 @@
             "buildTemplateKey": "forgeBuildGradle17",
             "mappingsKind": "mcp",
             "metadataTemplate": "forgeMcmodInfo"
-      }
-    }, {
+          }
+          }, {
+          "id": "minecraft_1_7_2",
+          "description": "Forge 1.7.2 (optional). Generator and v1_7_2 ForgeShellMcManifest overlay are wired (searge from 1.7.10 plus snapshot MCP per Unimined issue 184). shouldBuild stays false until Unimined can remap the 1.7.2 FG2 joined jar without InvalidUnqualifiedName on TileEntity mappings.",
+          "shouldBuild": false,
+          "jarTargetLabel": "1.7.2",
+          "minecraftVersionPrefixes": ["1.7.2"],
+          "forgeMcp": {
+            "mcpChannel": "snapshot",
+            "mcpVersion": "20140925-1.7.10"
+          },
+          "unifiedForgeJar": true,
+          "forgeUnified": {
+            "referenceMinecraft": "1.7.2",
+            "forge": "10.12.2.1161-mc172",
+            "archiveVersionTag": "1.7.2",
+            "buildTemplateKey": "forgeBuildGradle17",
+            "mappingsKind": "mcp",
+            "metadataTemplate": "forgeMcmodInfo"
+          }
+          }, {
       "id": "minecraft_1_13",
       "description": "Forge-only. Unified Forge for all 1.13.x.",
       "jarTargetLabel": "1.13.x",
