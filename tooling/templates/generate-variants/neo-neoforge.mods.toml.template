@@ -9,14 +9,14 @@ displayName = "${mod_name}"
 description = "${mod_description}"
 authors = "${mod_author}"
 
-[[dependencies.chronosbackup]]
+[[dependencies.${mod_id}]]
 modId = "neoforge"
 type = "required"
 versionRange = "[${neo_version},)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.chronosbackup]]
+[[dependencies.${mod_id}]]
 modId = "minecraft"
 type = "required"
 versionRange = "${minecraft_range}"

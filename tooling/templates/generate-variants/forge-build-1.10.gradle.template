@@ -56,6 +56,7 @@ configurations {
 
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
+    // Forge 1.7.x–1.13.x does not ship Night Config on the launcher classpath. Embed it (pre-JPMS / LaunchWrapper - no duplicate-module issue).
     implementation "com.electronwill.night-config:core:${nightConfigVer}"
     implementation "com.electronwill.night-config:toml:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"
@@ -63,11 +64,13 @@ dependencies {
     runtimeOnly "net.minecrell:terminalconsoleappender:1.2.0"
 }
 
-tasks.named('jar', Jar) {
-    from {
-        configurations.chronosEmbedded.collect { zipTree(it) }
+tasks.withType(Jar).configureEach { t ->
+    if (t.name == 'jar' || t.name == 'remapJar') {
+        t.from {
+            configurations.chronosEmbedded.collect { zipTree(it) }
+        }
+        t.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 sourceSets.main.java.srcDirs(

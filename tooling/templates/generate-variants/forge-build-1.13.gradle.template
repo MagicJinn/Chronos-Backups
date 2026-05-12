@@ -56,17 +56,20 @@ configurations {
 
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
+    // Forge 1.7.x–1.13.x does not ship Night Config on the launcher classpath. Embed it (pre-JPMS / LaunchWrapper - no duplicate-module issue).
     implementation "com.electronwill.night-config:core:${nightConfigVer}"
     implementation "com.electronwill.night-config:toml:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:toml:${nightConfigVer}"
 }
 
-tasks.named('jar', Jar) {
-    from {
-        configurations.chronosEmbedded.collect { zipTree(it) }
+tasks.withType(Jar).configureEach { t ->
+    if (t.name == 'jar' || t.name == 'remapJar') {
+        t.from {
+            configurations.chronosEmbedded.collect { zipTree(it) }
+        }
+        t.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 sourceSets.main.java.srcDirs(
@@ -75,9 +78,6 @@ sourceSets.main.java.srcDirs(
     rootProject.file('shell-brigadier/src/main/java'),
     rootProject.file('shell-forge/v1_13/src/main/java'),
 )
-
-// Root-level pack.mcmeta (1.13 format 4): avoids ResourcePackInfo warnings when icon.png sits at jar root.
-sourceSets.main.resources.srcDir(rootProject.file('shell-forge/v1_13/src/main/resources'))
 
 processResources {
     dependsOn rootProject.tasks.named('prepareBuildIcon')

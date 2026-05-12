@@ -50,26 +50,11 @@ unimined.minecraft {
     defaultRemapJar = true
 }
 
-configurations {
-    chronosEmbedded {
-        canBeResolved = true
-        canBeConsumed = false
-    }
-}
-
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
-    implementation "com.electronwill.night-config:core:${nightConfigVer}"
-    implementation "com.electronwill.night-config:toml:${nightConfigVer}"
-    chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"
-    chronosEmbedded "com.electronwill.night-config:toml:${nightConfigVer}"
-}
-
-tasks.named('jar', Jar) {
-    from {
-        configurations.chronosEmbedded.collect { zipTree(it) }
-    }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // Unimined merges `implementation` into the remapped jar; use `compileOnly` so Night Config is not bundled (Forge supplies it; avoids JPMS duplicate exports on 1.17+).
+    compileOnly "com.electronwill.night-config:core:${nightConfigVer}"
+    compileOnly "com.electronwill.night-config:toml:${nightConfigVer}"
 }
 
 sourceSets.main.java.srcDirs(
@@ -79,8 +64,15 @@ sourceSets.main.java.srcDirs(
     rootProject.file('shell-mojmap/common/src/main/java'),
     {{mojmapNumericGateGroovy}}
     {{mojmapMojmapSliceGroovy}}
+    rootProject.file('shell-forge/forge-mojmap-chronos-forge-mod-kernel/src/main/java'),
+    rootProject.file('shell-forge/forge-mojmap-brigadier-hooks/src/main/java'),
+    rootProject.file('shell-forge/forge-mojmap-chronos-forge-mod-serverevents/src/main/java'),
     rootProject.file('shell-forge/v1_20/src/main/java'),
 )
+
+{{forgeShellMessengerCompatGroovy}}
+
+{{forgeMojmapLegacyWorldGroovy}}
 
 processResources {
     dependsOn rootProject.tasks.named('prepareBuildIcon')

@@ -1,0 +1,125 @@
+plugins {
+    id 'java'
+    id 'xyz.wagyourtail.unimined' version '1.4.1'
+}
+
+group = rootProject.findProperty('chronos.mod.group')
+version = rootProject.findProperty('chronos.mod.version')
+
+base {
+    archivesName = '{{archivesName}}'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(16)
+    }
+}
+
+unimined.useGlobalCache = true
+
+def chronosSmokeForgeMc = findProperty('chronos.smokeTest.minecraft') ?: '{{minecraft}}'
+def chronosSmokeForgeLoader = findProperty('chronos.smokeTest.forge') ?: '{{forgeVersion}}'
+
+repositories {
+    // MCP config + Forge artifacts (must precede mirrors that omit de.oceanlabs.mcp)
+    maven { url = 'https://maven.minecraftforge.net/' }
+    exclusiveContent {
+        forRepository {
+            maven { url = 'https://maven.neoforged.net/releases' }
+        }
+        filter {
+            includeGroupByRegex('net\\.neoforged(\\..*)?')
+        }
+    }
+    mavenCentral()
+    maven { url = 'https://maven.wagyourtail.xyz/releases' }
+}
+
+unimined.minecraft {
+    version chronosSmokeForgeMc.toString()
+
+    mappings {
+        mojmap()
+    }
+
+    minecraftForge {
+        loader chronosSmokeForgeLoader.toString()
+    }
+
+    defaultRemapJar = true
+}
+
+dependencies {
+    def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
+    // Unimined merges `implementation` into the remapped jar; use `compileOnly` so Night Config is not bundled (Forge supplies it; avoids JPMS duplicate exports on 1.17+).
+    compileOnly "com.electronwill.night-config:core:${nightConfigVer}"
+    compileOnly "com.electronwill.night-config:toml:${nightConfigVer}"
+}
+
+sourceSets.main.java.srcDirs(
+    rootProject.file('core/src/main/java'),
+    rootProject.file('shell-shared/src/main/java'),
+    rootProject.file('shell-brigadier/src/main/java'),
+    rootProject.file('shell-mojmap/common/src/main/java'),
+    {{mojmapNumericGateGroovy}}
+    {{mojmapMojmapSliceGroovy}}
+    rootProject.file('shell-forge/forge-mojmap-chronos-forge-mod-kernel/src/main/java'),
+    rootProject.file('shell-forge/forge-mojmap-brigadier-hooks/src/main/java'),
+    rootProject.file('shell-forge/forge-mojmap-command-registrar-textcomponent/src/main/java'),
+    rootProject.file('shell-forge/v1_17_mojmap/src/main/java'),
+)
+
+{{forgeShellMessengerCompatGroovy}}
+
+{{forgeMojmapLegacyWorldGroovy}}
+
+processResources {
+    dependsOn rootProject.tasks.named('prepareBuildIcon')
+    inputs.property 'version', project.version
+    inputs.property 'mod_id', rootProject.findProperty('chronos.mod.id')
+    inputs.property 'mod_name', rootProject.findProperty('chronos.mod.name')
+    inputs.property 'mod_description', rootProject.findProperty('chronos.mod.description')
+    inputs.property 'mod_author', rootProject.findProperty('chronos.mod.author')
+    inputs.property 'mod_license', rootProject.findProperty('chronos.mod.license')
+    from(rootProject.layout.buildDirectory.file('generated/icon-128.png')) {
+        into ''
+        rename { 'icon.png' }
+    }
+    filesMatching('**/META-INF/mods.toml') {
+        expand(
+                'version': project.version,
+                'mod_id': rootProject.findProperty('chronos.mod.id'),
+                'mod_name': rootProject.findProperty('chronos.mod.name'),
+                'mod_description': rootProject.findProperty('chronos.mod.description'),
+                'mod_author': rootProject.findProperty('chronos.mod.author'),
+                'mod_license': rootProject.findProperty('chronos.mod.license'),
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 16
+}
+
+/** Dev: vanilla dedicated server exits until eula.txt exists, create once, never overwrite. */
+def chronosPrepareForgeRunServer = tasks.register('chronosPrepareForgeRunServer') {
+    doLast {
+        def serverRunDir = file('run/server')
+        serverRunDir.mkdirs()
+        def eulaFile = new File(serverRunDir, 'eula.txt')
+        if (!eulaFile.exists()) {
+            eulaFile.text = '''# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://aka.ms/MinecraftEULA).
+# Generated automatically for Chronos dev runServer on first launch.
+eula=true
+'''
+            logger.lifecycle('Chronos: wrote {} for local dev (first run only)', eulaFile)
+        }
+    }
+}
+
+tasks.named('runServer') {
+    dependsOn chronosPrepareForgeRunServer
+    args '--nogui'
+}

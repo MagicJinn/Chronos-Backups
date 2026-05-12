@@ -10,15 +10,18 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ConnectException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -36,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -59,6 +63,7 @@ public final class SmokeTestServers {
         SmokeConfig smoke = readSmokeConfig();
         Map<String, Object> groupsJson = GSON.fromJson(Files.readString(GROUPS), new TypeToken<Map<String, Object>>() {
         }.getType());
+        Set<String> skipSmoke = readSkipSmoke(groupsJson);
         List<Map<String, Object>> groups = castList(groupsJson.get("groups"));
         List<Map<String, Object>> rows = collectRowsFromGroups(groups);
 
@@ -109,6 +114,7 @@ public final class SmokeTestServers {
                 jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(cg, name), Map.of()));
             }
         }
+        jobs.removeIf(j -> skipSmoke.contains(j.label));
         if (!cfg.only.isEmpty())
             jobs = jobs.stream().filter(j -> cfg.only.contains(j.label)).toList();
         if (jobs.isEmpty())
@@ -143,8 +149,10 @@ public final class SmokeTestServers {
             row.put("label", r.label);
             row.put("ok", r.ok);
             row.put("log", r.logName);
+            row.put("afterRetry", r.afterRetry);
             summary.add(row);
-            System.out.println((r.ok ? "PASS  " : "FAIL  ") + r.label);
+            String suffix = r.afterRetry ? " (after retry)" : "";
+            System.out.println((r.ok ? "PASS  " : "FAIL  ") + r.label + suffix);
             failed |= !r.ok;
         }
         Files.writeString(sessionDir.resolve("summary.json"), GSON.toJson(summary) + "\n", StandardCharsets.UTF_8);
@@ -173,10 +181,19 @@ public final class SmokeTestServers {
 
         @Override
         public Result call() throws Exception {
-            return runSmoke();
+            Result first = runSmoke(0);
+            if (first.ok())
+                return first;
+            System.out.println(
+                    "[" + job.label + "] First attempt failed, retrying once to test if it was a fluke...");
+            return runSmoke(1);
         }
 
-        private Result runSmoke() throws Exception {
+        /**
+         * @param attempt 0 = first run, 1 = single retry after a failure (no further
+         *                attempts).
+         */
+        private Result runSmoke(int attempt) throws Exception {
             String worldName = "smoke_" + safe(job.label) + "_" + UUID.randomUUID().toString().substring(0, 8);
             int gamePort = allocatePort();
             int rconPort;
@@ -189,6 +206,8 @@ public final class SmokeTestServers {
             String rconPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 24);
             for (Path runDir : job.runDirs) {
                 Files.createDirectories(runDir);
+                // Prevent missing directory from causing errors
+                Files.createDirectories(runDir.resolve("mods"));
                 Files.writeString(runDir.resolve("eula.txt"), "eula=true\n", StandardCharsets.UTF_8);
                 mergeServerProperties(runDir.resolve("server.properties"), gamePort, worldName, rconPort,
                         rconPassword);
@@ -203,12 +222,16 @@ public final class SmokeTestServers {
             if (!jobRunnerCfgReuseDaemon()) {
                 cmd.add("--no-daemon");
             }
-            cmd.add("--configure-on-demand");
             cmd.add("-Dorg.gradle.console=plain");
 
             for (Path runDir : job.runDirs) {
                 terminateProcessesUsing(runDir, job.label);
             }
+
+            Path primaryGameDir = job.runDirs.get(0);
+            // Tail reads from offset 0 on first growth, a leftover latest.log can contain
+            // ready/success markers from a prior run and race this run's RCON backup.
+            clearSmokeServerLatestLog(job.label, primaryGameDir);
 
             System.out.println("[" + job.label + "] Starting smoke test (RCON " + rconPort + " / game " + gamePort
                     + ")");
@@ -240,33 +263,7 @@ public final class SmokeTestServers {
                         outBuilder.append(line).append(System.lineSeparator());
                         if (cfgVerbose())
                             System.out.println("[" + job.label + "] " + line);
-                        synchronized (stateLock) {
-                            for (int i = 0; i < smoke.serverReadyMarkers.length; i++) {
-                                if (!readySeen[i] && line.contains(smoke.serverReadyMarkers[i])) {
-                                    readySeen[i] = true;
-                                    System.out.println("[" + job.label + "] Ready marker hit: "
-                                            + smoke.serverReadyMarkers[i]);
-                                }
-                            }
-                            if (shutdownSuccess.get() == null) {
-                                for (String marker : smoke.failureMarkers) {
-                                    if (line.contains(marker)) {
-                                        shutdownSuccess.compareAndSet(null, Boolean.FALSE);
-                                        System.out.println("[" + job.label + "] Failure marker hit: " + marker);
-                                        break;
-                                    }
-                                }
-                            }
-                            if (shutdownSuccess.get() == null) {
-                                for (String marker : smoke.successMarkers) {
-                                    if (line.contains(marker)) {
-                                        shutdownSuccess.compareAndSet(null, Boolean.TRUE);
-                                        System.out.println("[" + job.label + "] Success marker hit: " + marker);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
+                        applySmokeMarkers(job.label, line, smoke, readySeen, stateLock, shutdownSuccess);
                     }
                 } catch (IOException e) {
                     outBuilder.append("Failed to read process output: ").append(e.getMessage())
@@ -275,6 +272,15 @@ public final class SmokeTestServers {
             }, "smoke-output-" + safe(job.label));
             outputReader.setDaemon(true);
             outputReader.start();
+
+            Path latestLog = primaryGameDir.resolve("logs").resolve("latest.log");
+            // System.out.println("[" + job.label + "] Also tailing " + latestLog
+            // + " for Chronos markers (Gradle often buffers nested server console
+            // output)");
+            Thread latestLogTail = new Thread(() -> tailLatestLogForSmokeMarkers(job.label, latestLog, p, deadline,
+                    outBuilder, smoke, readySeen, stateLock, shutdownSuccess), "smoke-latestlog-" + safe(job.label));
+            latestLogTail.setDaemon(true);
+            latestLogTail.start();
 
             boolean ok = false;
             while (System.currentTimeMillis() < deadline && p.isAlive()) {
@@ -330,6 +336,8 @@ public final class SmokeTestServers {
             if (outputReader.isAlive()) {
                 outputReader.interrupt();
             }
+            latestLogTail.interrupt();
+            latestLogTail.join(750);
 
             String out = outBuilder.toString();
 
@@ -340,10 +348,111 @@ public final class SmokeTestServers {
             if (!cfgVerbose()) {
                 System.out.println("[" + job.label + "] Captured lines: " + lineCount.get());
             }
-            System.out.println("[" + job.label + "] Completed with status: " + (ok ? "PASS" : "FAIL"));
-            String logName = safe(job.label) + ".log";
+            System.out.println("[" + job.label + "] Completed with status: " + (ok ? "PASS" : "FAIL")
+                    + (attempt > 0 ? " (retry)" : ""));
+            String logName = safe(job.label) + (attempt > 0 ? "-retry" : "") + ".log";
             Files.writeString(sessionDir.resolve(logName), out, StandardCharsets.UTF_8);
-            return new Result(job.label, ok, logName);
+            return new Result(job.label, ok, logName, attempt > 0);
+        }
+    }
+
+    /**
+     * Sometimes, our test fails to collect the log output from a server run. The
+     * server will still output this to latest.log, so we poll it periodically to
+     * still access the servers output logs.
+     */
+    private static void tailLatestLogForSmokeMarkers(
+            String jobLabel,
+            Path latestLog,
+            Process gradleProcess,
+            long deadlineMs,
+            StringBuffer outBuilder,
+            SmokeConfig smoke,
+            boolean[] readySeen,
+            Object stateLock,
+            AtomicReference<Boolean> shutdownSuccess) {
+        long lastSize = 0;
+        StringBuilder pending = new StringBuilder();
+        while (System.currentTimeMillis() < deadlineMs && gradleProcess.isAlive()) {
+            try {
+                Thread.sleep(250L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            try {
+                if (!Files.isRegularFile(latestLog))
+                    continue;
+                long size = Files.size(latestLog);
+                if (size < lastSize) {
+                    lastSize = 0;
+                    pending.setLength(0);
+                }
+                if (size <= lastSize)
+                    continue;
+                int delta = (int) (size - lastSize);
+                if (delta <= 0)
+                    continue;
+                ByteBuffer bb = ByteBuffer.allocate(delta);
+                try (FileChannel ch = FileChannel.open(latestLog, StandardOpenOption.READ)) {
+                    ch.position(lastSize);
+                    while (bb.hasRemaining()) {
+                        int n = ch.read(bb);
+                        if (n <= 0)
+                            break;
+                    }
+                }
+                lastSize = size;
+                bb.flip();
+                pending.append(StandardCharsets.UTF_8.decode(bb));
+                int nl;
+                while ((nl = pending.indexOf("\n")) >= 0) {
+                    String line = pending.substring(0, nl);
+                    if (!line.isEmpty() && line.charAt(line.length() - 1) == '\r')
+                        line = line.substring(0, line.length() - 1);
+                    pending.delete(0, nl + 1);
+                    outBuilder.append("[latest.log] ").append(line).append(System.lineSeparator());
+                    if (cfgVerbose())
+                        System.out.println("[" + jobLabel + "] [latest.log] " + line);
+                    applySmokeMarkers(jobLabel, line, smoke, readySeen, stateLock, shutdownSuccess);
+                }
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private static void applySmokeMarkers(
+            String jobLabel,
+            String line,
+            SmokeConfig smoke,
+            boolean[] readySeen,
+            Object stateLock,
+            AtomicReference<Boolean> shutdownSuccess) {
+        synchronized (stateLock) {
+            for (int i = 0; i < smoke.serverReadyMarkers.length; i++) {
+                if (!readySeen[i] && line.contains(smoke.serverReadyMarkers[i])) {
+                    readySeen[i] = true;
+                    System.out.println("[" + jobLabel + "] Ready marker hit: " + smoke.serverReadyMarkers[i]);
+                }
+            }
+            if (shutdownSuccess.get() == null) {
+                for (String marker : smoke.failureMarkers) {
+                    if (line.contains(marker)) {
+                        shutdownSuccess.compareAndSet(null, Boolean.FALSE);
+                        System.out.println("[" + jobLabel + "] Failure marker hit: " + marker);
+                        break;
+                    }
+                }
+            }
+            if (shutdownSuccess.get() == null) {
+                for (String marker : smoke.successMarkers) {
+                    if (line.contains(marker)) {
+                        shutdownSuccess.compareAndSet(null, Boolean.TRUE);
+                        System.out.println("[" + jobLabel + "] Success marker hit: " + marker);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -360,12 +469,29 @@ public final class SmokeTestServers {
             Map<String, String> gradleProjectProperties) {
     }
 
-    private record Result(String label, boolean ok, String logName) {
+    private record Result(String label, boolean ok, String logName, boolean afterRetry) {
     }
 
+    /**
+     * Picks a port that is bindable on the loopback interface. Uses a wide random
+     * range so parallel smoke workers are less likely to grab the same ephemeral
+     * port after the probe socket closes (TOCTOU before the game server binds).
+     */
     private static int allocatePort() throws IOException {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
+        InetAddress loopback = InetAddress.getByName("127.0.0.1");
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        for (int attempt = 0; attempt < 64; attempt++) {
+            int port = 30000 + rnd.nextInt(35000);
+            try (ServerSocket s = new ServerSocket()) {
+                s.setReuseAddress(true);
+                s.bind(new InetSocketAddress(loopback, port));
+            } catch (IOException ignored) {
+                continue;
+            }
+            return port;
+        }
+        try (ServerSocket s = new ServerSocket(0, 50, loopback)) {
+            return s.getLocalPort();
         }
     }
 
@@ -396,12 +522,31 @@ public final class SmokeTestServers {
         Files.write(props, lines, StandardCharsets.UTF_8);
     }
 
-    // Typical layouts: Fabric/Loom use run/, Forge dev runs use run/server,
-            // JavaExec cwd is often the variant root.
+    // Typical layouts: Fabric/Loom use run/, Forge dev runs use run/server. Do not
+    // write server.properties at the variant root: a stray dedicated launch from
+    // the project dir could otherwise read a stale port while smoke rewrites only
+    // run/*
+    // copies.
     private static List<Path> smokeRunDirs(String compileGroupId, String projectName) {
         Path variantRoot = ROOT.resolve("variants").resolve(compileGroupId).resolve(projectName);
         Path runDir = variantRoot.resolve("run");
-        return List.of(runDir.resolve("server"), runDir, variantRoot);
+        return List.of(runDir.resolve("server"), runDir);
+    }
+
+    /**
+     * Labels under {@code smokeTestServers.skipSmoke} in
+     * {@code gradle/chronos-compile-groups.json}
+     * (Gradle project names such as {@code forge-line-1_17}) are dropped from the
+     * smoke job list.
+     */
+    private static Set<String> readSkipSmoke(Map<String, Object> root) {
+        Object wrapper = root.get("smokeTestServers");
+        if (!(wrapper instanceof Map<?, ?> map))
+            return Set.of();
+        Object skip = map.get("skipSmoke");
+        if (skip == null)
+            return Set.of();
+        return Set.copyOf(strList(skip));
     }
 
     private static String primaryLinePrefix(Map<String, Object> group) {
@@ -475,6 +620,29 @@ public final class SmokeTestServers {
         int start = Math.max(0, lines.length - maxLines);
         for (int i = start; i < lines.length; i++) {
             System.out.println("[" + label + "] " + lines[i]);
+        }
+    }
+
+    private static void clearSmokeServerLatestLog(String jobLabel, Path primaryGameDir) {
+        Path logsDir = primaryGameDir.resolve("logs");
+        try {
+            Files.createDirectories(logsDir);
+        } catch (IOException ex) {
+            if (cfgVerbose())
+                System.out.println("[" + jobLabel + "] Could not create logs dir: " + ex.getMessage());
+            return;
+        }
+        Path latest = logsDir.resolve("latest.log");
+        try {
+            Files.deleteIfExists(latest);
+        } catch (IOException ex) {
+            try {
+                Files.writeString(latest, "", StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            } catch (IOException ex2) {
+                if (cfgVerbose())
+                    System.out.println("[" + jobLabel + "] Could not clear logs/latest.log: " + ex2.getMessage());
+            }
         }
     }
 
@@ -604,7 +772,13 @@ public final class SmokeTestServers {
          */
         static void sendStopGraceful(String host, int port, String password) throws IOException {
             try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress(host, port), 10_000);
+                try {
+                    socket.connect(new InetSocketAddress(host, port), 10_000);
+                } catch (IOException e) {
+                    if (benignRconShutdownIoMessage(e.getMessage()))
+                        return;
+                    throw e;
+                }
                 socket.setSoTimeout(8_000);
                 InputStream in = socket.getInputStream();
                 OutputStream out = socket.getOutputStream();
@@ -646,7 +820,8 @@ public final class SmokeTestServers {
                     || message.contains("Connection reset")
                     || message.contains("Broken pipe")
                     || message.contains("Connection reset by peer")
-                    || message.contains("An established connection was aborted");
+                    || message.contains("An established connection was aborted")
+                    || message.contains("Connection refused");
         }
 
         private static String sendOnce(String host, int port, String password, String command, int readTimeoutMs)

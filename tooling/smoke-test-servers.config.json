@@ -5,7 +5,10 @@
     "Backupper is ready and on standby..."
   ],
   "failureMarkers": [
-    "Chronos backup failed"
+    "Chronos backup failed",
+    "FAILED TO BIND TO PORT",
+    "Address already in use: bind",
+    "Failed to start the minecraft server"
   ],
   "successMarkers": [
     "Chronos backup completed"

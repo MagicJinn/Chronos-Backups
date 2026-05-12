@@ -256,8 +256,11 @@ public final class GenerateVariants {
         forgeGradleValues.put("archivesName", archivesName);
         forgeGradleValues.put("minecraft", mc);
         forgeGradleValues.put("forgeVersion", forgeVersion);
+        forgeGradleValues.put("forgeMojmapLegacyWorldGroovy", "");
+        forgeGradleValues.put("forgeShellMessengerCompatGroovy", "");
         if ("mojmap".equalsIgnoreCase(mappingsKind)) {
             putMojmapSourceDirLines(forgeGradleValues, mc);
+            putForgeMojmapAuxiliaryGroovy(forgeGradleValues, mc);
         } else {
             putForgeMcpMappings(forgeGradleValues, unifiedArchiveSource, groupForgeMcp, compileGroup);
         }
@@ -265,21 +268,75 @@ public final class GenerateVariants {
 
         Path resources = dir.resolve("src/main/resources");
         Files.createDirectories(resources);
-        if ("forgeModsToml113".equals(metadataTemplate)) {
-            Path meta = resources.resolve("META-INF");
-            Files.createDirectories(meta);
-            write(meta.resolve("mods.toml"), renderTemplate("forgeModsToml113", Map.of()));
-        } else if ("forgeModsToml120".equals(metadataTemplate)) {
-            Path meta = resources.resolve("META-INF");
-            Files.createDirectories(meta);
-            write(meta.resolve("mods.toml"), renderTemplate("forgeModsToml120", Map.of()));
-        } else if ("forgeMcmodInfo".equals(metadataTemplate)) {
+        // mods.toml logoFile="icon.png" > icon at jar root, vanilla requires
+        // pack.mcmeta or ResourcePackInfo fails
+        write(resources.resolve("pack.mcmeta"), forgePackMcmeta(mc));
+        if ("forgeMcmodInfo".equals(metadataTemplate)) {
             write(resources.resolve("mcmod.info"), renderTemplate("forgeMcmodInfo", Map.of(
                     "minecraft", mc)));
+        } else if (metadataTemplate.startsWith("forgeModsToml")) {
+            Path meta = resources.resolve("META-INF");
+            Files.createDirectories(meta);
+            write(meta.resolve("mods.toml"), renderTemplate(metadataTemplate, Map.of()));
         } else {
             throw new IllegalStateException("Unknown Forge metadata template key \"" + metadataTemplate
                     + "\" for compile group \"" + compileGroup + "\"");
         }
+    }
+
+    /**
+     * Matches {@code logoFile} / root {@code icon.png}, pack_format follows
+     * Minecraft Java resource pack versions for {@code referenceMinecraft}.
+     */
+    private static String forgePackMcmeta(String mc) {
+        int pf = forgePackFormatForMc(mc);
+        return "{\n  \"pack\": {\n    \"pack_format\": " + pf + ",\n    \"description\": \"Chronos Backup\"\n  }\n}\n";
+    }
+
+    private static int forgePackFormatForMc(String mc) {
+        String[] parts = mc.split("\\.");
+        try {
+            if (parts.length >= 2 && "1".equals(parts[0])) {
+                int minor = Integer.parseInt(parts[1]);
+                int patch = 0;
+                if (parts.length >= 3) {
+                    String patchRaw = parts[2].replaceAll("[^0-9].*", "");
+                    if (!patchRaw.isEmpty())
+                        patch = Integer.parseInt(patchRaw);
+                }
+                return switch (minor) {
+                    case 12 -> 3;
+                    case 13 -> 4;
+                    case 14 -> 4;
+                    case 15 -> 5;
+                    case 16 -> patch >= 2 ? 6 : 5;
+                    case 17 -> 7;
+                    case 18 -> 8;
+                    case 19 -> 9;
+                    case 20 -> forgePackFormat120(patch);
+                    case 21 -> forgePackFormat121(patch);
+                    default -> minor >= 21 ? 48 : 15;
+                };
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return 15;
+    }
+
+    private static int forgePackFormat120(int patch) {
+        if (patch <= 1)
+            return 15;
+        if (patch <= 4)
+            return 18;
+        if (patch <= 6)
+            return 22;
+        return 32;
+    }
+
+    private static int forgePackFormat121(int patch) {
+        if (patch <= 4)
+            return 34;
+        return 42;
     }
 
     private static String fabricMcDep(String mc) {
@@ -624,6 +681,15 @@ public final class GenerateVariants {
      * {@code shell-mojmap/v1_21_11} for the {@code PermissionSet}-based implementation (mutually
      * exclusive).
      */
+    /**
+     * Mojmap-era Forge builds reuse the same {@code shell-mojmap} exclusions /
+     * extra source dirs as Fabric for messenger + legacy world slices (1.14–1.18).
+     */
+    private static void putForgeMojmapAuxiliaryGroovy(Map<String, String> values, String mc) {
+        values.put("forgeMojmapLegacyWorldGroovy", fabricMojmapLegacyWorldBlock(mc));
+        values.put("forgeShellMessengerCompatGroovy", fabricShellMessengerCompatBlock(mc));
+    }
+
     private static void putMojmapSourceDirLines(Map<String, String> values, String mc) {
         if ("v1_21_11".equals(shellMojmapGateDir(mc))) {
             values.put("mojmapNumericGateGroovy", "");

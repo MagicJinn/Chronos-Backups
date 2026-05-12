@@ -36,12 +36,12 @@ All currently supported versions are listed below in `major.minor.x` format:
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0. Fabric 1.20.x. NeoForge 1.20.1 - 1.20.6. |
-| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
-| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
-| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
-| `1.16.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
-| `1.15.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
-| `1.14.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Fabric only, for now. |
+| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Working, but fails our tests. See [issue 7](https://github.com/MagicJinn/Chronos-Backups/issues/7)|
+| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Working, but fails our tests. See [issue 7](https://github.com/MagicJinn/Chronos-Backups/issues/7)|
+| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Working, but fails our tests. See [issue 7](https://github.com/MagicJinn/Chronos-Backups/issues/7)|
+| `1.16.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
+| `1.15.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
+| `1.14.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
 | `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
 | `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
@@ -143,13 +143,13 @@ The **`smokeTest`** task runs `SmokeTestServers`: it starts each variant’s **`
 
 ### Most useful tasks
 
-- **`buildAll`** — builds all enabled variants, then collects output jars.
-- **`buildRust`** — builds native `rust-pruner` libraries (host-native by default; auto-run by build/run tasks).
-- **`collectAllJars`** — copies final jars to root `build/libs/` (runs as part of `buildAll`).
-- **`generateVariants`** — regenerates `variants/` from `gradle/chronos-compile-groups.json` (also invoked automatically from settings when appropriate).
-- **`smokeTest`** — automated dedicated-server smoke runs (see above).
-- **`:fabric-line-…:build`** / **`:neoforge-line-…:build`** — build a single unified line.
-- **`:…:runClient`** / **`:…:runServer`** — interactive dev runs (do not auto-stop; unlike `smokeTest`).
+- **`buildAll`** - builds all enabled variants, then collects output jars.
+- **`buildRust`** - builds native `rust-pruner` libraries (host-native by default; auto-run by build/run tasks).
+- **`collectAllJars`** - copies final jars to root `build/libs/` (runs as part of `buildAll`).
+- **`generateVariants`** - regenerates `variants/` from `gradle/chronos-compile-groups.json` (also invoked automatically from settings when appropriate).
+- **`smokeTest`** - automated dedicated-server smoke runs (see above).
+- **`:fabric-line-…:build`** / **`:neoforge-line-…:build`** - build a single unified line.
+- **`:…:runClient`** / **`:…:runServer`** - interactive dev runs (do not auto-stop; unlike `smokeTest`).
 
 Examples:
 

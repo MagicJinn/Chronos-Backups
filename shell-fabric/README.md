@@ -13,10 +13,10 @@ This module is the Fabric integration layer for Chronos. It wires Fabric lifecyc
 
 Shared sources under `src/main/java/com/magicjinn/chronos/shell/fabric/`:
 
-- `ChronosFabricEntrypoint.java` — main Fabric initializer that connects lifecycle events and world hooks.
-- `ChronosFabricClientEntrypoint.java` — client-side loader startup hook.
-- `ChronosFabricDedicatedServerEntrypoint.java` — dedicated server startup hook.
-- `FabricMojmapBrigadierHooks.java` — Mojmap `Hooks` implementation for `shell-brigadier`.
+- `ChronosFabricEntrypoint.java` - main Fabric initializer that connects lifecycle events and world hooks.
+- `ChronosFabricClientEntrypoint.java` - client-side loader startup hook.
+- `ChronosFabricDedicatedServerEntrypoint.java` - dedicated server startup hook.
+- `FabricMojmapBrigadierHooks.java` - Mojmap `Hooks` implementation for `shell-brigadier`.
 
 Version-specific `FabricCommandRegistrar.java` (dispatcher wiring differs by line):
 

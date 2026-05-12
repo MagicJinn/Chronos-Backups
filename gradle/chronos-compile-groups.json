@@ -12,11 +12,29 @@
       "forgeBuildGradle17": "forge-build-1.7.gradle.template",
       "forgeBuildGradle112": "forge-build-1.12.gradle.template",
       "forgeBuildGradle113": "forge-build-1.13.gradle.template",
+      "forgeBuildGradle114": "forge-build-1.14.gradle.template",
+      "forgeBuildGradle116": "forge-build-1.16.gradle.template",
+      "forgeBuildGradle117": "forge-build-1.17.gradle.template",
+      "forgeBuildGradle118": "forge-build-1.18.gradle.template",
+      "forgeBuildGradle119": "forge-build-1.19.gradle.template",
       "forgeBuildGradle120": "forge-build-1.20.gradle.template",
       "forgeMcmodInfo": "forge-mcmod.info.template",
       "forgeModsToml113": "forge-mods-1.13.toml.template",
+      "forgeModsToml114": "forge-mods-1.14.toml.template",
+      "forgeModsToml115": "forge-mods-1.15.toml.template",
+      "forgeModsToml116": "forge-mods-1.16.toml.template",
+      "forgeModsToml117": "forge-mods-1.17.toml.template",
+      "forgeModsToml118": "forge-mods-1.18.toml.template",
+      "forgeModsToml119": "forge-mods-1.19.toml.template",
       "forgeModsToml120": "forge-mods-1.20.toml.template"
     }
+  },
+  "smokeTestServers": {
+    "skipSmoke": [
+      "forge-line-1_17",
+      "forge-line-1_18",
+      "forge-line-1_19"
+    ]
   },
   "groups": [
     {
@@ -89,7 +107,7 @@
     },
     {
       "id": "minecraft_1_18",
-      "description": "Fabric unified jar for Minecraft 1.18.x (before 1.20).",
+      "description": "Fabric unified jar for Minecraft 1.18.x (before 1.20). Forge unified jar (reference Forge MDK 1.18.2-40.3.12).",
       "minecraftVersionPrefixes": ["1.18"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -98,11 +116,20 @@
         "fabricApi": "0.77.0+1.18.2",
         "minecraftDep": ">=1.18 <1.19",
         "archiveVersionTag": "1.18.x"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.18.2",
+        "forge": "40.3.12",
+        "archiveVersionTag": "1.18.x",
+        "buildTemplateKey": "forgeBuildGradle118",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml118"
       }
     },
     {
       "id": "minecraft_1_19",
-      "description": "Fabric unified jar for Minecraft 1.19.x (before 1.20).",
+      "description": "Fabric unified jar for Minecraft 1.19.x (before 1.20). Forge unified jar (reference Forge MDK 1.19.4-45.4.3).",
       "minecraftVersionPrefixes": ["1.19"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -111,11 +138,20 @@
         "fabricApi": "0.87.2+1.19.4",
         "minecraftDep": ">=1.19 <1.20",
         "archiveVersionTag": "1.19.x"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.19.4",
+        "forge": "45.4.3",
+        "archiveVersionTag": "1.19.x",
+        "buildTemplateKey": "forgeBuildGradle119",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml119"
       }
     },
     {
       "id": "minecraft_1_14",
-      "description": "Fabric unified jar for Minecraft 1.14.x (loader/API versions aligned with templates/template-mod-template-1.14.4).",
+      "description": "Fabric unified jar for Minecraft 1.14.x (loader/API versions aligned with templates/template-mod-template-1.14.4). Forge unified jar (reference Forge MDK 1.14.4-28.2.28).",
       "minecraftVersionPrefixes": ["1.14"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -124,11 +160,20 @@
         "fabricApi": "0.28.5+1.14",
         "minecraftDep": ">=1.14 <1.15",
         "archiveVersionTag": "1.14.x"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.14.4",
+        "forge": "28.2.28",
+        "archiveVersionTag": "1.14.x",
+        "buildTemplateKey": "forgeBuildGradle114",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml114"
       }
     },
     {
       "id": "minecraft_1_15",
-      "description": "Fabric unified jar for Minecraft 1.15.x (loader/API versions aligned with templates/template-mod-template-1.15.2).",
+      "description": "Fabric unified jar for Minecraft 1.15.x (loader/API versions aligned with templates/template-mod-template-1.15.2). Forge unified jar (reference Forge MDK 1.15.2-31.2.60).",
       "minecraftVersionPrefixes": ["1.15"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -137,11 +182,20 @@
         "fabricApi": "0.28.5+1.15",
         "minecraftDep": ">=1.15 <1.16",
         "archiveVersionTag": "1.15.x"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.15.2",
+        "forge": "31.2.60",
+        "archiveVersionTag": "1.15.x",
+        "buildTemplateKey": "forgeBuildGradle114",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml115"
       }
     },
     {
       "id": "minecraft_1_16",
-      "description": "Fabric unified jar for Minecraft 1.16.x (loader/API versions aligned with templates/template-mod-template-1.16.5).",
+      "description": "Fabric unified jar for Minecraft 1.16.x (loader/API versions aligned with templates/template-mod-template-1.16.5). Forge unified jar (reference Forge MDK 1.16.5-36.2.42).",
       "minecraftVersionPrefixes": ["1.16"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -150,11 +204,20 @@
         "fabricApi": "0.42.0+1.16",
         "minecraftDep": ">=1.16 <1.17",
         "archiveVersionTag": "1.16.x"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.16.5",
+        "forge": "36.2.42",
+        "archiveVersionTag": "1.16.x",
+        "buildTemplateKey": "forgeBuildGradle116",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml116"
       }
     },
     {
       "id": "minecraft_1_17",
-      "description": "Fabric unified jar for Minecraft 1.17.x (loader/API versions aligned with templates/template-mod-template-1.17.1).",
+      "description": "Fabric unified jar for Minecraft 1.17.x (loader/API versions aligned with templates/template-mod-template-1.17.1). Forge unified jar (reference Forge MDK 1.17.1-37.1.1).",
       "minecraftVersionPrefixes": ["1.17"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -163,6 +226,15 @@
         "fabricApi": "0.46.1+1.17",
         "minecraftDep": ">=1.17 <1.18",
         "archiveVersionTag": "1.17.x"
+      },
+      "unifiedForgeJar": true,
+      "forgeUnified": {
+        "referenceMinecraft": "1.17.1",
+        "forge": "37.1.1",
+        "archiveVersionTag": "1.17.x",
+        "buildTemplateKey": "forgeBuildGradle117",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml117"
       }
     },
     {
