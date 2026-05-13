@@ -17,6 +17,10 @@
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
 
+## Limitations
+
+Chronos prioritizes aged world data, chunks that do not yet count as "old enough" for pruning can be left out of a snapshot. If you enter a **new** chunk, change blocks or items, and a backup runs **before** that area is included, those changes may be missing from that backup (depending on configuration). That situation is seen as extremely rare and can only cause **loss** on restore, never duplication.
+
 ## Supported versions
 
 All currently supported versions are listed below. If a specific subversion does not have a modloader associated with it (eg 1.7.3-1.7.9), it may still appear as supported if the major version is supported.

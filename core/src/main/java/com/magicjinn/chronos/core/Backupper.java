@@ -87,6 +87,9 @@ public final class Backupper {
         return true;
     }
 
+    /** Invoked from {@code /chronos speedtest <x>} for benchmarking or diagnostics. */
+    public static void speedtest(int x) {}
+
     /**
      * Clears the shutdown flag when a new world session starts (after a prior
      * stop).
@@ -270,7 +273,7 @@ public final class Backupper {
         return String.format(Locale.ROOT, "%d min %.1f s", mins, remainderSeconds);
     }
 
-    private static final long COPY_PROGRESS_LOG_INTERVAL_NANOS = 5_000_000_000L;
+    private static final long COPY_PROGRESS_LOG_INTERVAL_NANOS = 15_000_000_000L;
 
     /**
      * {@link Path#relativize} throws {@link IllegalArgumentException} when roots differ (common on
