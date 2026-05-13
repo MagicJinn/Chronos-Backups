@@ -6,6 +6,7 @@
     "MD033": false, // Allow inline HTML,
     "MD041": false, // Allow first line in file to not be a top level heading
     "MD045": false, // Allow images without alt text
-    "MD056": false, // Allow missing collums in tables
+    "MD053": false, // Allow missing link and image reference definitions
+    "MD056": false, // Allow missing columns in tables
     "MD060": false // Allow misaligned table columns
 }

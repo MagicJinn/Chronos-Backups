@@ -1,61 +1,82 @@
 # Chronos Backups
 
-[![Mod Banner](banner.png)](https://www.artstation.com/mylenakrijnen)
+[//]: # (This is supposed to be a comment. If you see this, you are either editing/reading the source Markdown file, or using a markdown viewer that does not support comments.)
+
+[![Mod Banner](https://raw.githubusercontent.com/MagicJinn/Chronos-Backups/main/banner.png)](https://www.artstation.com/mylenakrijnen)
 
 <sup>The wonderful mod icon and banner were created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
 
 [![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
 
-**Chronos Backups** is a multi-loader Minecraft backup utility. Designed to save the most important parts of your world, keeping backups smaller.
-
-The project is organized as a small, version-agnostic **core** (scheduler + backup runner) plus loader/version-specific **shells**, with one central place to edit mod metadata.
+**Chronos Backups** is a multi-loader, multi-version Minecraft backup utility. Saves only the most important parts of your world, keeping backups smaller.
 
 ## Features
 
 - Multi-version, multi-loader architecture (Fabric, NeoForge, Forge).
-- Focused backups that include critical world files instead of copying everything.
-- Shared core logic with generated loader/version variants for broad compatibility.
+- Scheduled and manual backups via an in-game `/chronos` command with a configurable permission level.
+- Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
+- Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
 
-## Nightly releases
+## Supported versions
 
-CI uploads built JARs as workflow artifacts on each push and pull request. To grab the latest builds, open [GitHub Actions](https://github.com/MagicJinn/Chronos-Backups/actions), pick a recent successful run, and download the artifact from the run summary. These are not the same as stable releases on Modrinth, CurseForge or Github Releases.
-
-## Architecture
-
-Chronos Backups is made of two layers:
-
-- **Shell layer**: loader and version specific integration code that hooks into the server/runtime and exposes configuration per platform.
-- **Core layer**: loader-agnostic scheduling and backup execution logic reused across all targets.
-
-## Supported and moddable targets
-
-All currently supported versions are listed below in `major.minor.x` format:
+All currently supported versions are listed below. If a specific subversion does not have a modloader associated with it (eg 1.7.3-1.7.9), it may still appear as supported if the major version is supported.
 
 | Minecraft | Support | Loader(s) | Backup | Config | Notes |
 | - | - | - | - | - | - |
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0. Fabric 1.20.x. NeoForge 1.20.1 - 1.20.6. |
-| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Working, but fails our tests. See [issue 7](https://github.com/MagicJinn/Chronos-Backups/issues/7)|
-| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Working, but fails our tests. See [issue 7](https://github.com/MagicJinn/Chronos-Backups/issues/7)|
-| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | Working, but fails our tests. See [issue 7](https://github.com/MagicJinn/Chronos-Backups/issues/7)|
+| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
+| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
+| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.16.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
 | `1.15.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
 | `1.14.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
-| `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | - |
-| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | Forge **1.7.2** does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)). |
-| `1.6.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.5.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.4.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
-| `1.3.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
+| `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
+| `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
+| `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
+| `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
+| `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
+| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2], [^3] |
+| `1.6.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
+| `1.5.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
+| `1.4.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
+| `1.3.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
 | `1.2.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
+| Beta & Alpha | ❌ Unsupported | Babric | ❌ | 🔴 None | Beta & Alpha versions may be supported in the future, but the flagship Chronos feature (world pruning) will be unavailable. |
+
+[//]: # (If a note occurs more than once, move it to a footnote as shown below. If a note appears once, but the version has multiple notes, move it to a footnote as well. If a note appears once and the version has no other notes, leave it in the notes section.)
+
+[^1]: Working, but fails our tests. See [issue #7](https://github.com/MagicJinn/Chronos-Backups/issues/7).
+
+[^2]: Forge 1.7.2 does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)).
+
+[^3]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
+
+## Configuration
+
+The mod's configuration is stored in the `config/chronos.toml` file. This file is automatically created when the mod is first run, and is located in the `config` folder of the mod's directory. For the forseeable future, there is no GUI configuration available. Config options include:
+
+- `backupFolderName`: The name of the folder that will contain the backups.
+- `pruneChunks`: Whether chunk pruning is enabled for backup snapshots.
+- `pruneTimeRequirementSeconds`: Minimum playtime (in seconds) for a region to count toward snapshot pruning.
+- `pruneMaxWorkerThreads`: Maximum worker threads for pruning. 0 (or less) means "auto" (pruner picks a sensible default).
+- `scheduleBackups`: Whether to run backups on a timer.
+- `backupIntervalSeconds`: Seconds between automatic backup runs.
+- `commandRequiredPermissionLevel`: Permission level required to run `/chronos`.
+- `copyBlacklist`: Folders and files to exclude from the backup snapshot copy.
+
+This list may be out of date. To see the latest available configuration options and their descriptions, see [ChronosTomlSpec.java](https://github.com/MagicJinn/Chronos-Backups/blob/main/core/src/main/java/com/magicjinn/chronos/core/config/ChronosTomlSpec.java).
+
+## Nightly releases
+
+Github Actions automatically builds and uploads nightly releases to the [GitHub Releases](https://github.com/MagicJinn/Chronos-Backups/releases) page. These are not the same as stable releases found on Modrinth, CurseForge or Github Releases, and should not be relied upon or assumed to be stable.
 
 ## Development
+
+> [!Note]
+> This repository is meant to compile with the build tool (for example ./gradlew buildAll). Editors are not guaranteed to work, so you may see persistent missing imports and other false errors in the IDE even when the command-line build succeeds. Treat the build output as the real check until further notice. Your IDE **will** complain. Sorry.
 
 Chronos Backups is dedicated to making the development of this mod as easy as possible, on any OS, in any IDE, with simple automatic setups and tools for testing and building, but there are still some manual steps required.
 
@@ -70,96 +91,64 @@ rustup toolchain install nightly
 
 ### Rust native library
 
-Chronos bundles the native custom built Rust pruner library for all supported platforms in each mod jar. This happens automatically during normal Gradle builds and run tasks through `buildRust`.
+Chronos Backups bundles a custom built native Rust pruning library, which in turn makes use of [mca](https://github.com/VilleOlof/mca) and [simdnbt](https://github.com/azalea-rs/simdnbt) for maximum performance. This is automatically built and bundled with the mod during normal Gradle builds, or can be built manually through `buildRust` for verification. By default, due to platform constraints, local development builds compile and stage only the current host OS/arch native target. In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced jars include all supported native platforms. This means that local builds:
 
-By default, local development builds compile and stage only the current host OS/arch native target, so setup stays simple and automatic.
-In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced CI jars include all supported native platforms.
+- are intended for development only, and should not be released through release channels, or even shared with other developers or users (to avoid confusion).
+- cannot be used on a non-native platform. For example, a Windows build will not work on Linux or macOS (this might stop you from building the mod locally and testing it on a dedicated server hosting provider).
 
-> [!NOTE]
-> Local host-native builds are intended for development. Release/nightly artifacts from [GitHub Actions](https://github.com/MagicJinn/Chronos-Backups/actions) are the unified jars with all rust-pruner native binaries included.
+> [!Note]
+> Rust builds are only produced for 64-bit systems. 32-bit architectures are not supported.
 
-The full target matrix is:
+### Project structure
 
-- `x86_64-pc-windows-msvc`
-- `aarch64-pc-windows-msvc`
-- `x86_64-unknown-linux-gnu`
-- `aarch64-unknown-linux-gnu`
-- `x86_64-apple-darwin`
-- `aarch64-apple-darwin`
+The project is organized as a small, version-agnostic **core** (scheduler + backup runner) plus loader/version-specific **shells**, with one central place to edit mod metadata.
 
-On Windows, cross-linking non-Windows targets requires an actual cross-linker. If not configured, you can hit linker errors. CI is configured to build host-native binaries on each OS runner automatically.
+- **Shell layer**: loader and version specific integration code that hooks into the server/runtime and registers commands, events and other hooks.
+- **Core layer**: loader-agnostic scheduling and backup execution logic reused across all targets.
 
-```powershell
-.\gradlew.bat buildRust
-```
+Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_1` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
 
-`buildRust` runs automatically as part of mod builds and run tasks. Running it directly is the fastest way to validate your Rust environment.
+New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files.
 
-### Commands
+The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running smoke tests.
 
-Use the Gradle wrapper from the repo root. Examples below use Windows (`.\gradlew.bat`); on Unix use `./gradlew`.
+### Gradle commands
 
-```powershell
-.\gradlew.bat buildAll
-.\gradlew.bat generateVariants
-.\gradlew.bat smokeTest
-```
+All commands should be run from the repository root. The Gradle project provides several useful commands for building and testing the mod.
 
-### Variant generation (`generateVariants`)
+- `buildAll`: Builds all enabled variants, then collects output jars.
+- `collectAllJars`: Copies final jars to root `build/libs/` (runs as part of `buildAll`).
+- `buildRust`: Builds native `rust-pruner` libraries (host-native by default, runs automatically as part of any build/run tasks).
+- `generateVariants`: Regenerates `variants/` from `gradle/chronos-compile-groups.json` (should be run automatically when appropriate).
+- `cleanVariants`: Clears the `variants/` folder. Useful when encountering issues with stale/locked variant directories.
+- `smokeTest`: Automated dedicated-server smoke runs. Spins up a server for each variant and runs specific tests to ensure the mod is working correctly.
+- `:fabric-line-…:build` / `:neoforge-line-…:build`: Build a specific variant's jar.
+- `:fabric-line-…:runClient` / `:neoforge-line-…:runServer`: Run a specific variant's server or client.
 
-Gradle loads every project under `variants/` during **settings** evaluation. If `variants/` is missing or stale, the root `settings.gradle.kts` runs **`generateVariants`** in a nested Gradle invocation so the IDE and CLI always see an up-to-date variant layout.
+#### Variant generation (`generateVariants`)
 
-#### Environment: `CHRONOS_VARIANT_GENERATION`
+`variants/` is a folder that contains the Gradle projects for each variant. Each variant is a separate project, and is built separately. The `generateVariants` task is used to regenerate the `variants/` folder from the `gradle/chronos-compile-groups.json` file. `generateVariants` should be run automatically when appropriate, but can be run manually alongside `cleanVariants` to force a regeneration. `CHRONOS_VARIANT_GENERATION` environment variable can be set to `skip` to skip the automatic variant regeneration.
 
-By convention, **environment variables use uppercase** so they stand out in CI logs and match common POSIX shells (`export VAR=value`). Chronos uses one flag for the nested generator:
+#### Smoke testing (`smokeTest`)
 
-| Value | Effect |
-|-------|--------|
-| *(unset)* | Allow automatic nested `generateVariants` during settings when needed. |
-| `skip`, `0`, `false`, `off` | Skip nested variant generation (CI and scripted builds set this when variants are generated explicitly). |
+For each variant, `smokeTest` starts a dedicated server, watches the log for pass/fail markers defined in `tooling/smoke-test-servers.config.json`, triggers a backup over RCON and waits for it to finish, then triggers a clean shutdown. A non-zero exit, failed backup, or timeout fails the test.
 
-Variant definitions live in **`gradle/chronos-compile-groups.json`**. Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files are driven by **`gradle/chronos-java-matrix.json`** so version breakpoints are not scattered through Java code.
+Flags for `smokeTest` (passed via `"-Pchronos.smoke.args="`):
 
-### Smoke testing (`smokeTest`)
-
-The **`smokeTest`** task runs `SmokeTestServers`: it starts each variant’s **`runServer`** (or a filtered subset), waits for Chronos log markers, sends an RCON backup command, and asserts shutdown markers. Logs land under `build/smoke-server-logs/<session-id>/`.
-
-**Gradle arguments** are passed only through **`-Pchronos.smoke.args="..."`** (quoted). That string is tokenized and forwarded to the Java `main` as program arguments.
-
-**CLI flags** (passed via `-Pchronos.smoke.args`):
-
-| Flag | Meaning |
-|------|---------|
+| Flag | Description |
+|-|-|
 | `--workers <n>` | Thread pool size (default `4`). Multiple smoke jobs may run concurrently, each with its own `./gradlew` subprocess. |
 | `--only <label>` | Restrict to one job label (repeat flag for multiple). Labels match Gradle project names, e.g. `fabric-line-1_21_11`. |
-| `--reuse-gradle-daemon` | Omit `--no-daemon` on subprocess Gradle invocations so daemons can stay warm between jobs (faster local runs; default remains cold subprocesses for isolation). |
 | `--verbose` | Mirror child Gradle output to the console. |
 
-**`--workers` and Gradle:** Each smoke job runs **`./gradlew` from the repo root** for its variant. Higher `--workers` runs more jobs in parallel; use **`--workers 1`** if you prefer strictly sequential smoke or hit rare OS file-lock contention on shared paths.
-
-**Optional Gradle overrides:** Unified-line variant builds accept **`-Pchronos.smokeTest.*`** properties (see generated `build.gradle` / `build.gradle.kts`) so you can pin Minecraft, loader, and API or NeoForge coordinates when experimenting locally.
-
-**Minecraft version strings** must match **Mojang / Loom** ids (see `com.mojang:minecraft` resolution). For example the first **1.21** Java release is typically **`1.21`**, not `1.21.0`; using a non-existent id makes Loom fail with “Failed to find minecraft version”.
-
-### Most useful tasks
-
-- **`buildAll`** - builds all enabled variants, then collects output jars.
-- **`buildRust`** - builds native `rust-pruner` libraries (host-native by default; auto-run by build/run tasks).
-- **`collectAllJars`** - copies final jars to root `build/libs/` (runs as part of `buildAll`).
-- **`generateVariants`** - regenerates `variants/` from `gradle/chronos-compile-groups.json` (also invoked automatically from settings when appropriate).
-- **`smokeTest`** - automated dedicated-server smoke runs (see above).
-- **`:fabric-line-…:build`** / **`:neoforge-line-…:build`** - build a single unified line.
-- **`:…:runClient`** / **`:…:runServer`** - interactive dev runs (do not auto-stop; unlike `smokeTest`).
-
-Examples:
+#### Examples
 
 ```powershell
-.\gradlew.bat :fabric-line-26_1:runClient
-.\gradlew.bat :neoforge-line-1_21_11:runServer
-.\gradlew.bat smokeTest "-Pchronos.smoke.args=--workers 8 --only fabric-line-1_21_11"
-.\gradlew.bat smokeTest "-Pchronos.smoke.args=--reuse-gradle-daemon --workers 4"
+./gradlew cleanVariants
+./gradlew buildAll
+./gradlew :neoforge-line-26_1:runClient
+./gradlew :fabric-line-1_21_11:runServer
+./gradlew smokeTest "-Pchronos.smoke.args=--workers 8"
+./gradlew smokeTest "-Pchronos.smoke.args=--only fabric-line-1_21_11"
+./gradlew smokeTest "-Pchronos.smoke.args=--only neoforge-line-1_21_11 --only neoforge-line-26_1"
 ```
-
-### Speed notes
-
-Root **`gradle.properties`** already enables **`org.gradle.parallel`** and **`org.gradle.caching`**. Smoke runs pass **`--configure-on-demand`** to subprocess Gradle invocations. **`--reuse-gradle-daemon`** trades stronger isolation for faster repeated smoke locally.
