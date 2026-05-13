@@ -44,6 +44,8 @@ public final class Scheduler {
 
         Runnable backupTask = () -> {
             try {
+                if (!Config.getScheduleBackups())
+                    return;
                 long currentTimeSeconds = getCurrentTimeSeconds();
                 long interval = Config.getBackupIntervalSeconds();
                 if (currentTimeSeconds - secondsSinceLastBackup >= interval) {

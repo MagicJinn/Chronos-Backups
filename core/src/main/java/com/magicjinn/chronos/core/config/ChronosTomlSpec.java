@@ -13,13 +13,14 @@ public final class ChronosTomlSpec {
     public static final String KEY_PRUNE_CHUNKS = "pruneChunks";
     public static final String KEY_PRUNE_TIME_REQUIREMENT_SECONDS = "pruneTimeRequirementSeconds";
     public static final String KEY_PRUNE_MAX_WORKER_THREADS = "pruneMaxWorkerThreads";
+    public static final String KEY_SCHEDULE_BACKUPS = "scheduleBackups";
     public static final String KEY_BACKUP_INTERVAL_SECONDS = "backupIntervalSeconds";
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
     public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 7; // TODO: reset to 1 on 1.0.0
+    public static final int CONFIG_VERSION = 8; // TODO: reset to 1 on 1.0.0
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
@@ -48,6 +49,9 @@ public final class ChronosTomlSpec {
                 "# Max worker threads used by native pruning.",
                 "# 0 uses auto thread selection, positive values cap parallelism.",
                 KEY_PRUNE_MAX_WORKER_THREADS + " = " + config.pruneMaxWorkerThreads,
+                "",
+                "# Whether to run backups on a timer. If false, only manual /chronos backups run.",
+                KEY_SCHEDULE_BACKUPS + " = " + config.scheduleBackups,
                 "",
                 "# Seconds between automatic backup runs (whole numbers only).",
                 "# Example: 1800 = every 30 minutes, 3600 = hourly.",

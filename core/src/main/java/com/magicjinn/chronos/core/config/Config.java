@@ -80,6 +80,7 @@ public final class Config {
             out.pruneMaxWorkerThreads = cfg.getIntOrElse(
                     ChronosTomlSpec.KEY_PRUNE_MAX_WORKER_THREADS,
                     defaults.pruneMaxWorkerThreads);
+            out.scheduleBackups = cfg.getOrElse(ChronosTomlSpec.KEY_SCHEDULE_BACKUPS, defaults.scheduleBackups);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
             out.commandRequiredPermissionLevel = cfg.getIntOrElse(
@@ -116,6 +117,14 @@ public final class Config {
                 out.copyBlacklist.add(s);
             }
         }
+    }
+
+    /**
+     * When true, the scheduler may trigger automatic backups on the configured
+     * interval. When false, only manual {@code /chronos} backups run.
+     */
+    public static boolean getScheduleBackups() {
+        return modConfig != null ? modConfig.scheduleBackups : BUILTIN_DEFAULTS.scheduleBackups;
     }
 
     /**
