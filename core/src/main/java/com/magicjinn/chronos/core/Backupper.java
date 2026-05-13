@@ -5,19 +5,14 @@ import java.io.InterruptedIOException;
 import java.net.URI;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -31,14 +26,14 @@ public final class Backupper {
     private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
 
     private static final String CACHE_FOLDER_NAME = ".cache";
-    private static final String SESSION_LOCK_FILE_NAME = "session.lock";
     /**
-     * Loader atomic-write temps - copied mid-rename causes NoSuchFileException on
-     * Windows.
+     * Includes milliseconds so rapid successive backups (e.g. speedtests) get
+     * distinct file names.
+     * Otherwise {@link #zipSnapshot} would {@code deleteIfExists} the same path and
+     * drop prior zips.
      */
-    private static final String NEOFORGE_ATOMIC_TMP_SUFFIX = ".neoforge-tmp";
-    private static final String FABRIC_ATOMIC_TMP_SUFFIX = ".fabric-tmp";
-    private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd_HH-mm-ss.SSS");
 
     private static Path chronosFolder;
     private static Path cacheFolder;
@@ -49,8 +44,7 @@ public final class Backupper {
     /**
      * User cancel: abort in-flight backup work ({@link #shouldAbortBackupWork()})
      * and/or end an active {@link #speedtest} session. Cleared when a standalone
-     * backup finishes unless a speedtest is still running (see {@link #runBackup}
-     * finally).
+     * backup finishes unless a speedtest is still running
      */
     private static volatile boolean backupCancelRequested;
 
@@ -134,8 +128,8 @@ public final class Backupper {
                     stoppedEarly = true;
                     break;
                 }
-                runBackup(context);
-                backups++;
+                if (runBackup(context))
+                    backups++;
             }
         } finally {
             speedtestSessionActive.set(false);
@@ -149,7 +143,8 @@ public final class Backupper {
                         (duration / 1_000_000_000.0) / backups)
                 : "";
         context.sendChat(
-                "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(start) + ": " + backups + " backups"
+                "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(start) + ": " + backups
+                        + " successful backup(s)"
                         + averages);
     }
 
@@ -185,20 +180,25 @@ public final class Backupper {
         LOG.info("Backupper is ready and on standby...");
     }
 
-    public static void runBackup(BackupRuntimeContext context) {
+    /**
+     * Runs a backup and returns true if the backup was successful
+     * 
+     * @return {@code true} only when a zip archive was written successfully
+     */
+    public static boolean runBackup(BackupRuntimeContext context) {
         if (context == null) {
             LOG.warning("Backupper skipped: runtime context is unavailable.");
-            return;
+            return false;
         }
         if (isShutdownRequested()) {
             context.logInfo("Chronos backup skipped: shutdown in progress.");
-            return;
+            return false;
         }
 
         Path worldPath = context.getWorldSaveRoot();
         if (!Files.isDirectory(worldPath)) {
             context.logError("Backupper skipped: world path does not exist -> " + worldPath);
-            return;
+            return false;
         }
 
         // Claim the run atomically so two queued tasks cannot both start (e.g. double
@@ -207,7 +207,7 @@ public final class Backupper {
             String message = "Backup skipped: another backup is already running.";
             LOG.warning(message);
             context.sendChat(message);
-            return;
+            return false;
         }
         if (backupCancelRequested) {
             context.logInfo("Chronos backup skipped: cancel in progress.");
@@ -215,11 +215,11 @@ public final class Backupper {
             if (!backupRunActive.get()) {
                 backupCancelRequested = false;
             }
-            return;
+            return false;
         }
         try {
 
-        final String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
+            final String backupId = context.getWorldName() + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
         final Path zipOutputPath = chronosFolder.resolve(backupId + ".zip");
         final Path cacheSnapshotPath = cacheFolder.resolve(backupId);
 
@@ -243,7 +243,19 @@ public final class Backupper {
             }
 
             context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
-            copyWorldToCache(worldPath, cacheSnapshotPath, context);
+            Path worldRootAbs = worldPath.toAbsolutePath().normalize();
+            assertCacheOutsideWorld(worldRootAbs, cacheSnapshotPath);
+            deleteDirectory(cacheSnapshotPath);
+            Files.createDirectories(cacheSnapshotPath);
+            int[] outCopied = new int[1];
+            RustPrunerBridge.copyWorldToCache(
+                    worldRootAbs,
+                    cacheSnapshotPath,
+                    Config.getCopyBlacklist(),
+                    Config.getPruneMaxWorkerThreads(),
+                    outCopied);
+            context.logInfo(
+                    "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
             if (attemptedSavingPause && worldController != null) {
                 context.logInfo("Chronos backups: restoring automatic saves...");
                 worldController.setWorldSavingDisabled(context.getServerHandle(), false);
@@ -322,6 +334,7 @@ public final class Backupper {
                 }
             }
         }
+        return backupFinishedSuccessfully;
     } finally {
         backupCancelRequested = false;
         backupRunActive.set(false);
@@ -346,8 +359,6 @@ public final class Backupper {
         return String.format(Locale.ROOT, "%d min %.1f s", mins, remainderSeconds);
     }
 
-    private static final long COPY_PROGRESS_LOG_INTERVAL_NANOS = 15_000_000_000L;
-
     /**
      * {@link Path#relativize} throws {@link IllegalArgumentException} when roots differ (common on
      * Windows if the walk paths are not normalized the same way as the world root). Fall back to URI
@@ -370,42 +381,6 @@ public final class Backupper {
         }
     }
 
-    /**
-     * {@code pattern} without {@code /} matches the last path segment, with
-     * {@code /}, matches a path prefix under the world root (forward-slash form).
-     */
-    private static boolean isCopyBlacklisted(Path relativeToWorldRoot, List<String> patterns) {
-        if (patterns == null || patterns.isEmpty()) {
-            return false;
-        }
-        Path rel = relativeToWorldRoot.normalize();
-        String relSlash = rel.toString().replace('\\', '/');
-        if (relSlash.isEmpty() || ".".equals(relSlash)) {
-            return false;
-        }
-        for (String pattern : patterns) {
-            if (pattern == null) {
-                continue;
-            }
-            String p = pattern.trim();
-            if (p.isEmpty()) {
-                continue;
-            }
-            String pNorm = p.replace('\\', '/');
-            if (pNorm.indexOf('/') >= 0) {
-                if (relSlash.equals(pNorm) || relSlash.startsWith(pNorm + "/")) {
-                    return true;
-                }
-            } else {
-                Path fn = rel.getFileName();
-                if (fn != null && p.equals(fn.toString())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     private static void assertCacheOutsideWorld(Path worldRoot, Path cacheSnapshotPath) throws IOException {
         Path w = worldRoot.toAbsolutePath().normalize();
         Path c = cacheSnapshotPath.toAbsolutePath().normalize();
@@ -416,92 +391,6 @@ public final class Backupper {
                             + w
                             + " cache="
                             + c);
-        }
-    }
-
-    private static void copyWorldToCache(Path worldPath, Path cacheSnapshotPath, BackupRuntimeContext context)
-            throws IOException {
-        Path worldRoot = worldPath.toAbsolutePath().normalize();
-        assertCacheOutsideWorld(worldRoot, cacheSnapshotPath);
-
-        deleteDirectory(cacheSnapshotPath);
-        Files.createDirectories(cacheSnapshotPath);
-
-        final List<String> copyBlacklist = Config.getCopyBlacklist();
-        AtomicInteger fileCounter = new AtomicInteger();
-        AtomicLong nextProgressLogNanos = new AtomicLong(System.nanoTime() + COPY_PROGRESS_LOG_INTERVAL_NANOS);
-
-        Files.walkFileTree(
-                worldRoot,
-                new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-                            throws IOException {
-                        if (shouldAbortBackupWork()) {
-                            throw new InterruptedIOException("Backup copy aborted during shutdown");
-                        }
-                        Path relative = relativizeToWorldRoot(worldRoot, dir);
-                        if (isCopyBlacklisted(relative, copyBlacklist)) {
-                            return FileVisitResult.SKIP_SUBTREE;
-                        }
-                        Path destination = cacheSnapshotPath.resolve(relative);
-                        Files.createDirectories(destination);
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        if (shouldAbortBackupWork()) {
-                            throw new InterruptedIOException("Backup copy aborted during shutdown");
-                        }
-                        if (SESSION_LOCK_FILE_NAME.equals(file.getFileName().toString())) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        String leaf = file.getFileName().toString();
-                        if (leaf.endsWith(NEOFORGE_ATOMIC_TMP_SUFFIX) || leaf.endsWith(FABRIC_ATOMIC_TMP_SUFFIX)) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        Path relative = relativizeToWorldRoot(worldRoot, file);
-                        if (isCopyBlacklisted(relative, copyBlacklist)) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        Path destination = cacheSnapshotPath.resolve(relative);
-                        try {
-                            Files.copy(file, destination, StandardCopyOption.REPLACE_EXISTING);
-                        } catch (NoSuchFileException e) {
-                            // File disappeared between directory scan and copy (temp rename), omit from
-                            // backup.
-                            LOG.fine("Skipping vanished file during backup copy: " + file);
-                        }
-                        int n = fileCounter.incrementAndGet();
-                        if (context != null) {
-                            long now = System.nanoTime();
-                            long dueAt = nextProgressLogNanos.get();
-                            if (now >= dueAt
-                                    && nextProgressLogNanos.compareAndSet(
-                                            dueAt,
-                                            now + COPY_PROGRESS_LOG_INTERVAL_NANOS)) {
-                                context.logInfo("Chronos backups: copied " + n + " files so far...");
-                            }
-                        }
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                        if (context != null) {
-                            context.logError(
-                                    "Chronos backups: could not read a world file or folder during copy: "
-                                            + file
-                                            + " - "
-                                            + exc);
-                        }
-                        throw exc;
-                    }
-                });
-        if (context != null) {
-            context.logInfo(
-                    "Chronos backups: finished copying " + fileCounter.get() + " files into cache.");
         }
     }
 

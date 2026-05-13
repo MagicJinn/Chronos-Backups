@@ -6,19 +6,35 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Saves all world data using {@link MinecraftServer#saveEverything}, then toggles
- * each dimension's {@link ServerLevel#noSave}. This matches {@code FabricBackupWorldController},
+ * Saves all world data using {@link MinecraftServer#saveEverything}, then
+ * toggles
+ * each dimension's {@link ServerLevel#noSave}. This matches
+ * {@code FabricBackupWorldController},
  * allowing one implementation to support 1.20 and newer (since 1.20.x lacks
  * {@code MinecraftServer#setAutoSave}).
+ *
+ * <p>
+ * The middle {@code saveEverything} argument is {@code flush}: {@code true} so
+ * the call blocks
+ * until chunk/level data has been written through to storage (not merely
+ * scheduled), which is
+ * required before filesystem backups on Windows.
  */
 public final class MojmapBackupWorldController implements BackupWorldController {
+    private static final String SERVER_THREAD_NAME = "Server thread";
+
     @Override
     public void saveAllWorldData(Object serverHandle) {
         if (!(serverHandle instanceof MinecraftServer)) {
             return;
         }
         MinecraftServer server = (MinecraftServer) serverHandle;
-        server.executeBlocking(() -> server.saveEverything(true, false, true));
+        runServerBlocking(
+                server,
+                () ->
+                // suppressLogs, flush, force
+                // flush must be true so saves complete before copy
+                server.saveEverything(true, true, true));
     }
 
     @Override
@@ -28,7 +44,8 @@ public final class MojmapBackupWorldController implements BackupWorldController 
         }
         MinecraftServer server = (MinecraftServer) serverHandle;
         AtomicBoolean touchedLevel = new AtomicBoolean(false);
-        server.executeBlocking(
+        runServerBlocking(
+                        server,
                 () -> {
                     for (ServerLevel level : server.getAllLevels()) {
                         if (level == null) {
@@ -41,5 +58,13 @@ public final class MojmapBackupWorldController implements BackupWorldController 
                     }
                 });
         return touchedLevel.get();
+    }
+
+    private static void runServerBlocking(MinecraftServer server, Runnable task) {
+        if (SERVER_THREAD_NAME.equals(Thread.currentThread().getName())) {
+            task.run();
+            return;
+        }
+        server.executeBlocking(task);
     }
 }

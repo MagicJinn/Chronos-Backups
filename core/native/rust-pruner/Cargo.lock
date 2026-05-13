@@ -234,6 +234,7 @@ dependencies = [
  "mca",
  "rayon",
  "simdnbt",
+ "walkdir",
 ]
 
 [[package]]

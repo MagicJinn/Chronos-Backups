@@ -2,9 +2,11 @@ package com.magicjinn.chronos.core;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 
 final class RustPrunerBridge {
     private static final Object LOAD_LOCK = new Object();
@@ -25,6 +27,54 @@ final class RustPrunerBridge {
         if (code != 0) {
             throw new IOException("Native rust-pruner failed with status code " + code);
         }
+    }
+
+    /**
+     * Copies a world folder into the backup cache using the native implementation
+     * (parallel file copies, same blacklist rules as the former Java tree walk).
+     *
+     * @param outCopiedFileCount single-element array, element 0 is set to the
+     *                           number of files processed on success
+     */
+    static void copyWorldToCache(
+            Path worldRoot,
+            Path cacheDestRoot,
+            List<String> copyBlacklistPatterns,
+            int maxCopyWorkerThreads,
+            int[] outCopiedFileCount)
+            throws IOException {
+        ensureLoaded();
+        if (outCopiedFileCount == null || outCopiedFileCount.length < 1) {
+            throw new IllegalArgumentException("outCopiedFileCount must hold at least one int");
+        }
+        String[] arr = copyBlacklistPatterns == null || copyBlacklistPatterns.isEmpty()
+                ? new String[0]
+                : copyBlacklistPatterns.toArray(new String[0]);
+        int code = copyWorldToCacheNative(
+                worldRoot.toAbsolutePath().normalize().toString(),
+                cacheDestRoot.toAbsolutePath().normalize().toString(),
+                arr,
+                maxCopyWorkerThreads,
+                outCopiedFileCount);
+        if (code == 2) {
+            throw new InterruptedIOException(
+                    "Chronos world copy aborted (shutdown, cancel, or interrupt requested).");
+        }
+        if (code == 5) {
+            throw new IOException(
+                    "Native world copy refused: cache path appears to be inside the world directory.");
+        }
+        if (code != 0) {
+            throw new IOException("Native rust-pruner world copy failed with status code " + code);
+        }
+    }
+
+    /**
+     * Polled from native code between copy batches, must stay cheap.
+     */
+    @SuppressWarnings("unused")
+    private static boolean pollAbortCopy() {
+        return Backupper.shouldAbortBackupWork();
     }
 
     private static void ensureLoaded() throws IOException {
@@ -89,4 +139,11 @@ final class RustPrunerBridge {
             String worldFolderPath,
             int spentTimeRequirementSeconds,
             int maxWorkerThreads);
+
+    private static native int copyWorldToCacheNative(
+            String worldRootPath,
+            String cacheDestPath,
+            String[] copyBlacklistPatterns,
+            int maxCopyWorkerThreads,
+            int[] outCopiedFileCount);
 }

@@ -253,7 +253,7 @@ fn process_region_file(
     Ok(pruned_in_region)
 }
 
-fn resolve_pruner_threads(configured_max_worker_threads: usize) -> usize {
+pub(crate) fn resolve_pruner_threads(configured_max_worker_threads: usize) -> usize {
     if configured_max_worker_threads > 0 {
         return configured_max_worker_threads.max(1);
     }
