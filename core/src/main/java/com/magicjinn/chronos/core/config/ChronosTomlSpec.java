@@ -24,9 +24,8 @@ public final class ChronosTomlSpec {
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
-     * editor.
-     * The format version key is last so the on-disk layout stays easy to read from
-     * top to bottom.
+     * editor. The format version key is last so the on-disk layout stays easy to
+     * read from top to bottom.
      */
     public static String renderDocument(ModConfig config) {
         return String.join("\n",

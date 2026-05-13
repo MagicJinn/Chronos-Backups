@@ -1,13 +1,20 @@
+//! Rust implementation of the Chronos backup utility.
+//! Smart stuff we do here:
+//! Use mca and na_nbt for maximum performance
+//! Copy files in parallel using rayon
+//! Zip the snapshot using rawzip, and instead of writing back to disk (cache) we stream the pruned files directly into the zip
+
 mod pruner;
+mod snapshot_zip;
 mod world_copy;
 
-use std::io::Read;
-use std::io::ErrorKind;
+use std::io::{Cursor, ErrorKind, Read};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::{io::Cursor, path::PathBuf};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use flate2::read::GzDecoder;
-use jni::objects::{JClass, JIntArray, JObjectArray, JString};
+use jni::objects::{JClass, JIntArray, JObjectArray, JStaticMethodID, JString};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jint, jintArray, jobjectArray, jstring};
 use jni::JNIEnv;
@@ -26,6 +33,7 @@ pub fn prune_world_folder(
         data_version,
         inhabited_time_seconds_required,
         max_worker_threads,
+        None,
     )
 }
 
@@ -65,11 +73,78 @@ fn get_data_version(world_folder: PathBuf) -> u32 {
         .unwrap_or(0) as u32
 }
 
+fn prune_world_to_zip_impl(
+    world_folder: PathBuf,
+    zip_path: PathBuf,
+    inhabited_time_seconds_required: u64,
+    max_worker_threads: usize,
+    env: &mut JNIEnv,
+    clazz: &JClass,
+    poll_mid: JStaticMethodID,
+) -> jint {
+    let mut poll_abort = || unsafe {
+        match env.call_static_method_unchecked(
+            clazz,
+            poll_mid,
+            ReturnType::Primitive(Primitive::Boolean),
+            &[],
+        ) {
+            Ok(v) => v.z().unwrap_or(false),
+            Err(err) => {
+                eprintln!("Warning: pollAbortCopy failed: {err}");
+                false
+            }
+        }
+    };
+
+    let data_version = get_data_version(world_folder.clone());
+    let run_prune = data_version != 0 && inhabited_time_seconds_required > 0;
+
+    let sink = match snapshot_zip::ZipStreamSink::create(world_folder.clone(), zip_path) {
+        Ok(s) => Arc::new(s),
+        Err(err) => {
+            eprintln!("Error: failed to create zip output: {err}");
+            return 1;
+        }
+    };
+
+    if run_prune {
+        if let Err(err) = pruner::prune_world(
+            world_folder.clone(),
+            data_version,
+            inhabited_time_seconds_required,
+            max_worker_threads,
+            Some(sink.clone()),
+        ) {
+            eprintln!("Error: failed to prune world: {err}");
+            return 1;
+        }
+    }
+
+    if let Err(err) =
+        snapshot_zip::append_remaining_snapshot_files(sink.as_ref(), &mut poll_abort)
+    {
+        if err.kind() == ErrorKind::Interrupted {
+            return 2;
+        }
+        eprintln!("Error: failed to zip snapshot remainder: {err}");
+        return 1;
+    }
+
+    if let Err(err) = sink.as_ref().finish() {
+        eprintln!("Error: failed to finalize zip archive: {err}");
+        return 1;
+    }
+
+    return 0
+}
+
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWorldNative(
+pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWorldToZipNative(
     mut env: JNIEnv,
     _class: JClass,
     world_folder: JString,
+    zip_path: JString,
     inhabited_time_seconds_required: jint,
     max_worker_threads: jint,
 ) -> jint {
@@ -78,10 +153,16 @@ pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWor
             Ok(s) => s.to_string_lossy().into_owned(),
             Err(err) => {
                 eprintln!("Error: failed to decode world path from Java: {err}");
-                return 2;
+                return 4;
             }
         };
-        let world_folder_path = PathBuf::from(world_folder_str);
+        let zip_path_str = match env.get_string(&zip_path) {
+            Ok(s) => s.to_string_lossy().into_owned(),
+            Err(err) => {
+                eprintln!("Error: failed to decode zip path from Java: {err}");
+                return 4;
+            }
+        };
         let seconds = if inhabited_time_seconds_required < 0 {
             0
         } else {
@@ -93,19 +174,36 @@ pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWor
             max_worker_threads as usize
         };
 
-        match prune_world_folder(world_folder_path, seconds, threads) {
-            Ok(()) => 0,
+        let clazz = match env.find_class("com/magicjinn/chronos/core/RustPrunerBridge") {
+            Ok(c) => c,
             Err(err) => {
-                eprintln!("Error: failed to prune world: {err}");
-                1
+                eprintln!("Error: find_class RustPrunerBridge: {err}");
+                return 4;
             }
-        }
+        };
+        let poll_mid = match env.get_static_method_id(&clazz, "pollAbortCopy", "()Z") {
+            Ok(m) => m,
+            Err(err) => {
+                eprintln!("Error: get_static_method_id pollAbortCopy: {err}");
+                return 4;
+            }
+        };
+
+        prune_world_to_zip_impl(
+            PathBuf::from(world_folder_str),
+            PathBuf::from(zip_path_str),
+            seconds,
+            threads,
+            &mut env,
+            &clazz,
+            poll_mid,
+        )
     }));
 
     match result {
         Ok(code) => code,
         Err(_) => {
-            let _ = env.throw_new("java/lang/RuntimeException", "rust-pruner panicked");
+            let _ = env.throw_new("java/lang/RuntimeException", "rust-pruner prune+zip panicked");
             3
         }
     }

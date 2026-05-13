@@ -282,7 +282,7 @@ tasks.register("generateVariants") {
 
 tasks.register("cleanVariants") {
     group = "chronos"
-    description = "Force-deletes the variants/ folder via Java tooling; retries to handle locked files (e.g. on Windows)."
+    description = "Force-deletes the variants/ folder via Java tooling, retries to handle locked files (e.g. on Windows)."
     dependsOn(":tooling:runCleanVariants")
 }
 

@@ -5,6 +5,9 @@ use std::fs::{self, read};
 use std::io::Cursor;
 use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use crate::snapshot_zip::ZipStreamSink;
 
 // Worlds have a meaningfully different structure before and after 26.1 snapshot 6
 // World structure has changed over the years, but it's never been significantly different, so we could always work around it in those versions
@@ -41,6 +44,7 @@ pub fn prune_world(
     data_version: u32,
     inhabited_time_seconds_required: u64,
     max_worker_threads: usize,
+    zip_sink: Option<Arc<ZipStreamSink>>,
 ) -> Result<(), std::io::Error> {
     if !world_folder.is_dir() {
         return Ok(());
@@ -129,6 +133,7 @@ pub fn prune_world(
                     entities_dir.as_path(),
                     poi_dir.as_path(),
                     inhabited_time_ticks_required,
+                    zip_sink.as_ref(),
                 )
             })
             .collect::<Vec<Result<usize, std::io::Error>>>()
@@ -152,6 +157,7 @@ fn process_region_file(
     entities_dir: &Path,
     poi_dir: &Path,
     inhabited_time_ticks_required: u64,
+    zip_sink: Option<&Arc<ZipStreamSink>>,
 ) -> Result<usize, std::io::Error> {
     let region_bytes = match read(region_path) {
         Ok(bytes) => bytes,
@@ -243,11 +249,21 @@ fn process_region_file(
         }
     }
 
-    write_mca_or_delete(region_path, kept_chunks)?;
+    write_mca_or_delete(region_path, kept_chunks, zip_sink)?;
 
     if let Some(region_file_name) = region_path.file_name() {
-        clear_matching_slots_in_sibling_mca(entities_dir, region_file_name, &slots_to_clear);
-        clear_matching_slots_in_sibling_mca(poi_dir, region_file_name, &slots_to_clear);
+        clear_matching_slots_in_sibling_mca(
+            entities_dir,
+            region_file_name,
+            &slots_to_clear,
+            zip_sink,
+        );
+        clear_matching_slots_in_sibling_mca(
+            poi_dir,
+            region_file_name,
+            &slots_to_clear,
+            zip_sink,
+        );
     }
 
     Ok(pruned_in_region)
@@ -279,6 +295,7 @@ fn clear_matching_slots_in_sibling_mca(
     sibling_dir: &Path,
     region_file_name: &std::ffi::OsStr,
     slots_to_clear: &[bool; REGION_SLOT_COUNT],
+    zip_sink: Option<&Arc<ZipStreamSink>>,
 ) {
     if !sibling_dir.is_dir() {
         return;
@@ -335,7 +352,7 @@ fn clear_matching_slots_in_sibling_mca(
         }
     }
 
-    let _ = write_mca_or_delete(&path, kept_chunks);
+    let _ = write_mca_or_delete(&path, kept_chunks, zip_sink);
 }
 
 fn has_minimum_anvil_header(path: &Path) -> bool {
@@ -352,7 +369,11 @@ fn has_minimum_anvil_header(path: &Path) -> bool {
     }
 }
 
-fn write_mca_or_delete(path: &Path, chunks: Vec<(u8, u8, Vec<u8>)>) -> Result<(), std::io::Error> {
+fn write_mca_or_delete(
+    path: &Path,
+    chunks: Vec<(u8, u8, Vec<u8>)>,
+    zip_sink: Option<&Arc<ZipStreamSink>>,
+) -> Result<(), std::io::Error> {
     if chunks.is_empty() {
         if let Err(err) = fs::remove_file(path) {
             if err.kind() != ErrorKind::NotFound {
@@ -367,6 +388,20 @@ fn write_mca_or_delete(path: &Path, chunks: Vec<(u8, u8, Vec<u8>)>) -> Result<()
         writer
             .set_chunk(x, z, data, Compression::default())
             .map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))?;
+    }
+
+    if let Some(sink) = zip_sink {
+        let mut buf = Vec::new();
+        writer
+            .write(&mut buf)
+            .map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))?;
+        sink.add_file_deflated(path, &buf)?;
+        if let Err(err) = fs::remove_file(path) {
+            if err.kind() != ErrorKind::NotFound {
+                return Err(err);
+            }
+        }
+        return Ok(());
     }
 
     let mut out = fs::File::create(path)?;

@@ -14,18 +14,40 @@ final class RustPrunerBridge {
 
     private RustPrunerBridge() {}
 
-    static void pruneMinecraftWorld(Path worldPath, int spentTimeRequirementSeconds, int maxWorkerThreads)
+    /**
+     * Prunes region/entities/poi MCA files in {@code worldPath} (when pruning is
+     * enabled and time threshold is positive) and writes a deflate-compressed zip
+     * of the full snapshot to {@code zipOutputPath}. Pruned files are streamed into
+     * the archive as they are produced. Any files left on disk after pruning are
+     * zipped in a follow-up walk.
+     */
+    static void pruneWorldToZip(
+            Path worldPath,
+            Path zipOutputPath,
+            int spentTimeRequirementSeconds,
+            int maxWorkerThreads)
             throws IOException {
         if (worldPath == null || !Files.isDirectory(worldPath)) {
             return;
         }
+        if (zipOutputPath == null) {
+            throw new IllegalArgumentException("zipOutputPath is null");
+        }
         ensureLoaded();
-        int code = pruneWorldNative(
-                worldPath.toAbsolutePath().toString(),
+        int code = pruneWorldToZipNative(
+                worldPath.toAbsolutePath().normalize().toString(),
+                zipOutputPath.toAbsolutePath().normalize().toString(),
                 spentTimeRequirementSeconds,
                 maxWorkerThreads);
+        if (code == 2) {
+            throw new InterruptedIOException(
+                    "Chronos prune+zip aborted (shutdown, cancel, or interrupt requested).");
+        }
+        if (code == 4) {
+            throw new IOException("Native rust-pruner prune+zip failed to read paths from Java.");
+        }
         if (code != 0) {
-            throw new IOException("Native rust-pruner failed with status code " + code);
+            throw new IOException("Native rust-pruner prune+zip failed with status code " + code);
         }
     }
 
@@ -135,8 +157,9 @@ final class RustPrunerBridge {
         return "librust_pruner.so";
     }
 
-    private static native int pruneWorldNative(
+    private static native int pruneWorldToZipNative(
             String worldFolderPath,
+            String zipOutputPath,
             int spentTimeRequirementSeconds,
             int maxWorkerThreads);
 

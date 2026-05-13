@@ -263,17 +263,19 @@ public final class Backupper {
             }
 
             if (Config.getPruneChunksEnabled()) {
-                context.logInfo("Chronos backups: pruning snapshot...");
-                RustPrunerBridge.pruneMinecraftWorld(
+                context.logInfo(
+                        "Chronos backups: pruning snapshot and writing zip (streaming pruned region files)...");
+                Files.deleteIfExists(zipOutputPath);
+                RustPrunerBridge.pruneWorldToZip(
                         cacheSnapshotPath,
+                        zipOutputPath,
                         Config.getPruneTimeRequirementSeconds(),
                         Config.getPruneMaxWorkerThreads());
             } else {
                 context.logInfo("Chronos backups: snapshot pruning disabled by config.");
+                context.logInfo("Chronos backups: writing zip archive...");
+                zipSnapshot(cacheSnapshotPath, zipOutputPath);
             }
-
-            context.logInfo("Chronos backups: writing zip archive...");
-            zipSnapshot(cacheSnapshotPath, zipOutputPath);
 
             backupFinishedSuccessfully = true;
             final String duration = formatBackupDurationNanos(backupStartNanos);
