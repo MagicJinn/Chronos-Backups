@@ -1,6 +1,6 @@
 //! Rust implementation of the Chronos backup utility.
 //! Smart stuff we do here:
-//! Use mca and na_nbt for maximum performance
+//! Use mca and simdnbt for maximum performance
 //! Copy files in parallel using rayon
 //! Zip the snapshot using rawzip, and instead of writing back to disk (cache) we stream the pruned files directly into the zip
 
