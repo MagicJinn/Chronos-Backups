@@ -76,7 +76,7 @@ Github Actions automatically builds and uploads nightly releases to the [GitHub 
 ## Development
 
 > [!Note]
-> This repository is meant to compile with the build tool (for example ./gradlew buildAll). Editors are not guaranteed to work, so you may see persistent missing imports and other false errors in the IDE even when the command-line build succeeds. Treat the build output as the real check until further notice. Your IDE **will** complain. Sorry.
+> This repository is meant to compile with the build tool (for example ./gradlew buildAll). Editors are not guaranteed to work, so you may see persistent missing imports and other false errors in the IDE even when the command-line build succeeds. This might even result in ludicrous errors such as `String cannot be resolved to a type`. Treat the build output as the real check until further notice. Your IDE **will** complain. Sorry.
 
 Chronos Backups is dedicated to making the development of this mod as easy as possible, on any OS, in any IDE, with simple automatic setups and tools for testing and building, but there are still some manual steps required.
 
