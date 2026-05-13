@@ -280,6 +280,12 @@ tasks.register("generateVariants") {
     dependsOn(":tooling:runGenerateVariants")
 }
 
+tasks.register("cleanVariants") {
+    group = "chronos"
+    description = "Force-deletes the variants/ folder via Java tooling; retries to handle locked files (e.g. on Windows)."
+    dependsOn(":tooling:runCleanVariants")
+}
+
 tasks.register("smokeTest") {
     group = "verification"
     description = "Runs dedicated server smoke tests via Java tooling."

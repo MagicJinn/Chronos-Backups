@@ -44,6 +44,13 @@ val runGenerateVariants by tasks.registering(JavaExec::class) {
     mainClass.set("com.magicjinn.chronos.tooling.GenerateVariants")
 }
 
+val runCleanVariants by tasks.registering(JavaExec::class) {
+    group = "chronos"
+    description = "Force-deletes variants/ with retries to tolerate locked files."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.magicjinn.chronos.tooling.CleanVariants")
+}
+
 val runSmokeTest by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs dedicated server smoke tests in parallel."

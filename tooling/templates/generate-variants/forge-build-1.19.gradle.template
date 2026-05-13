@@ -52,7 +52,7 @@ unimined.minecraft {
 
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
-    // Unimined merges `implementation` into the remapped jar; use `compileOnly` so Night Config is not bundled (Forge supplies it; avoids JPMS duplicate exports on 1.17+).
+    // Unimined merges `implementation` into the remapped jar. Use `compileOnly` so Night Config is not bundled (Forge supplies it, avoids JPMS duplicate exports on 1.17+).
     compileOnly "com.electronwill.night-config:core:${nightConfigVer}"
     compileOnly "com.electronwill.night-config:toml:${nightConfigVer}"
 }
