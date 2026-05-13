@@ -36,6 +36,22 @@ public final class LegacyCommandSupport {
             return;
         }
 
+        if (ChronosCommandLiterals.SPEEDTEST.equalsIgnoreCase(subcommand)) {
+            if (args.length < 2) {
+                sink.send(ChronosCommandActions.messageSpeedtestUsage());
+                return;
+            }
+            try {
+                int s = Integer.parseInt(args[1]);
+                if (!ChronosCommandActions.speedtest(s)) {
+                    sink.send(ChronosCommandActions.messageRuntimeInactive());
+                }
+            } catch (NumberFormatException e) {
+                sink.send(ChronosCommandActions.messageSpeedtestInvalidInteger(args[1]));
+            }
+            return;
+        }
+
         throw new UnknownSubcommandException(ChronosCommandActions.messageUnknownSubcommand(subcommand));
     }
 

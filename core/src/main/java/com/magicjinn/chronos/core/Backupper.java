@@ -47,7 +47,10 @@ public final class Backupper {
     private static volatile boolean shutdownRequested;
 
     /**
-     * User/API requested abort of the current backup (without unloading the world).
+     * User cancel: abort in-flight backup work ({@link #shouldAbortBackupWork()})
+     * and/or end an active {@link #speedtest} session. Cleared when a standalone
+     * backup finishes unless a speedtest is still running (see {@link #runBackup}
+     * finally).
      */
     private static volatile boolean backupCancelRequested;
 
@@ -55,6 +58,12 @@ public final class Backupper {
      * Whether {@link #runBackup} is executing its main work (copy > prune > zip).
      */
     private static final AtomicBoolean backupRunActive = new AtomicBoolean(false);
+
+    /**
+     * Whether a {@link #speedtest} session is in progress (excludes per-backup
+     * {@link #backupRunActive}).
+     */
+    private static final AtomicBoolean speedtestSessionActive = new AtomicBoolean(false);
 
     static boolean isShutdownRequested() {
         return shutdownRequested || Thread.currentThread().isInterrupted();
@@ -70,25 +79,79 @@ public final class Backupper {
     }
 
     /**
-     * Requests the in-flight backup (if any) to abort. Does nothing when no
-     * backup is running.
-     *
-     * @return {@code true} if a backup was active and will receive the signal
+     * Whether a backup run is currently executing its main work.
      */
     public static boolean isBackupRunActive() {
         return backupRunActive.get();
     }
 
-    public static boolean requestCancelInFlightBackup() {
-        if (!backupRunActive.get()) {
-            return false;
-        }
-        backupCancelRequested = true;
-        return true;
+    public static boolean isSpeedtestSessionActive() {
+        return speedtestSessionActive.get();
     }
 
-    /** Invoked from {@code /chronos speedtest <x>} for benchmarking or diagnostics. */
-    public static void speedtest(int x) {}
+    /**
+     * Sets {@link #backupCancelRequested} when a backup run or a speedtest session
+     * is active so
+     * in-flight work aborts and/or the speedtest loop stops.
+     *
+     * @return {@code true} if that cancel signal was applied
+     */
+    public static boolean requestCancelInFlightBackup() {
+        if (backupRunActive.get() || speedtestSessionActive.get()) {
+            backupCancelRequested = true;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Runs backups for {@code s} seconds, or until
+     * {@link #requestCancelInFlightBackup()} (e.g.
+     * {@code /chronos cancel}) stops the session.
+     */
+    public static void speedtest(BackupRuntimeContext context, int s) {
+        if (context == null) {
+            LOG.warning("speedtest skipped: runtime context is unavailable.");
+            return;
+        }
+        if (!speedtestSessionActive.compareAndSet(false, true)) {
+            context.sendChat("A Chronos speedtest is already running.");
+            return;
+        }
+        if (backupRunActive.get()) {
+            speedtestSessionActive.set(false);
+            context.sendChat("A Chronos speedtest or backup is already running.");
+            return;
+        }
+        backupCancelRequested = false;
+        long start = System.nanoTime();
+        long end = start + s * 1_000_000_000L;
+        int backups = 0;
+        boolean stoppedEarly = false;
+        try {
+            while (System.nanoTime() < end && !isShutdownRequested()) {
+                if (backupCancelRequested) {
+                    stoppedEarly = true;
+                    break;
+                }
+                runBackup(context);
+                backups++;
+            }
+        } finally {
+            speedtestSessionActive.set(false);
+            backupCancelRequested = false;
+        }
+
+        long duration = System.nanoTime() - start;
+        String suffix = stoppedEarly ? " (stopped by /chronos cancel)" : "";
+        String averages = backups > 0
+                ? String.format(Locale.ROOT, ", average duration per backup: %.2f s",
+                        (duration / 1_000_000_000.0) / backups)
+                : "";
+        context.sendChat(
+                "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(start) + ": " + backups + " backups"
+                        + averages);
+    }
 
     /**
      * Clears the shutdown flag when a new world session starts (after a prior
@@ -97,6 +160,8 @@ public final class Backupper {
     static void clearShutdownRequest() {
         shutdownRequested = false;
         backupCancelRequested = false;
+        backupRunActive.set(false);
+        speedtestSessionActive.set(false);
     }
 
     public static void InitializeBackupper() {
@@ -142,6 +207,14 @@ public final class Backupper {
             String message = "Backup skipped: another backup is already running.";
             LOG.warning(message);
             context.sendChat(message);
+            return;
+        }
+        if (backupCancelRequested) {
+            context.logInfo("Chronos backup skipped: cancel in progress.");
+            backupRunActive.set(false);
+            if (!backupRunActive.get()) {
+                backupCancelRequested = false;
+            }
             return;
         }
         try {

@@ -2,10 +2,12 @@ package com.magicjinn.chronos.shell;
 
 import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 
 /**
- * Single Brigadier tree for {@code /chronos backup|cancel}, shared by loaders
+ * Single Brigadier tree for {@code /chronos backup|cancel|speedtest}, shared by loaders
  * that ship Brigadier.
  * Uses {@link LiteralArgumentBuilder#literal} so we do not depend on
  * version-specific {@code Commands}
@@ -37,6 +39,11 @@ public final class ChronosBrigadier {
          * {@code commandRequiredPermissionLevel}).
          */
         boolean mayExecuteChronos(S source);
+
+        /** Successful completion of a subcommand that does not map to backup/cancel semantics. */
+        default int successReturnCode() {
+            return backupReturnCode(true);
+        }
     }
 
     public static <S> LiteralArgumentBuilder<S> buildRoot(Hooks<S> hooks) {
@@ -78,7 +85,21 @@ public final class ChronosBrigadier {
                                         false);
                             }
                             return hooks.cancelReturnCode(cancelled);
-                        }));
+                        }))
+                .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.SPEEDTEST)
+                        .then(RequiredArgumentBuilder.<S, Integer>argument(
+                                        "s", IntegerArgumentType.integer())
+                                .executes(ctx -> {
+                                    int s = IntegerArgumentType.getInteger(ctx, "s");
+                                    if (!ChronosCommandActions.speedtest(s)) {
+                                        hooks.feedback(
+                                                ctx.getSource(),
+                                                ChronosCommandActions.messageRuntimeInactive(),
+                                                false);
+                                        return hooks.backupReturnCode(false);
+                                    }
+                                    return hooks.successReturnCode();
+                                })));
     }
 
     public static <S> void register(CommandDispatcher<S> dispatcher, Hooks<S> hooks) {

@@ -40,7 +40,10 @@ final class ChronosBackupCommand extends CommandBase {
             MinecraftServer server, ICommandSender sender, String[] args, BlockPos targetPos) {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(
-                    args, ChronosCommandLiterals.BACKUP, ChronosCommandLiterals.CANCEL);
+                    args,
+                    ChronosCommandLiterals.BACKUP,
+                    ChronosCommandLiterals.CANCEL,
+                    ChronosCommandLiterals.SPEEDTEST);
         }
         return Collections.emptyList();
     }

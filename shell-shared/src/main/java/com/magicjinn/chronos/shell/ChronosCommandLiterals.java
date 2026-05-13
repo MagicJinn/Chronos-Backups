@@ -8,6 +8,7 @@ public final class ChronosCommandLiterals {
     public static final String ROOT = "chronos";
     public static final String BACKUP = "backup";
     public static final String CANCEL = "cancel";
+    public static final String SPEEDTEST = "speedtest";
 
     private ChronosCommandLiterals() {
     }

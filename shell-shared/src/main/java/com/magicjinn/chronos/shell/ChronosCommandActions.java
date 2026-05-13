@@ -18,7 +18,12 @@ public final class ChronosCommandActions {
             + " | /"
             + ChronosCommandLiterals.ROOT
             + " "
-            + ChronosCommandLiterals.CANCEL;
+            + ChronosCommandLiterals.CANCEL
+            + " | /"
+            + ChronosCommandLiterals.ROOT
+            + " "
+            + ChronosCommandLiterals.SPEEDTEST
+            + " <s>";
 
     private ChronosCommandActions() {}
 
@@ -46,6 +51,19 @@ public final class ChronosCommandActions {
         return BackupRuntimeContext.CHAT_PREFIX + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
     }
 
+    public static String messageSpeedtestUsage() {
+        return BackupRuntimeContext.CHAT_PREFIX
+                + "Usage: /"
+                + ChronosCommandLiterals.ROOT
+                + " "
+                + ChronosCommandLiterals.SPEEDTEST
+                + " <s>";
+    }
+
+    public static String messageSpeedtestInvalidInteger(String token) {
+        return BackupRuntimeContext.CHAT_PREFIX + "Not an integer: \"" + token + "\".";
+    }
+
     /** Queues a manual backup when the world scheduler is active and no backup is running. */
     public static ManualBackupStart tryStartManualBackup() {
         return Scheduler.tryEnqueueManualBackup();
@@ -54,5 +72,19 @@ public final class ChronosCommandActions {
     /** Signals the current in-flight backup to stop, no-op if none is running. */
     public static boolean requestCancelInFlightBackup() {
         return Backupper.requestCancelInFlightBackup();
+    }
+
+    /**
+     * {@code s} is seconds (integer) from {@code /chronos speedtest <s>}.
+     *
+     * @return {@code false} when {@link Scheduler} has no active {@link BackupRuntimeContext}
+     */
+    public static boolean speedtest(int s) {
+        BackupRuntimeContext context = Scheduler.getRuntimeContext();
+        if (context == null) {
+            return false;
+        }
+        Backupper.speedtest(context, s);
+        return true;
     }
 }

@@ -32,6 +32,11 @@ public final class Scheduler {
     // Set to current time, to prevent immediate backup on startup
     private static long secondsSinceLastBackup = getCurrentTimeSeconds();
 
+    /** Active world/runtime context, or {@code null} when the scheduler has not been started. */
+    public static BackupRuntimeContext getRuntimeContext() {
+        return runtimeContext;
+    }
+
     public static void InitializeScheduler(BackupRuntimeContext context) {
 
         Backupper.clearShutdownRequest();
@@ -93,7 +98,7 @@ public final class Scheduler {
         if (context == null) {
             return ManualBackupStart.NO_RUNTIME;
         }
-        if (Backupper.isBackupRunActive()) {
+        if (Backupper.isBackupRunActive() || Backupper.isSpeedtestSessionActive()) {
             return ManualBackupStart.ALREADY_RUNNING;
         }
         secondsSinceLastBackup = getCurrentTimeSeconds();
