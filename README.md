@@ -68,6 +68,8 @@ The mod's configuration is stored in the `config/chronos.toml` file. This file i
 - `pruneMaxWorkerThreads`: Maximum worker threads for pruning. 0 (or less) means "auto" (pruner picks a sensible default).
 - `scheduleBackups`: Whether to run backups on a timer.
 - `backupIntervalSeconds`: Seconds between automatic backup runs.
+- `maxStoredBackups`: Maximum backups kept per world. After a successful backup, oldest snapshots are removed if the limit is exceeded. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
+- `compressionMethod`: Whether to compress the backup snapshot into a zip file or store it as an uncompressed folder. Accepts `"zip"` or `"none"`.
 - `commandRequiredPermissionLevel`: Permission level required to run `/chronos`.
 - `copyBlacklist`: Folders and files to exclude from the backup snapshot copy.
 

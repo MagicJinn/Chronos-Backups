@@ -188,7 +188,7 @@ public final class Backupper {
     /**
      * Runs a backup and returns true if the backup was successful
      *
-     * @return {@code true} when the snapshot was written successfully (zip archive or folder copy)
+     * @return {@code true} when the snapshot was written successfully
      */
     public static boolean runBackup(BackupRuntimeContext context) {
         if (context == null) {
@@ -279,7 +279,7 @@ public final class Backupper {
                             "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
                 } else {
                     context.logInfo(
-                            "Chronos backups: copying world directly to backup folder (compressionMethod=none)...");
+                            "Chronos backups: copying world to backup folder...");
                     assertCacheOutsideWorld(worldRootAbs, folderOutputPath);
                     deleteDirectory(folderOutputPath);
                     Files.createDirectories(folderOutputPath);
@@ -292,11 +292,6 @@ public final class Backupper {
                             outCopied);
                     context.logInfo(
                             "Chronos backups: finished copying " + outCopied[0] + " files into backup folder.");
-                    if (Config.getPruneChunksEnabled()) {
-                        context.logInfo(
-                                "Chronos backups: pruneChunks is ignored when compressionMethod is none (native pruner"
-                                        + " only streams pruned data into a zip).");
-                    }
                 }
 
                 if (attemptedSavingPause && worldController != null) {
@@ -308,7 +303,7 @@ public final class Backupper {
                 if (compressionMethod == CompressionMethod.ZIP) {
                     if (Config.getPruneChunksEnabled()) {
                         context.logInfo(
-                                "Chronos backups: pruning snapshot and writing zip (streaming pruned region files)...");
+                                "Chronos backups: pruning snapshot and writing zip...");
                         Files.deleteIfExists(zipOutputPath);
                         RustPrunerBridge.pruneWorldToZip(
                                 cacheSnapshotPath,
@@ -320,6 +315,14 @@ public final class Backupper {
                         context.logInfo("Chronos backups: writing zip archive...");
                         zipSnapshot(cacheSnapshotPath, zipOutputPath);
                     }
+                } else if (Config.getPruneChunksEnabled()) {
+                    context.logInfo("Chronos backups: pruning snapshot in backup folder...");
+                    RustPrunerBridge.pruneWorld(
+                            folderOutputPath,
+                            Config.getPruneTimeRequirementSeconds(),
+                            Config.getPruneMaxWorkerThreads());
+                } else {
+                    context.logInfo("Chronos backups: snapshot pruning disabled by config.");
                 }
 
                 backupFinishedSuccessfully = true;
@@ -411,8 +414,8 @@ public final class Backupper {
     }
 
     /**
-     * Single-segment directory name under the Chronos backup root. Sanitizes characters that are
-     * invalid or awkward in file names (especially on Windows).
+     * Single-segment directory name under the Chronos backup root. Sanitizes
+     * characters that are invalid or awkward in file names.
      */
     private static String sanitizeWorldBackupSubdir(String worldName) {
         if (worldName == null || worldName.isEmpty()) {
@@ -449,8 +452,9 @@ public final class Backupper {
     }
 
     /**
-     * After a successful backup, deletes oldest zip/folder snapshots in {@code worldBackupDir} if
-     * more than {@code maxStored} remain. {@code maxStored} &lt; 1 disables trimming.
+     * After a successful backup, deletes oldest zip/folder snapshots in
+     * {@code worldBackupDir} if
+     * more than {@code maxStored} remain. {@code maxStored} < 1 disables trimming.
      */
     private static void trimOldBackupsAfterNewSuccess(
             Path worldBackupDir,

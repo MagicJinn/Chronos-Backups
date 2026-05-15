@@ -194,12 +194,14 @@ public final class Config {
     }
 
     /**
-     * Maximum backups per world directory; values below 1 mean no automatic trimming.
+     * Maximum backups per world directory. Values below 1 disable automatic
+     * deletion of older backups.
      */
     public static int getMaxStoredBackups() {
         return modConfig != null ? modConfig.maxStoredBackups : BUILTIN_DEFAULTS.maxStoredBackups;
     }
 
+    /** Compression method used for backups. */
     public static CompressionMethod getCompressionMethod() {
         return modConfig != null ? modConfig.compressionMethod : BUILTIN_DEFAULTS.compressionMethod;
     }

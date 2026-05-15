@@ -140,6 +140,51 @@ fn prune_world_to_zip_impl(
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWorldNative(
+    mut env: JNIEnv,
+    _class: JClass,
+    world_folder: JString,
+    inhabited_time_seconds_required: jint,
+    max_worker_threads: jint,
+) -> jint {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let world_folder_str = match env.get_string(&world_folder) {
+            Ok(s) => s.to_string_lossy().into_owned(),
+            Err(err) => {
+                eprintln!("Error: failed to decode world path from Java: {err}");
+                return 4;
+            }
+        };
+        let seconds = if inhabited_time_seconds_required < 0 {
+            0
+        } else {
+            inhabited_time_seconds_required as u64
+        };
+        let threads = if max_worker_threads <= 0 {
+            0
+        } else {
+            max_worker_threads as usize
+        };
+
+        match prune_world_folder(PathBuf::from(world_folder_str), seconds, threads) {
+            Ok(()) => 0,
+            Err(err) => {
+                eprintln!("Error: failed to prune world folder: {err}");
+                1
+            }
+        }
+    }));
+
+    match result {
+        Ok(code) => code,
+        Err(_) => {
+            let _ = env.throw_new("java/lang/RuntimeException", "rust-pruner prune panicked");
+            3
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWorldToZipNative(
     mut env: JNIEnv,
     _class: JClass,
