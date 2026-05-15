@@ -83,6 +83,10 @@ public final class Config {
             out.scheduleBackups = cfg.getOrElse(ChronosTomlSpec.KEY_SCHEDULE_BACKUPS, defaults.scheduleBackups);
             out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
                     defaults.backupIntervalSeconds);
+            out.maxStoredBackups = cfg.getIntOrElse(ChronosTomlSpec.KEY_MAX_STORED_BACKUPS, defaults.maxStoredBackups);
+            out.compressionMethod = CompressionMethod.fromTomlValue(
+                    cfg.get(ChronosTomlSpec.KEY_COMPRESSION_METHOD),
+                    defaults.compressionMethod);
             out.commandRequiredPermissionLevel = cfg.getIntOrElse(
                     ChronosTomlSpec.KEY_COMMAND_REQUIRED_PERMISSION_LEVEL,
                     defaults.commandRequiredPermissionLevel);
@@ -187,6 +191,19 @@ public final class Config {
      */
     public static String getBackupFolderName() {
         return modConfig != null ? modConfig.backupFolderName : BUILTIN_DEFAULTS.backupFolderName;
+    }
+
+    /**
+     * Maximum backups per world directory. Values below 1 disable automatic
+     * deletion of older backups.
+     */
+    public static int getMaxStoredBackups() {
+        return modConfig != null ? modConfig.maxStoredBackups : BUILTIN_DEFAULTS.maxStoredBackups;
+    }
+
+    /** Compression method used for backups. */
+    public static CompressionMethod getCompressionMethod() {
+        return modConfig != null ? modConfig.compressionMethod : BUILTIN_DEFAULTS.compressionMethod;
     }
 
     private Config() {

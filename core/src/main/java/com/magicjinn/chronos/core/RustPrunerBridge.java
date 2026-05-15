@@ -21,6 +21,34 @@ final class RustPrunerBridge {
      * the archive as they are produced. Any files left on disk after pruning are
      * zipped in a follow-up walk.
      */
+    /**
+     * Prunes region/entities/poi MCA files in {@code worldPath} in place
+     */
+    static void pruneWorld(
+            Path worldPath,
+            int spentTimeRequirementSeconds,
+            int maxWorkerThreads)
+            throws IOException {
+        if (worldPath == null || !Files.isDirectory(worldPath)) {
+            return;
+        }
+        ensureLoaded();
+        int code = pruneWorldNative(
+                worldPath.toAbsolutePath().normalize().toString(),
+                spentTimeRequirementSeconds,
+                maxWorkerThreads);
+        if (code == 2) {
+            throw new InterruptedIOException(
+                    "Chronos prune aborted (shutdown, cancel, or interrupt requested).");
+        }
+        if (code == 4) {
+            throw new IOException("Native rust-pruner prune failed to read paths from Java.");
+        }
+        if (code != 0) {
+            throw new IOException("Native rust-pruner prune failed with status code " + code);
+        }
+    }
+
     static void pruneWorldToZip(
             Path worldPath,
             Path zipOutputPath,
@@ -156,6 +184,11 @@ final class RustPrunerBridge {
         }
         return "librust_pruner.so";
     }
+
+    private static native int pruneWorldNative(
+            String worldFolderPath,
+            int spentTimeRequirementSeconds,
+            int maxWorkerThreads);
 
     private static native int pruneWorldToZipNative(
             String worldFolderPath,
