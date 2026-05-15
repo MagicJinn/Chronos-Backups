@@ -15,12 +15,14 @@ public final class ChronosTomlSpec {
     public static final String KEY_PRUNE_MAX_WORKER_THREADS = "pruneMaxWorkerThreads";
     public static final String KEY_SCHEDULE_BACKUPS = "scheduleBackups";
     public static final String KEY_BACKUP_INTERVAL_SECONDS = "backupIntervalSeconds";
+    public static final String KEY_MAX_STORED_BACKUPS = "maxStoredBackups";
+    public static final String KEY_COMPRESSION_METHOD = "compressionMethod";
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
     public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 8; // TODO: reset to 1 on 1.0.0
+    public static final int CONFIG_VERSION = 9; // TODO: reset to 1 on 1.0.0
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
@@ -37,7 +39,7 @@ public final class ChronosTomlSpec {
                 "# Example: \"chronos\"",
                 KEY_BACKUP_FOLDER_NAME + " = " + tomlStringLiteral(config.backupFolderName),
                 "",
-                "# Whether chunk pruning is enabled for backup snapshots.",
+                "# Whether chunk pruning is enabled for backup snapshots (zip mode only; see compressionMethod).",
                 "# If false, Chronos copies and zips the world snapshot without pruning any chunk data.",
                 KEY_PRUNE_CHUNKS + " = " + config.pruneChunks,
                 "",
@@ -55,6 +57,15 @@ public final class ChronosTomlSpec {
                 "# Seconds between automatic backup runs (whole numbers only).",
                 "# Example: 1800 = every 30 minutes, 3600 = hourly.",
                 KEY_BACKUP_INTERVAL_SECONDS + " = " + config.backupIntervalSeconds,
+                "",
+                "# Maximum backups kept per world under the backup folder (each world has its own subdirectory).",
+                "# After a successful backup, oldest zip/folder snapshots are removed if this would be exceeded.",
+                "# Values below 1 disable automatic removal.",
+                KEY_MAX_STORED_BACKUPS + " = " + config.maxStoredBackups,
+                "",
+                "# Snapshot storage: \"zip\" (copy to hidden cache, then zip) or \"none\" (copy straight into a folder).",
+                "# Folder name matches the zip basename. Chunk pruning only applies when this is \"zip\".",
+                KEY_COMPRESSION_METHOD + " = " + tomlStringLiteral(config.compressionMethod.name().toLowerCase()),
                 "",
                 "# Paths to exclude from the backup snapshot copy (names anywhere under the world, or relative paths",
                 "# with /).",

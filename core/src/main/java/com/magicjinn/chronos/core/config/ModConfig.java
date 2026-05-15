@@ -21,6 +21,19 @@ public final class ModConfig {
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 
     /**
+     * Maximum number of backup artifacts (zip files or snapshot folders) kept per world.
+     * Values less than 1 disable automatic deletion of older backups.
+     */
+    public int maxStoredBackups = 5;
+
+    /**
+     * {@code zip}: copy to cache then write a {@code .zip} in the world's backup subdirectory.
+     * {@code none}: copy the world tree directly into a folder named like the zip basename (no cache, no archive).
+     * Chunk pruning applies only to {@code zip} backups.
+     */
+    public CompressionMethod compressionMethod = CompressionMethod.ZIP;
+
+    /**
      * Permission level (0–4) required to run {@code /chronos}.
      */
     public int commandRequiredPermissionLevel = 4;
