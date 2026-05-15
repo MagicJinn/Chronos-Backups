@@ -46,6 +46,7 @@ public final class ModConfig {
      */
     public List<String> copyBlacklist = new ArrayList<>(
             Arrays.asList(
+                    "voxy",
                     "voxyserver",
                     "dynmap",
                     "bluemap",
