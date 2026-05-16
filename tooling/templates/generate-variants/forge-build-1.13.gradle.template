@@ -96,7 +96,8 @@ processResources {
                 'mod_id': rootProject.findProperty('chronos.mod.id'),
                 'mod_name': rootProject.findProperty('chronos.mod.name'),
                 'mod_description': rootProject.findProperty('chronos.mod.description'),
-                'mod_author': rootProject.findProperty('chronos.mod.author')
+                'mod_author': rootProject.findProperty('chronos.mod.author'),
+                'mod_license': rootProject.findProperty('chronos.mod.license'),
         )
     }
 }

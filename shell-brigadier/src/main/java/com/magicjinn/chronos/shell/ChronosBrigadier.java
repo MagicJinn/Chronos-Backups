@@ -1,6 +1,6 @@
 package com.magicjinn.chronos.shell;
 
-import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
+import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -56,13 +56,13 @@ public final class ChronosBrigadier {
                 })
                 .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.BACKUP)
                         .executes(ctx -> {
-                            ManualBackupStart start = ChronosCommandActions.tryStartManualBackup();
-                            if (start == ManualBackupStart.QUEUED) {
+                            EnqueueResult start = ChronosCommandActions.tryStartManualBackup();
+                            if (start == EnqueueResult.QUEUED) {
                                 hooks.feedback(
                                         ctx.getSource(),
                                         ChronosCommandActions.messageManualBackupStarted(),
                                         false);
-                            } else if (start == ManualBackupStart.ALREADY_RUNNING) {
+                            } else if (start == EnqueueResult.ALREADY_RUNNING) {
                                 hooks.feedback(
                                         ctx.getSource(),
                                         ChronosCommandActions.messageManualBackupAlreadyRunning(),
@@ -73,7 +73,7 @@ public final class ChronosBrigadier {
                                         ChronosCommandActions.messageRuntimeInactive(),
                                         false);
                             }
-                            return hooks.backupReturnCode(start == ManualBackupStart.QUEUED);
+                            return hooks.backupReturnCode(start == EnqueueResult.QUEUED);
                         }))
                 .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.CANCEL)
                         .executes(ctx -> {
@@ -91,14 +91,24 @@ public final class ChronosBrigadier {
                                         "s", IntegerArgumentType.integer())
                                 .executes(ctx -> {
                                     int s = IntegerArgumentType.getInteger(ctx, "s");
-                                    if (!ChronosCommandActions.speedtest(s)) {
+                                    EnqueueResult start = ChronosCommandActions.tryStartSpeedtest(s);
+                                    if (start == EnqueueResult.QUEUED) {
+                                        hooks.feedback(
+                                                ctx.getSource(),
+                                                ChronosCommandActions.messageSpeedtestStarted(s),
+                                                false);
+                                    } else if (start == EnqueueResult.ALREADY_RUNNING) {
+                                        hooks.feedback(
+                                                ctx.getSource(),
+                                                ChronosCommandActions.messageSpeedtestAlreadyRunning(),
+                                                false);
+                                    } else {
                                         hooks.feedback(
                                                 ctx.getSource(),
                                                 ChronosCommandActions.messageRuntimeInactive(),
                                                 false);
-                                        return hooks.backupReturnCode(false);
                                     }
-                                    return hooks.successReturnCode();
+                                    return hooks.backupReturnCode(start == EnqueueResult.QUEUED);
                                 })));
     }
 

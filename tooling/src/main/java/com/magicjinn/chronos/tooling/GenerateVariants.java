@@ -277,10 +277,13 @@ public final class GenerateVariants {
         if ("forgeMcmodInfo".equals(metadataTemplate)) {
             write(resources.resolve("mcmod.info"), renderTemplate("forgeMcmodInfo", Map.of(
                     "minecraft", mc)));
-        } else if (metadataTemplate.startsWith("forgeModsToml")) {
+        } else if ("forgeModsToml".equals(metadataTemplate)) {
             Path meta = resources.resolve("META-INF");
             Files.createDirectories(meta);
-            write(meta.resolve("mods.toml"), renderTemplate(metadataTemplate, Map.of()));
+            Map<String, String> modsTomlValues = new HashMap<>();
+            modsTomlValues.put("loaderVersion", "*");
+            modsTomlValues.put("minecraftRange", forgeModsTomlMinecraftRange(mc, unifiedArchiveSource));
+            write(meta.resolve("mods.toml"), renderTemplate("forgeModsToml", modsTomlValues));
         } else {
             throw new IllegalStateException("Unknown Forge metadata template key \"" + metadataTemplate
                     + "\" for compile group \"" + compileGroup + "\"");
@@ -298,6 +301,17 @@ public final class GenerateVariants {
     }
 
     private static String fabricMcDep(String mc) {
+        if (isYearMinorMc(mc)) {
+            String[] p = mc.split("\\.");
+            if (p.length >= 2) {
+                try {
+                    int minor = Integer.parseInt(p[1]);
+                    return ">=" + p[0] + "." + p[1] + " <" + p[0] + "." + (minor + 1);
+                } catch (NumberFormatException ignored) {
+                    // fall through
+                }
+            }
+        }
         String[] p = mc.split("\\.");
         if (p.length == 2)
             return ">=" + mc + " <" + p[0] + "." + (Integer.parseInt(p[1]) + 1);
@@ -363,23 +377,11 @@ public final class GenerateVariants {
     }
 
     /**
-     * {@code fabric.mod.json} {@code fabricloader} constraint from the resolved
-     * loader artifact version.
+     * {@code fabric.mod.json} {@code fabricloader} constraint. Build still pins
+     * {@code fabricLoader} from compile groups. Runtime accepts any loader version.
      */
     private static String fabricLoaderDepForModJson(String fabricLoader) {
-        String v = fabricLoader == null ? "" : fabricLoader.trim();
-        if (v.isEmpty()) {
-            return ">=0.15.0";
-        }
-        int plus = v.indexOf('+');
-        if (plus >= 0) {
-            v = v.substring(0, plus);
-        }
-        int dash = v.indexOf('-');
-        if (dash > 0) {
-            v = v.substring(0, dash);
-        }
-        return ">=" + v;
+        return "*";
     }
 
     /**
@@ -418,6 +420,35 @@ public final class GenerateVariants {
         if (p.length == 2)
             return "[" + linePrefix + "," + p[0] + "." + (Integer.parseInt(p[1]) + 1) + ")";
         return "[" + linePrefix + ",)";
+    }
+
+    /**
+     * Minecraft version range for Forge {@code mods.toml} on 1.13+ (unified jars).
+     * Optional
+     * {@code minecraftRange} on {@code forgeUnified} overrides; {@code 1.20.0}-only
+     * Forge jar uses
+     * {@code [1.20,1.20.1)}.
+     */
+    private static String forgeModsTomlMinecraftRange(String referenceMc, Map<String, Object> forgeUnified) {
+        if (forgeUnified != null) {
+            String override = str(forgeUnified.get("minecraftRange"));
+            if (!override.isBlank()) {
+                return override;
+            }
+        }
+        if ("1.20".equals(referenceMc)) {
+            return "[1.20,1.20.1)";
+        }
+        return lineRange(minecraftLinePrefix(referenceMc));
+    }
+
+    /** {@code 1.14.4} → {@code 1.14} for unified-line {@code mods.toml} ranges. */
+    private static String minecraftLinePrefix(String mc) {
+        String[] p = mc.split("\\.");
+        if (p.length >= 2) {
+            return p[0] + "." + p[1];
+        }
+        return mc;
     }
 
     /**

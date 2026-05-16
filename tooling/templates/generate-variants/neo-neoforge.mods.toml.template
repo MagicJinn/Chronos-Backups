@@ -12,7 +12,7 @@ authors = "${mod_author}"
 [[dependencies.${mod_id}]]
 modId = "neoforge"
 type = "required"
-versionRange = "[${neo_version},)"
+versionRange = "*"
 ordering = "NONE"
 side = "BOTH"
 

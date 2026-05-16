@@ -12,13 +12,13 @@ import com.magicjinn.chronos.core.config.Config;
  * Schedules backup work and delegates to {@link Backupper}.
  */
 public final class Scheduler {
-    /** Result of {@link #tryEnqueueManualBackup()}. */
-    public enum ManualBackupStart {
-        /** A worker will run {@link Backupper#runBackup} soon. */
+    /** Result of enqueueing work on the backup scheduler executor. */
+    public enum EnqueueResult {
+        /** A worker will run the requested task soon. */
         QUEUED,
         /** Scheduler has no world context (server not ready or shut down). */
         NO_RUNTIME,
-        /** A backup is already running, the request was not queued. */
+        /** A backup or speedtest is already running. */
         ALREADY_RUNNING
     }
 
@@ -51,6 +51,9 @@ public final class Scheduler {
             try {
                 if (!Config.getScheduleBackups())
                     return;
+                if (Backupper.isSpeedtestSessionActive()) {
+                    return;
+                }
                 long currentTimeSeconds = getCurrentTimeSeconds();
                 long interval = Config.getBackupIntervalSeconds();
                 if (currentTimeSeconds - secondsSinceLastBackup >= interval) {
@@ -93,17 +96,36 @@ public final class Scheduler {
      * Checks {@link Backupper#isBackupRunActive()} so a second manual request is
      * cancelled instead of sitting in the queue until the current backup finishes.
      */
-    public static ManualBackupStart tryEnqueueManualBackup() {
+    public static EnqueueResult tryEnqueueManualBackup() {
         BackupRuntimeContext context = runtimeContext;
         if (context == null) {
-            return ManualBackupStart.NO_RUNTIME;
+            return EnqueueResult.NO_RUNTIME;
         }
         if (Backupper.isBackupRunActive() || Backupper.isSpeedtestSessionActive()) {
-            return ManualBackupStart.ALREADY_RUNNING;
+            return EnqueueResult.ALREADY_RUNNING;
         }
         secondsSinceLastBackup = getCurrentTimeSeconds();
         backupScheduler.execute(() -> Backupper.runBackup(context));
-        return ManualBackupStart.QUEUED;
+        return EnqueueResult.QUEUED;
+    }
+
+    /**
+     * Queues a speedtest on the same single-thread backup executor as manual and scheduled
+     * backups so only one backup/speedtest session runs at a time.
+     */
+    public static EnqueueResult tryEnqueueSpeedtest(int seconds) {
+        BackupRuntimeContext context = runtimeContext;
+        if (context == null) {
+            return EnqueueResult.NO_RUNTIME;
+        }
+        if (Backupper.isBackupRunActive() || Backupper.isSpeedtestSessionActive()) {
+            return EnqueueResult.ALREADY_RUNNING;
+        }
+        if (!Backupper.tryBeginSpeedtestSession()) {
+            return EnqueueResult.ALREADY_RUNNING;
+        }
+        backupScheduler.execute(() -> Backupper.runSpeedtestSession(context, seconds));
+        return EnqueueResult.QUEUED;
     }
 
     private Scheduler() {}

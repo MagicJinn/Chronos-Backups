@@ -1,6 +1,6 @@
 package com.magicjinn.chronos.shell;
 
-import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
+import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 
 /** Shared execution flow for legacy (pre-Brigadier) Chronos command adapters. */
 public final class LegacyCommandSupport {
@@ -18,10 +18,10 @@ public final class LegacyCommandSupport {
 
         String subcommand = args[0];
         if (ChronosCommandLiterals.BACKUP.equalsIgnoreCase(subcommand)) {
-            ManualBackupStart start = ChronosCommandActions.tryStartManualBackup();
-            if (start == ManualBackupStart.QUEUED) {
+            EnqueueResult start = ChronosCommandActions.tryStartManualBackup();
+            if (start == EnqueueResult.QUEUED) {
                 sink.send(ChronosCommandActions.messageManualBackupStarted());
-            } else if (start == ManualBackupStart.ALREADY_RUNNING) {
+            } else if (start == EnqueueResult.ALREADY_RUNNING) {
                 sink.send(ChronosCommandActions.messageManualBackupAlreadyRunning());
             } else {
                 sink.send(ChronosCommandActions.messageRuntimeInactive());
@@ -43,7 +43,12 @@ public final class LegacyCommandSupport {
             }
             try {
                 int s = Integer.parseInt(args[1]);
-                if (!ChronosCommandActions.speedtest(s)) {
+                EnqueueResult start = ChronosCommandActions.tryStartSpeedtest(s);
+                if (start == EnqueueResult.QUEUED) {
+                    sink.send(ChronosCommandActions.messageSpeedtestStarted(s));
+                } else if (start == EnqueueResult.ALREADY_RUNNING) {
+                    sink.send(ChronosCommandActions.messageSpeedtestAlreadyRunning());
+                } else {
                     sink.send(ChronosCommandActions.messageRuntimeInactive());
                 }
             } catch (NumberFormatException e) {

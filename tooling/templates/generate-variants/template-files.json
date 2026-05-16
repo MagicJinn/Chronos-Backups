@@ -17,12 +17,5 @@
   "forgeBuildGradle119": "forge-build-1.19.gradle.template",
   "forgeBuildGradle120": "forge-build-1.20.gradle.template",
   "forgeMcmodInfo": "forge-mcmod.info.template",
-  "forgeModsToml113": "forge-mods-1.13.toml.template",
-  "forgeModsToml114": "forge-mods-1.14.toml.template",
-  "forgeModsToml115": "forge-mods-1.15.toml.template",
-  "forgeModsToml116": "forge-mods-1.16.toml.template",
-  "forgeModsToml117": "forge-mods-1.17.toml.template",
-  "forgeModsToml118": "forge-mods-1.18.toml.template",
-  "forgeModsToml119": "forge-mods-1.19.toml.template",
-  "forgeModsToml120": "forge-mods-1.20.toml.template"
+  "forgeModsToml": "forge-mods.toml.template"
 }

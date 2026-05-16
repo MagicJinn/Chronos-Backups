@@ -19,14 +19,7 @@
       "forgeBuildGradle119": "forge-build-1.19.gradle.template",
       "forgeBuildGradle120": "forge-build-1.20.gradle.template",
       "forgeMcmodInfo": "forge-mcmod.info.template",
-      "forgeModsToml113": "forge-mods-1.13.toml.template",
-      "forgeModsToml114": "forge-mods-1.14.toml.template",
-      "forgeModsToml115": "forge-mods-1.15.toml.template",
-      "forgeModsToml116": "forge-mods-1.16.toml.template",
-      "forgeModsToml117": "forge-mods-1.17.toml.template",
-      "forgeModsToml118": "forge-mods-1.18.toml.template",
-      "forgeModsToml119": "forge-mods-1.19.toml.template",
-      "forgeModsToml120": "forge-mods-1.20.toml.template"
+      "forgeModsToml": "forge-mods.toml.template"
     }
   },
   "smokeTestServers": {
@@ -102,7 +95,7 @@
         "archiveVersionTag": "1.20.0",
         "buildTemplateKey": "forgeBuildGradle120",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml120"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -124,7 +117,7 @@
         "archiveVersionTag": "1.18.x",
         "buildTemplateKey": "forgeBuildGradle118",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml118"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -146,7 +139,7 @@
         "archiveVersionTag": "1.19.x",
         "buildTemplateKey": "forgeBuildGradle119",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml119"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -168,7 +161,7 @@
         "archiveVersionTag": "1.14.x",
         "buildTemplateKey": "forgeBuildGradle114",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml114"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -190,7 +183,7 @@
         "archiveVersionTag": "1.15.x",
         "buildTemplateKey": "forgeBuildGradle114",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml115"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -212,7 +205,7 @@
         "archiveVersionTag": "1.16.x",
         "buildTemplateKey": "forgeBuildGradle116",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml116"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -234,7 +227,7 @@
         "archiveVersionTag": "1.17.x",
         "buildTemplateKey": "forgeBuildGradle117",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml117"
+        "metadataTemplate": "forgeModsToml"
       }
     },
     {
@@ -246,12 +239,14 @@
       "fabricUnified": {
         "referenceMinecraft": "26.1.2",
         "fabricLoader": "0.19.2",
-        "fabricApi": "0.146.0+26.1.2"
+        "fabricApi": "0.146.0+26.1.2",
+        "minecraftDep": ">=26.1 <26.2"
       },
       "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
         "referenceMinecraft": "26.1.2",
-        "neoForge": "26.1.2.30-beta"
+        "neoForge": "26.1.2.30-beta",
+        "minecraftRange": "[26.1,26.2)"
       }
     },
     {
@@ -394,7 +389,7 @@
         "forge": "25.0.223",
         "buildTemplateKey": "forgeBuildGradle113",
         "mappingsKind": "mcp",
-        "metadataTemplate": "forgeModsToml113"
+        "metadataTemplate": "forgeModsToml"
         }
         }
   ]

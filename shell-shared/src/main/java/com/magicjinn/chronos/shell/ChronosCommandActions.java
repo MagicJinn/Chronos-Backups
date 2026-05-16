@@ -3,7 +3,7 @@ package com.magicjinn.chronos.shell;
 import com.magicjinn.chronos.core.Backupper;
 import com.magicjinn.chronos.core.BackupRuntimeContext;
 import com.magicjinn.chronos.core.Scheduler;
-import com.magicjinn.chronos.core.Scheduler.ManualBackupStart;
+import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 
 /**
  * Shared implementation for {@code /chronos} subcommands. Loader modules register Brigadier (or
@@ -43,6 +43,15 @@ public final class ChronosCommandActions {
         return BackupRuntimeContext.CHAT_PREFIX + "A backup is already in progress. Request was not queued.";
     }
 
+    public static String messageSpeedtestStarted(int seconds) {
+        return BackupRuntimeContext.CHAT_PREFIX + "Speedtest started for " + seconds + " s.";
+    }
+
+    public static String messageSpeedtestAlreadyRunning() {
+        return BackupRuntimeContext.CHAT_PREFIX
+                + "A Chronos speedtest or backup is already running.";
+    }
+
     public static String messageChronosUsage() {
         return BackupRuntimeContext.CHAT_PREFIX + "Usage: " + USAGE_LINE;
     }
@@ -65,7 +74,7 @@ public final class ChronosCommandActions {
     }
 
     /** Queues a manual backup when the world scheduler is active and no backup is running. */
-    public static ManualBackupStart tryStartManualBackup() {
+    public static EnqueueResult tryStartManualBackup() {
         return Scheduler.tryEnqueueManualBackup();
     }
 
@@ -76,15 +85,8 @@ public final class ChronosCommandActions {
 
     /**
      * {@code s} is seconds (integer) from {@code /chronos speedtest <s>}.
-     *
-     * @return {@code false} when {@link Scheduler} has no active {@link BackupRuntimeContext}
      */
-    public static boolean speedtest(int s) {
-        BackupRuntimeContext context = Scheduler.getRuntimeContext();
-        if (context == null) {
-            return false;
-        }
-        Backupper.speedtest(context, s);
-        return true;
+    public static EnqueueResult tryStartSpeedtest(int s) {
+        return Scheduler.tryEnqueueSpeedtest(s);
     }
 }

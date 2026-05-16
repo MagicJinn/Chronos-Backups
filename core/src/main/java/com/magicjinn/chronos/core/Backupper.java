@@ -104,22 +104,32 @@ public final class Backupper {
     }
 
     /**
+     * Claims the speedtest session before queueing work on {@link Scheduler}'s executor.
+     *
+     * @return {@code false} when a backup or speedtest is already active
+     */
+    public static boolean tryBeginSpeedtestSession() {
+        if (backupRunActive.get()) {
+            return false;
+        }
+        return speedtestSessionActive.compareAndSet(false, true);
+    }
+
+    /**
      * Runs backups for {@code s} seconds, or until
      * {@link #requestCancelInFlightBackup()} (e.g.
      * {@code /chronos cancel}) stops the session.
+     * <p>
+     * Call only from the backup scheduler after {@link #tryBeginSpeedtestSession()} succeeded.
      */
-    public static void speedtest(BackupRuntimeContext context, int s) {
+    public static void runSpeedtestSession(BackupRuntimeContext context, int s) {
         if (context == null) {
             LOG.warning("speedtest skipped: runtime context is unavailable.");
-            return;
-        }
-        if (!speedtestSessionActive.compareAndSet(false, true)) {
-            context.sendChat("A Chronos speedtest is already running.");
-            return;
-        }
-        if (backupRunActive.get()) {
             speedtestSessionActive.set(false);
-            context.sendChat("A Chronos speedtest or backup is already running.");
+            return;
+        }
+        if (!speedtestSessionActive.get()) {
+            LOG.warning("speedtest skipped: session was not claimed.");
             return;
         }
         backupCancelRequested = false;
