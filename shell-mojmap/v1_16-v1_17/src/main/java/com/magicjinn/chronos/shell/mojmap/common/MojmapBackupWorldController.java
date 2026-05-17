@@ -5,7 +5,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Minecraft 1.16–1.17 - chunk saves via {@link MinecraftServer#saveAllChunks};
+ * Minecraft 1.16-1.17 - chunk saves via {@link MinecraftServer#saveAllChunks};
  * separate from
  * {@code shell-mojmap/common} which targets {@code saveEverything} (1.18+).
  */

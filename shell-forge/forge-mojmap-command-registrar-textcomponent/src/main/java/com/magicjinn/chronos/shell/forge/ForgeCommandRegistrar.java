@@ -7,7 +7,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.TextComponent;
 
 /**
- * Mojmap-era Forge 1.14–1.18: {@link TextComponent} and
+ * Mojmap-era Forge 1.14-1.18: {@link TextComponent} and
  * {@code sendSuccess(Component, boolean)}.
  */
 final class ForgeCommandRegistrar implements ShellCommandRegistrar {

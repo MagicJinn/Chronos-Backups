@@ -80,7 +80,7 @@ public final class CleanVariants {
                 // Most commonly: read-only attribute on Windows, or transient share lock.
                 clearReadOnly(path);
             } catch (IOException ignored) {
-                // Transient lock or non-empty directory (child still being released); retry.
+                // Transient lock or non-empty directory (child still being released). Retry.
             }
             if (attempt < RETRY_DELAYS_MS.length) {
                 Thread.sleep(RETRY_DELAYS_MS[attempt]);
@@ -103,7 +103,7 @@ public final class CleanVariants {
         try {
             path.toFile().setWritable(true, false);
         } catch (Throwable ignored) {
-            // best effort; some FS attributes can't be flipped, that's fine.
+            // Best effort. Some FS attributes can't be flipped, that's fine.
         }
     }
 

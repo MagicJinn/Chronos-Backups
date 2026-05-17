@@ -8,7 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.dimension.DimensionType;
 
 /**
- * Minecraft 1.14–1.17 - paths derived from
+ * Minecraft 1.14-1.17 - paths derived from
  * {@link ServerLevel#getLevelStorage()} (no {@code LevelResource}).
  */
 public final class MojmapServerEnvironment implements ServerEnvironment {

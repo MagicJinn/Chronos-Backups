@@ -12,7 +12,8 @@ import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 /**
- * Forge 1.14–1.15: Brigadier via {@link FMLServerStartingEvent#getCommandDispatcher()}.
+ * Forge 1.14-1.15: Brigadier via
+ * {@link FMLServerStartingEvent#getCommandDispatcher()}.
  */
 @Mod(ChronosForgeMod.MOD_ID)
 public final class ChronosForgeMod {

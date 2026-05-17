@@ -32,7 +32,7 @@
   "groups": [
     {
       "id": "minecraft_1_21_0_to_1_21_10",
-      "description": "NeoForge and Fabric unified jars for Minecraft 1.21.0–1.21.10 (pre–PermissionSet command source API).",
+      "description": "NeoForge and Fabric unified jars for Minecraft 1.21.0-1.21.10 (pre-PermissionSet command source API).",
       "minecraftVersionPrefixes": ["1.21.0-1.21.10"],
       "unifiedFabricJar": true,
       "fabricUnified": {

@@ -14,12 +14,12 @@ These directories are not standalone projects, variant `build.gradle` files (fro
 
 | Directory | Role |
 |-|-|
-| `forge-common-1_8-1_12/` | Shared `ChronosForgeMod` for old FML (`@Mod`, `FMLServerStartedEvent`, …). Each line under `v1_8`–`v1_12` still supplies `ForgeShellMcRange` (compile-time `acceptedMinecraftVersions` for `@Mod`). |
+| `forge-common-1_8-1_12/` | Shared `ChronosForgeMod` for old FML (`@Mod`, `FMLServerStartedEvent`, …). Each line under `v1_8`-`v1_12` still supplies `ForgeShellMcRange` (compile-time `acceptedMinecraftVersions` for `@Mod`). |
 | `forge-shared-command-registrar/` | Single `ForgeCommandRegistrar` for all pre-1.13 Forge lines. Kept separate from `forge-common-1_8-1_12` so `v1_7_10` does not pull in the shared `ChronosForgeMod`. |
 | `forge-common-1_7-1_8/` | Shared `ForgeShellMessenger` for 1.7.10 and 1.8 (`ChatComponentText`, legacy player list APIs). |
 | `forge-common-1_9-1_10/` | Shared `ForgeShellMessenger` for 1.9 and 1.10 (`TextComponentString`, `sendChatMsg`). |
 | `forge-common-1_11-1_12/` | Shared `ForgeShellMessenger` for 1.11 and 1.12 (`PlayerList#sendMessage`). |
-| `forge-common-1_10-1_12/` | Shared `ChronosBackupCommand` where `CommandBase` uses `getName` / `execute` / `sendMessage` (same shape for 1.10–1.12). |
+| `forge-common-1_10-1_12/` | Shared `ChronosBackupCommand` where `CommandBase` uses `getName` / `execute` / `sendMessage` (same shape for 1.10-1.12). |
 
 ## Structure (per-line folders)
 
@@ -33,8 +33,8 @@ These directories are not standalone projects, variant `build.gradle` files (fro
 
 ### Old Forge lines: `v1_7_10/`, `v1_8/`, …, `v1_12/`
 
-- `ChronosForgeMod` - In `forge-common-1_8-1_12` for 1.8–1.12, still under `v1_7_10` for 1.7.10 only. FML init and server start/stop hooks.
-- `ChronosBackupCommand` - Per line where the `CommandBase` API differs (1.7, 1.8, 1.9), shared from `forge-common-1_10-1_12` for 1.10–1.12. Delegates to `shell-shared` `LegacyCommandSupport`.
+- `ChronosForgeMod` - In `forge-common-1_8-1_12` for 1.8-1.12, still under `v1_7_10` for 1.7.10 only. FML init and server start/stop hooks.
+- `ChronosBackupCommand` - Per line where the `CommandBase` API differs (1.7, 1.8, 1.9), shared from `forge-common-1_10-1_12` for 1.10-1.12. Delegates to `shell-shared` `LegacyCommandSupport`.
 - `ForgeCommandRegistrar` - Shared from `forge-shared-command-registrar`.
 - `ForgeShellMessenger` - Shared from the `forge-common-1_*_*` messenger trees where the chat API matches.
 - `ForgeServerEnvironment` - Usually per line (`worldServers` vs `worlds`, and related MCP names).

@@ -8,7 +8,10 @@ import net.minecraft.util.text.TextComponentString;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/** Shared Forge shell logging/chat for Minecraft 1.9–1.10 ({@link TextComponentString}, {@code sendChatMsg}). */
+/**
+ * Shared Forge shell logging/chat for Minecraft 1.9-1.10
+ * ({@link TextComponentString}, {@code sendChatMsg}).
+ */
 public final class ForgeShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
 

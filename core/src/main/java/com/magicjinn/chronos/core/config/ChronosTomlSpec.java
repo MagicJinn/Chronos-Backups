@@ -72,7 +72,7 @@ public final class ChronosTomlSpec {
                 "# with /).",
                 renderCopyBlacklistArray(config),
                 "",
-                "# Minimum permission level (0–4) required to run /chronos.",
+                "# Minimum permission level (0-4) required to run /chronos.",
                 "# 4 matches highly sensitive vanilla commands (e.g. /stop), 0 allows any command source that can run commands.",
                 KEY_COMMAND_REQUIRED_PERMISSION_LEVEL + " = " + config.commandRequiredPermissionLevel,
                 "",

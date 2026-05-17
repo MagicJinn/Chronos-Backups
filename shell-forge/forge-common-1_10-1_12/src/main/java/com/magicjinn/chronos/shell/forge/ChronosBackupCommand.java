@@ -13,7 +13,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
 
-/** Shared {@code ICommand} adapter for Minecraft 1.10–1.12 Forge (same {@link CommandBase} API). */
+/**
+ * Shared {@code ICommand} adapter for Minecraft 1.10-1.12 Forge (same
+ * {@link CommandBase} API).
+ */
 final class ChronosBackupCommand extends CommandBase {
     @Override
     public int getRequiredPermissionLevel() {

@@ -56,7 +56,7 @@ configurations {
 
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
-    // Forge 1.7.x–1.13.x does not ship Night Config on the launcher classpath. Embed it (pre-JPMS / LaunchWrapper - no duplicate-module issue).
+    // Forge 1.7.x-1.13.x does not ship Night Config on the launcher classpath. Embed it (pre-JPMS / LaunchWrapper - no duplicate-module issue).
     implementation "com.electronwill.night-config:core:${nightConfigVer}"
     implementation "com.electronwill.night-config:toml:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"

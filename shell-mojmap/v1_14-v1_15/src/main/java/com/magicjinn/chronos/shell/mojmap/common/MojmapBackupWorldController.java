@@ -5,7 +5,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * Minecraft 1.14–1.15: {@link MinecraftServer#saveAllChunks} + per-dimension
+ * Minecraft 1.14-1.15: {@link MinecraftServer#saveAllChunks} + per-dimension
  * {@link ServerLevel#noSave}
  * (no {@code saveEverything} / {@code executeBlocking}), aligned with 1.14.4
  * Mojmap names.

@@ -9,7 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/* Minecraft 1.16–1.17 */
+/* Minecraft 1.16-1.17 */
 public final class MojmapShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
     private final Supplier<MinecraftServer> server;

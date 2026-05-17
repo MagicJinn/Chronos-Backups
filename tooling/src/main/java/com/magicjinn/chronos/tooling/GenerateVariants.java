@@ -556,8 +556,9 @@ public final class GenerateVariants {
 
     /**
      * Mojmap messenger overrides: exclude {@code MojmapShellMessenger} from
-     * {@code shell-mojmap/common}. For 1.14–1.17 the matching slice directory is
-     * registered only in {@link #fabricMojmapLegacyWorldBlock(String)} so Gradle does not
+     * {@code shell-mojmap/common}. For 1.14-1.17 the matching slice directory is
+     * registered only in {@link #fabricMojmapLegacyWorldBlock(String)} so Gradle
+     * does not
      * list the same folder twice (breaks {@code sourcesJar}). Uses
      * {@link #fabricShellMessengerCompat118()} for 1.18 only.
      */
@@ -604,7 +605,7 @@ public final class GenerateVariants {
     }
 
     /**
-     * Minecraft 1.16–1.17 - {@link net.minecraft.network.chat.TextComponent} chat
+     * Minecraft 1.16-1.17 - {@link net.minecraft.network.chat.TextComponent} chat
      * until {@code Component#literal} stabilizes.
      */
     private static String fabricShellMessengerCompat116_117() {
@@ -618,9 +619,9 @@ public final class GenerateVariants {
     }
 
     /**
-     * Older Fabric lines replace pieces of {@code shell-mojmap/common}: 1.14–1.15
+     * Older Fabric lines replace pieces of {@code shell-mojmap/common}: 1.14-1.15
      * swap env + backup
-     * ({@code v1_14-v1_15}), 1.16–1.17 swap only backup ({@code v1_16-v1_17})
+     * ({@code v1_14-v1_15}), 1.16-1.17 swap only backup ({@code v1_16-v1_17})
      * because env matches common.
      */
     private static String fabricMojmapLegacyWorldBlock(String mc) {
@@ -675,7 +676,7 @@ public final class GenerateVariants {
     }
 
     /**
-     * Minecraft 1.x minor version for Fabric-only toolchain splits (1.14–1.17 chat
+     * Minecraft 1.x minor version for Fabric-only toolchain splits (1.14-1.17 chat
      * APIs). Non-1.x uses the
      * modern slice.
      */
@@ -702,7 +703,7 @@ public final class GenerateVariants {
      */
     /**
      * Mojmap-era Forge builds reuse the same {@code shell-mojmap} exclusions /
-     * extra source dirs as Fabric for messenger + legacy world slices (1.14–1.18).
+     * extra source dirs as Fabric for messenger + legacy world slices (1.14-1.18).
      */
     private static void putForgeMojmapAuxiliaryGroovy(Map<String, String> values, String mc) {
         values.put("forgeMojmapLegacyWorldGroovy", fabricMojmapLegacyWorldBlock(mc));

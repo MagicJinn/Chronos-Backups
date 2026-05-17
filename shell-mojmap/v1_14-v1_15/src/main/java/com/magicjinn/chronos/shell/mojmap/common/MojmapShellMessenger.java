@@ -10,7 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * Minecraft 1.14–1.15 - {@link TextComponent} and per-player messages (no
+ * Minecraft 1.14-1.15 - {@link TextComponent} and per-player messages (no
  * shared {@code Component#literal} messenger).
  */
 public final class MojmapShellMessenger implements ShellMessenger {

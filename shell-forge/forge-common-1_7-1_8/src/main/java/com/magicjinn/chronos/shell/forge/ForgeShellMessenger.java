@@ -8,7 +8,7 @@ import net.minecraft.util.ChatComponentText;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/** Shared Forge shell logging/chat for Minecraft 1.7.10–1.8 ({@link ChatComponentText}, legacy player list APIs). */
+/** Shared Forge shell logging/chat for Minecraft 1.7.10-1.8 ({@link ChatComponentText}, legacy player list APIs). */
 public final class ForgeShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
 

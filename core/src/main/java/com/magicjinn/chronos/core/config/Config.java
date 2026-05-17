@@ -176,7 +176,7 @@ public final class Config {
     }
 
     /**
-     * Clamped to 0–4 (vanilla permission levels). When {@link #modConfig} is unset,
+     * Clamped to 0-4 (vanilla permission levels). When {@link #modConfig} is unset,
      * returns built-in default (4).
      */
     public static int getCommandRequiredPermissionLevel() {

@@ -35,7 +35,7 @@ public final class ModConfig {
     public CompressionMethod compressionMethod = CompressionMethod.ZIP;
 
     /**
-     * Permission level (0–4) required to run {@code /chronos}.
+     * Permission level (0-4) required to run {@code /chronos}.
      */
     public int commandRequiredPermissionLevel = 4;
 

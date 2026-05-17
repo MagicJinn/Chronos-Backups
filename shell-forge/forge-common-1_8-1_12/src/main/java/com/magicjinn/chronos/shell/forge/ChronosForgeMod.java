@@ -15,7 +15,7 @@ import net.minecraftforge.fml.relauncher.FMLLaunchHandler;
 import net.minecraftforge.fml.relauncher.Side;
 
 /**
- * Shared {@code ChronosForgeMod} for Minecraft 1.8–1.12 Forge shells,
+ * Shared {@code ChronosForgeMod} for Minecraft 1.8-1.12 Forge shells,
  * {@link ForgeShellMcRange} supplies acceptedMinecraftVersions per line.
  */
 @Mod(modid = ChronosForgeMod.MODID, name = ChronosForgeMod.NAME, version = ChronosForgeMod.VERSION, acceptableRemoteVersions = "*", acceptedMinecraftVersions = ForgeShellMcRange.ACCEPTED_MINECRAFT_VERSIONS)
