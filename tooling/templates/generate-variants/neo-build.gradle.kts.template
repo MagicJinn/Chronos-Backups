@@ -72,7 +72,7 @@ tasks.processResources {
 java {
     withSourcesJar()
     toolchain { languageVersion.set(JavaLanguageVersion.of({{javaToolchainMajor}})) }
-    // Keep Gradle dependency resolution on the NeoForge JVM (21+); `--release` alone
+    // Keep Gradle dependency resolution on the NeoForge JVM (21+). `--release` alone
     // would advertise Java 17 and break resolving neoform/FML artifacts.
     sourceCompatibility = org.gradle.api.JavaVersion.toVersion({{javaDependencyResolutionMajor}})
     targetCompatibility = org.gradle.api.JavaVersion.toVersion({{javaDependencyResolutionMajor}})

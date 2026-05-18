@@ -512,7 +512,7 @@ public final class GenerateVariants {
 
     /**
      * Minecraft version range for Forge {@code mods.toml} on 1.13+ (unified jars).
-     * Optional {@code minecraftRange} on {@code forgeUnified} overrides; otherwise
+     * Optional {@code minecraftRange} on {@code forgeUnified} overrides. Otherwise
      * {@code referenceMc} {@code 1.20} without an override still maps to
      * {@code [1.20,1.20.1)} for the legacy single-patch Forge line.
      */
