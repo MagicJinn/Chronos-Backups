@@ -71,7 +71,7 @@
     },
     {
       "id": "minecraft_1_20",
-      "description": "Fabric on every patch (1.20 - 1.20.6) via one unified Fabric jar. NeoForge targets 1.20.1+. Forge is a separate unified jar for the initial 1.20.0 release only.",
+      "description": "Fabric on every patch (1.20 - 1.20.6) via one unified Fabric jar. NeoForge 1.20.2+ only (NeoForge 1.20.1 uses a different moddev layout than 1.20.2). Forge unified jar for 1.20.0-1.20.1 (Java 17). NeoForge jar is compiled with JDK 21 but emits Java 17 bytecode so it loads on Java 17 (1.20.2-1.20.4) and Java 21 (1.20.5+).",
       "minecraftVersionPrefixes": ["1.20"],
       "unifiedFabricJar": true,
       "fabricUnified": {
@@ -85,14 +85,15 @@
       "neoForgeUnified": {
         "referenceMinecraft": "1.20.6",
         "neoForge": "20.6.139",
-        "minecraftRange": "[1.20.1,1.20.7)",
-        "archiveVersionTag": "1.20.1-1.20.6"
+        "minecraftRange": "[1.20.2,1.20.7)",
+        "archiveVersionTag": "1.20.2-1.20.6"
       },
       "unifiedForgeJar": true,
       "forgeUnified": {
-        "referenceMinecraft": "1.20",
-        "forge": "46.0.14",
-        "archiveVersionTag": "1.20.0",
+        "referenceMinecraft": "1.20.1",
+        "forge": "47.4.5",
+        "minecraftRange": "[1.20,1.20.2)",
+        "archiveVersionTag": "1.20.0-1.20.1",
         "buildTemplateKey": "forgeBuildGradle120",
         "mappingsKind": "mojmap",
         "metadataTemplate": "forgeModsToml"

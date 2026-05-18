@@ -218,14 +218,20 @@ public final class GenerateVariants {
         String mcRange = minecraftRangeOverride != null && !minecraftRangeOverride.isBlank()
                 ? minecraftRangeOverride
                 : (lineRange ? lineRange(mc) : neoRange(mc));
-        String javaMajor = neoForgeJavaMajor(mc);
+        NeoForgeToolchainAndRelease neoJava = neoForgeToolchainAndRelease(mc);
         Map<String, String> neoValues = new HashMap<>();
         neoValues.put("moddevVersion", moddevVersion);
         neoValues.put("archivesName", archivesName);
         neoValues.put("neoVersion", neoVersion);
         neoValues.put("minecraft", mc);
         neoValues.put("minecraftRange", mcRange);
-        neoValues.put("javaMajor", javaMajor);
+        neoValues.put("javaToolchainMajor", neoJava.toolchainMajor());
+        neoValues.put("javaDependencyResolutionMajor", neoJava.toolchainMajor());
+        neoValues.put(
+                "neoJavaCompileOptionsKts",
+                neoJava.toolchainMajor().equals(neoJava.compileRelease())
+                        ? "options.release.set(" + neoJava.compileRelease() + ")"
+                        : "options.compilerArgs.addAll(listOf(\"--release\", \"" + neoJava.compileRelease() + "\"))");
         neoValues.put("neoForgeLineDir", minecraftLineFolder(mc));
         putMojmapSourceDirLines(neoValues, mc);
         write(dir.resolve("build.gradle.kts"), renderTemplate("neoBuildGradleKts", neoValues));
@@ -377,6 +383,23 @@ public final class GenerateVariants {
     }
 
     /**
+     * NeoForge moddev often needs a current JDK on the toolchain (dependency class
+     * files), while the mod jar should target the lowest JVM in the declared
+     * Minecraft range (e.g. 1.20.2-1.20.4 on Java 17 vs 1.20.5+ on Java 21).
+     */
+    private static NeoForgeToolchainAndRelease neoForgeToolchainAndRelease(String mc) {
+        String fallbackMajor = neoForgeJavaMajor(mc);
+        if (mc != null) {
+            for (NeoForgeBytecodePrefixRule r : JAVA_MATRIX.neoForgeBytecodePrefixRules) {
+                if (mc.startsWith(r.minecraftVersionPrefix())) {
+                    return new NeoForgeToolchainAndRelease(r.toolchainMajor(), r.compileRelease());
+                }
+            }
+        }
+        return new NeoForgeToolchainAndRelease(fallbackMajor, fallbackMajor);
+    }
+
+    /**
      * {@code fabric.mod.json} {@code fabricloader} constraint. Build still pins
      * {@code fabricLoader} from compile groups. Runtime accepts any loader version.
      */
@@ -424,10 +447,9 @@ public final class GenerateVariants {
 
     /**
      * Minecraft version range for Forge {@code mods.toml} on 1.13+ (unified jars).
-     * Optional
-     * {@code minecraftRange} on {@code forgeUnified} overrides; {@code 1.20.0}-only
-     * Forge jar uses
-     * {@code [1.20,1.20.1)}.
+     * Optional {@code minecraftRange} on {@code forgeUnified} overrides; otherwise
+     * {@code referenceMc} {@code 1.20} without an override still maps to
+     * {@code [1.20,1.20.1)} for the legacy single-patch Forge line.
      */
     private static String forgeModsTomlMinecraftRange(String referenceMc, Map<String, Object> forgeUnified) {
         if (forgeUnified != null) {
@@ -1086,11 +1108,12 @@ public final class GenerateVariants {
         final String fabricJavaDepYearMinorFormat;
         final String neoForgeJavaWhenMatch;
         final String neoForgeJavaDefault;
+        final List<NeoForgeBytecodePrefixRule> neoForgeBytecodePrefixRules;
 
         private JavaMatrix(String yearMinorMcPrefix, String fabricNonLegacyModJsonJavaMajor,
                 List<Map<String, Object>> fabricpreYearlyRules, String fabricToolchainWhenMatch,
                 String fabricToolchainDefault, String fabricJavaDepYearMinorFormat, String neoForgeJavaWhenMatch,
-                String neoForgeJavaDefault) {
+                String neoForgeJavaDefault, List<NeoForgeBytecodePrefixRule> neoForgeBytecodePrefixRules) {
             this.yearMinorMcPrefix = yearMinorMcPrefix;
             this.fabricNonLegacyModJsonJavaMajor = fabricNonLegacyModJsonJavaMajor;
             this.fabricpreYearlyRules = fabricpreYearlyRules;
@@ -1099,6 +1122,7 @@ public final class GenerateVariants {
             this.fabricJavaDepYearMinorFormat = fabricJavaDepYearMinorFormat;
             this.neoForgeJavaWhenMatch = neoForgeJavaWhenMatch;
             this.neoForgeJavaDefault = neoForgeJavaDefault;
+            this.neoForgeBytecodePrefixRules = neoForgeBytecodePrefixRules;
         }
     }
 
@@ -1120,13 +1144,35 @@ public final class GenerateVariants {
             Map<String, Object> neoJ = castMap(neoRoot.get("javaMajor"));
             String neoWhen = str(neoJ.get("whenMatches"));
             String neoDef = str(neoJ.get("default"));
+            List<NeoForgeBytecodePrefixRule> neoBytecodePrefixRules = List.of();
+            Object chainBcObj = neoRoot.get("toolchainAndBytecode");
+            if (chainBcObj instanceof Map<?, ?>) {
+                Map<String, Object> chainBc = castMap(chainBcObj);
+                List<Map<String, Object>> prefixRows = castList(chainBc.get("prefixRules"));
+                List<NeoForgeBytecodePrefixRule> built = new ArrayList<>();
+                for (Map<String, Object> r : prefixRows) {
+                    String prefix = str(r.get("minecraftVersionPrefix"));
+                    String tm = str(r.get("toolchainMajor"));
+                    String cr = str(r.get("compileRelease"));
+                    if (!prefix.isBlank() && !tm.isBlank() && !cr.isBlank())
+                        built.add(new NeoForgeBytecodePrefixRule(prefix, tm, cr));
+                }
+                neoBytecodePrefixRules = List.copyOf(built);
+            }
             if (yearMinorMcPrefix.isBlank() || legacyRules.isEmpty() || nonLegacy.isBlank() || ftWhen.isBlank()
                     || ftDef.isBlank() || fabricJavaDepY.isBlank() || neoWhen.isBlank() || neoDef.isBlank())
                 throw new IllegalStateException("Invalid or incomplete Java matrix: " + file);
             return new JavaMatrix(yearMinorMcPrefix, nonLegacy, legacyRules, ftWhen, ftDef, fabricJavaDepY, neoWhen,
-                    neoDef);
+                    neoDef, neoBytecodePrefixRules);
         } catch (IOException e) {
             throw new ExceptionInInitializerError(e);
         }
+    }
+
+    private record NeoForgeBytecodePrefixRule(String minecraftVersionPrefix, String toolchainMajor,
+            String compileRelease) {
+    }
+
+    private record NeoForgeToolchainAndRelease(String toolchainMajor, String compileRelease) {
     }
 }

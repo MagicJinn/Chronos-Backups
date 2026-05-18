@@ -29,7 +29,7 @@ All currently supported versions are listed below. If a specific subversion does
 | - | - | - | - | - | - |
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
-| `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0. Fabric 1.20.x. NeoForge 1.20.1 - 1.20.6. |
+| `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0-1.20.1. Fabric 1.20.x. NeoForge 1.20.2-1.20.6 (single jar, Java 17 bytecode, JDK 21 toolchain). |
 | `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
@@ -114,7 +114,7 @@ The project is organized as a small, version-agnostic **core** (scheduler + back
 
 Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_1` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
 
-New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files.
+New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files. NeoForge can apply optional `toolchainAndBytecode.prefixRules` so the JDK used for Gradle resolution (for example 21) can differ from the `--release` bytecode level (for example 17) when a unified jar must load on more than one JVM.
 
 The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running smoke tests.
 

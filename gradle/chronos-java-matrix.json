@@ -32,6 +32,15 @@
     "javaMajor": {
       "whenMatches": "25",
       "default": "21"
+    },
+    "toolchainAndBytecode": {
+      "prefixRules": [
+        {
+          "minecraftVersionPrefix": "1.20.",
+          "toolchainMajor": "21",
+          "compileRelease": "17"
+        }
+      ]
     }
   }
 }
