@@ -78,19 +78,16 @@ processResources {
 java {
     withSourcesJar()
     toolchain { languageVersion = JavaLanguageVersion.of({{toolchainMajor}}) }
+    sourceCompatibility = JavaVersion.toVersion({{javaDependencyResolutionMajor}})
+    targetCompatibility = JavaVersion.toVersion({{javaDependencyResolutionMajor}})
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     // JDK 8's javac does not seem to support --release. Loom may fork compilation with a Java 8 compiler for old MC lines.
-    def chronosRelease = {{javaMajor}} as int
-    if (chronosRelease >= 9) {
-        options.release = chronosRelease
-    } else {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
+{{fabricJavaCompileOptionsGroovy}}
 }
+{{fabricCompileClasspathJvmAttrsGroovy}}
 
 def chronosSelectFreePort = {
     def socket = new ServerSocket(0)
