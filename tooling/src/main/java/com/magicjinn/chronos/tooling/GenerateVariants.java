@@ -167,14 +167,15 @@ public final class GenerateVariants {
         String pluginId = isYearMinorMc(mc) ? "net.fabricmc.fabric-loom" : "net.fabricmc.fabric-loom-remap";
         String depConf = isYearMinorMc(mc) ? "implementation" : "modImplementation";
         String mappings = isYearMinorMc(mc) ? "" : "mappings loom.officialMojangMappings()";
-        String javaMajor = fabricModJsonJavaMajor(mc);
-        String javaDep = fabricJavaDependencyLine(mc, javaMajor);
+        String toolchainEff = fabricToolchainMajorEffective(mc);
+        String compileRel = fabricCompileRelease(mc);
+        String modJsonJava = fabricModJsonJavaMajor(mc);
+        String javaDep = fabricJavaDependencyLine(mc, modJsonJava);
         String mcDep = minecraftDepOverride != null && !minecraftDepOverride.isBlank()
                 ? minecraftDepOverride
                 : fabricMcDep(mc);
         String remapJar = isYearMinorMc(mc) ? "" : "\n\ntasks.named('remapJar') {\n    archiveClassifier = ''\n}\n";
 
-        String toolchainMajor = fabricGradleToolchainMajor(mc);
         Map<String, String> values = new HashMap<>();
         values.put("pluginId", pluginId);
         values.put("loomVersion", loomVersion);
@@ -186,8 +187,10 @@ public final class GenerateVariants {
         values.put("fabricApi", fabricApi);
         values.put("minecraftDep", mcDep);
         values.put("javaDep", javaDep);
-        values.put("javaMajor", javaMajor);
-        values.put("toolchainMajor", toolchainMajor);
+        values.put("toolchainMajor", toolchainEff);
+        values.put("javaDependencyResolutionMajor", toolchainEff);
+        values.put("fabricJavaCompileOptionsGroovy", fabricJavaCompileOptionsGroovy(toolchainEff, compileRel));
+        values.put("fabricCompileClasspathJvmAttrsGroovy", fabricCompileClasspathJvmAttrsGroovy(toolchainEff, compileRel));
         values.put("remapJarBlock", remapJar);
         putMojmapSourceDirLines(values, mc);
         putFabricRegistrarSourceDirLines(values, mc);
@@ -218,14 +221,20 @@ public final class GenerateVariants {
         String mcRange = minecraftRangeOverride != null && !minecraftRangeOverride.isBlank()
                 ? minecraftRangeOverride
                 : (lineRange ? lineRange(mc) : neoRange(mc));
-        String javaMajor = neoForgeJavaMajor(mc);
+        NeoForgeToolchainAndRelease neoJava = neoForgeToolchainAndRelease(mc);
         Map<String, String> neoValues = new HashMap<>();
         neoValues.put("moddevVersion", moddevVersion);
         neoValues.put("archivesName", archivesName);
         neoValues.put("neoVersion", neoVersion);
         neoValues.put("minecraft", mc);
         neoValues.put("minecraftRange", mcRange);
-        neoValues.put("javaMajor", javaMajor);
+        neoValues.put("javaToolchainMajor", neoJava.toolchainMajor());
+        neoValues.put("javaDependencyResolutionMajor", neoJava.toolchainMajor());
+        neoValues.put(
+                "neoJavaCompileOptionsKts",
+                neoJava.toolchainMajor().equals(neoJava.compileRelease())
+                        ? "options.release.set(" + neoJava.compileRelease() + ")"
+                        : "options.compilerArgs.addAll(listOf(\"--release\", \"" + neoJava.compileRelease() + "\"))");
         neoValues.put("neoForgeLineDir", minecraftLineFolder(mc));
         putMojmapSourceDirLines(neoValues, mc);
         write(dir.resolve("build.gradle.kts"), renderTemplate("neoBuildGradleKts", neoValues));
@@ -329,6 +338,17 @@ public final class GenerateVariants {
      * necessarily identical to the Gradle JDK toolchain major).
      */
     private static String fabricModJsonJavaMajor(String mc) {
+        if (mc != null) {
+            for (BytecodePrefixRule r : JAVA_MATRIX.fabricBytecodePrefixRules) {
+                if (mc.startsWith(r.minecraftVersionPrefix())) {
+                    return r.modJsonOrCompileRelease();
+                }
+            }
+        }
+        return fabricModJsonJavaMajorLegacy(mc);
+    }
+
+    private static String fabricModJsonJavaMajorLegacy(String mc) {
         if (!mc.startsWith("1.")) {
             return JAVA_MATRIX.fabricNonLegacyModJsonJavaMajor;
         }
@@ -362,6 +382,57 @@ public final class GenerateVariants {
         return "21";
     }
 
+    private static String fabricCompileRelease(String mc) {
+        if (mc != null) {
+            for (BytecodePrefixRule r : JAVA_MATRIX.fabricBytecodePrefixRules) {
+                if (mc.startsWith(r.minecraftVersionPrefix())) {
+                    return r.compileRelease();
+                }
+            }
+        }
+        return fabricModJsonJavaMajorLegacy(mc);
+    }
+
+    private static String fabricToolchainMajorEffective(String mc) {
+        if (mc != null) {
+            for (BytecodePrefixRule r : JAVA_MATRIX.fabricBytecodePrefixRules) {
+                if (mc.startsWith(r.minecraftVersionPrefix())) {
+                    return r.toolchainMajor();
+                }
+            }
+        }
+        return fabricGradleToolchainMajor(mc);
+    }
+
+    private static String fabricJavaCompileOptionsGroovy(String toolchainMajor, String compileRelease) {
+        if (toolchainMajor.equals(compileRelease)) {
+            try {
+                int c = Integer.parseInt(compileRelease);
+                if (c >= 9) {
+                    return "        def chronosRelease = " + compileRelease
+                            + " as int\n        options.release = chronosRelease";
+                }
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+            return "        sourceCompatibility = JavaVersion.VERSION_1_8\n        targetCompatibility = JavaVersion.VERSION_1_8";
+        }
+        return "        options.compilerArgs.add('--release')\n        options.compilerArgs.add('" + compileRelease + "')";
+    }
+
+    private static String fabricCompileClasspathJvmAttrsGroovy(String toolchainMajor, String compileRelease) {
+        if (toolchainMajor.equals(compileRelease)) {
+            return "";
+        }
+        return "configurations.named('compileClasspath').configure {\n"
+                + "    attributes {\n"
+                + "        attribute(org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, "
+                + toolchainMajor
+                + ")\n"
+                + "    }\n"
+                + "}\n";
+    }
+
     private static String fabricGradleToolchainMajor(String mc) {
         return isYearMinorMc(mc) ? JAVA_MATRIX.fabricToolchainWhenMatch : JAVA_MATRIX.fabricToolchainDefault;
     }
@@ -374,6 +445,23 @@ public final class GenerateVariants {
 
     private static String neoForgeJavaMajor(String mc) {
         return isYearMinorMc(mc) ? JAVA_MATRIX.neoForgeJavaWhenMatch : JAVA_MATRIX.neoForgeJavaDefault;
+    }
+
+    /**
+     * NeoForge moddev often needs a current JDK on the toolchain (dependency class
+     * files), while the mod jar should target the lowest JVM in the declared
+     * Minecraft range (e.g. 1.20.2-1.20.4 on Java 17 vs 1.20.5+ on Java 21).
+     */
+    private static NeoForgeToolchainAndRelease neoForgeToolchainAndRelease(String mc) {
+        String fallbackMajor = neoForgeJavaMajor(mc);
+        if (mc != null) {
+            for (BytecodePrefixRule r : JAVA_MATRIX.neoForgeBytecodePrefixRules) {
+                if (mc.startsWith(r.minecraftVersionPrefix())) {
+                    return new NeoForgeToolchainAndRelease(r.toolchainMajor(), r.compileRelease());
+                }
+            }
+        }
+        return new NeoForgeToolchainAndRelease(fallbackMajor, fallbackMajor);
     }
 
     /**
@@ -424,10 +512,9 @@ public final class GenerateVariants {
 
     /**
      * Minecraft version range for Forge {@code mods.toml} on 1.13+ (unified jars).
-     * Optional
-     * {@code minecraftRange} on {@code forgeUnified} overrides; {@code 1.20.0}-only
-     * Forge jar uses
-     * {@code [1.20,1.20.1)}.
+     * Optional {@code minecraftRange} on {@code forgeUnified} overrides. Otherwise
+     * {@code referenceMc} {@code 1.20} without an override still maps to
+     * {@code [1.20,1.20.1)} for the legacy single-patch Forge line.
      */
     private static String forgeModsTomlMinecraftRange(String referenceMc, Map<String, Object> forgeUnified) {
         if (forgeUnified != null) {
@@ -1086,11 +1173,14 @@ public final class GenerateVariants {
         final String fabricJavaDepYearMinorFormat;
         final String neoForgeJavaWhenMatch;
         final String neoForgeJavaDefault;
+        final List<BytecodePrefixRule> neoForgeBytecodePrefixRules;
+        final List<BytecodePrefixRule> fabricBytecodePrefixRules;
 
         private JavaMatrix(String yearMinorMcPrefix, String fabricNonLegacyModJsonJavaMajor,
                 List<Map<String, Object>> fabricpreYearlyRules, String fabricToolchainWhenMatch,
                 String fabricToolchainDefault, String fabricJavaDepYearMinorFormat, String neoForgeJavaWhenMatch,
-                String neoForgeJavaDefault) {
+                String neoForgeJavaDefault, List<BytecodePrefixRule> neoForgeBytecodePrefixRules,
+                List<BytecodePrefixRule> fabricBytecodePrefixRules) {
             this.yearMinorMcPrefix = yearMinorMcPrefix;
             this.fabricNonLegacyModJsonJavaMajor = fabricNonLegacyModJsonJavaMajor;
             this.fabricpreYearlyRules = fabricpreYearlyRules;
@@ -1099,6 +1189,8 @@ public final class GenerateVariants {
             this.fabricJavaDepYearMinorFormat = fabricJavaDepYearMinorFormat;
             this.neoForgeJavaWhenMatch = neoForgeJavaWhenMatch;
             this.neoForgeJavaDefault = neoForgeJavaDefault;
+            this.neoForgeBytecodePrefixRules = neoForgeBytecodePrefixRules;
+            this.fabricBytecodePrefixRules = fabricBytecodePrefixRules;
         }
     }
 
@@ -1120,13 +1212,41 @@ public final class GenerateVariants {
             Map<String, Object> neoJ = castMap(neoRoot.get("javaMajor"));
             String neoWhen = str(neoJ.get("whenMatches"));
             String neoDef = str(neoJ.get("default"));
+            List<BytecodePrefixRule> neoBytecodePrefixRules = parseBytecodePrefixRules(castMap(neoRoot.get("toolchainAndBytecode")));
+            List<BytecodePrefixRule> fabricBytecodePrefixRules = parseBytecodePrefixRules(castMap(fabricRoot.get("toolchainAndBytecode")));
             if (yearMinorMcPrefix.isBlank() || legacyRules.isEmpty() || nonLegacy.isBlank() || ftWhen.isBlank()
                     || ftDef.isBlank() || fabricJavaDepY.isBlank() || neoWhen.isBlank() || neoDef.isBlank())
                 throw new IllegalStateException("Invalid or incomplete Java matrix: " + file);
             return new JavaMatrix(yearMinorMcPrefix, nonLegacy, legacyRules, ftWhen, ftDef, fabricJavaDepY, neoWhen,
-                    neoDef);
+                    neoDef, neoBytecodePrefixRules, fabricBytecodePrefixRules);
         } catch (IOException e) {
             throw new ExceptionInInitializerError(e);
         }
+    }
+
+    private static List<BytecodePrefixRule> parseBytecodePrefixRules(Map<String, Object> chainRoot) {
+        if (chainRoot.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> prefixRows = castList(chainRoot.get("prefixRules"));
+        List<BytecodePrefixRule> built = new ArrayList<>();
+        for (Map<String, Object> r : prefixRows) {
+            String prefix = str(r.get("minecraftVersionPrefix"));
+            String tm = str(r.get("toolchainMajor"));
+            String cr = str(r.get("compileRelease"));
+            if (!prefix.isBlank() && !tm.isBlank() && !cr.isBlank())
+                built.add(new BytecodePrefixRule(prefix, tm, cr, str(r.get("modJsonJavaMajor"))));
+        }
+        return List.copyOf(built);
+    }
+
+    private record BytecodePrefixRule(String minecraftVersionPrefix, String toolchainMajor, String compileRelease,
+            String fabricModJsonJavaMajor) {
+        String modJsonOrCompileRelease() {
+            return fabricModJsonJavaMajor.isBlank() ? compileRelease : fabricModJsonJavaMajor;
+        }
+    }
+
+    private record NeoForgeToolchainAndRelease(String toolchainMajor, String compileRelease) {
     }
 }

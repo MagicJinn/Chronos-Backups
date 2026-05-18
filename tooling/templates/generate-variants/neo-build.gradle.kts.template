@@ -71,9 +71,26 @@ tasks.processResources {
 
 java {
     withSourcesJar()
-    toolchain { languageVersion.set(JavaLanguageVersion.of({{javaMajor}})) }
+    toolchain { languageVersion.set(JavaLanguageVersion.of({{javaToolchainMajor}})) }
+    // Keep Gradle dependency resolution on the NeoForge JVM (21+). `--release` alone
+    // would advertise Java 17 and break resolving neoform/FML artifacts.
+    sourceCompatibility = org.gradle.api.JavaVersion.toVersion({{javaDependencyResolutionMajor}})
+    targetCompatibility = org.gradle.api.JavaVersion.toVersion({{javaDependencyResolutionMajor}})
 }
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
-    options.release.set({{javaMajor}})
+    {{neoJavaCompileOptionsKts}}
+}
+
+// NeoForge 20.6+ artifacts require JVM 21 at resolution time. If we pass `--release 17` (or
+// `options.release`) for bytecode compatibility with older game versions, Gradle would
+// otherwise request Java-17 variants of neoform/FML and fail. Force the compile classpath
+// consumer to JVM {{javaDependencyResolutionMajor}} while still emitting `--release` bytecode above.
+configurations.named("compileClasspath").configure {
+    attributes {
+        attribute(
+            org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE,
+            {{javaDependencyResolutionMajor}},
+        )
+    }
 }

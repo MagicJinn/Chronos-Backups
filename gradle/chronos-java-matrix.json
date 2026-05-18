@@ -17,7 +17,7 @@
           "javaMajor": "17"
         },
         {
-          "minorMin": 20,
+          "minorMin": 21,
           "javaMajor": "21"
         }
       ]
@@ -26,12 +26,30 @@
       "whenMatches": "25",
       "default": "21"
     },
-    "javaDependencyForYearMinorFormat": ">=25"
+    "javaDependencyForYearMinorFormat": ">=25",
+    "toolchainAndBytecode": {
+      "prefixRules": [
+        {
+          "minecraftVersionPrefix": "1.20.",
+          "toolchainMajor": "21",
+          "compileRelease": "17"
+        }
+      ]
+    }
   },
   "neoForge": {
     "javaMajor": {
       "whenMatches": "25",
       "default": "21"
+    },
+    "toolchainAndBytecode": {
+      "prefixRules": [
+        {
+          "minecraftVersionPrefix": "1.20.",
+          "toolchainMajor": "21",
+          "compileRelease": "17"
+        }
+      ]
     }
   }
 }

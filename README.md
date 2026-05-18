@@ -29,7 +29,7 @@ All currently supported versions are listed below. If a specific subversion does
 | - | - | - | - | - | - |
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
-| `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0. Fabric 1.20.x. NeoForge 1.20.1 - 1.20.6. |
+| `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0-1.20.1. Fabric 1.20.x. NeoForge 1.20.2-1.20.6. |
 | `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
