@@ -6,7 +6,7 @@ import java.util.List;
 
 public final class ModConfig {
     /* The name of the folder that will contain the backups */
-    public String backupFolderName = "chronos";
+    public String backupFolderName = "backups";
 
     public boolean pruneChunks = true;
     public int pruneTimeRequirementSeconds = 60 * 2; // 2 minutes of playtime
