@@ -58,6 +58,8 @@ All currently supported versions are listed below. If a specific subversion does
 
 [^3]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
 
+[^4]: 1.19.0 builds, but silently fails when trying to create a backup. See [issue #10](https://github.com/MagicJinn/Chronos-Backups/issues/10).
+
 ## Configuration
 
 The mod's configuration is stored in the `config/chronos.toml` file. This file is automatically created when the mod is first run, and is located in the `config` folder of the mod's directory. For the forseeable future, there is no GUI configuration available. Config options include:
