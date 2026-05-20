@@ -53,19 +53,20 @@ tasks.processResources {
     inputs.property("mod_description", rootProject.findProperty("chronos.mod.description") as String)
     inputs.property("mod_author", rootProject.findProperty("chronos.mod.author") as String)
     inputs.property("mod_license", rootProject.findProperty("chronos.mod.license") as String)
-    filesMatching("META-INF/neoforge.mods.toml") {
-        expand(
-            mapOf(
-                "version" to project.version,
-                "minecraft_range" to (chronosSmokeMcRange ?: "{{minecraftRange}}"),
-                "neo_version" to "{{neoVersion}}",
-                "mod_id" to (rootProject.findProperty("chronos.mod.id") as String),
-                "mod_name" to (rootProject.findProperty("chronos.mod.name") as String),
-                "mod_description" to (rootProject.findProperty("chronos.mod.description") as String),
-                "mod_author" to (rootProject.findProperty("chronos.mod.author") as String),
-                "mod_license" to (rootProject.findProperty("chronos.mod.license") as String),
-            ),
+    val neoMetadataExpand =
+        mapOf(
+            "version" to project.version,
+            "minecraft_range" to (chronosSmokeMcRange ?: "{{minecraftRange}}"),
+            "neo_version" to "{{neoVersion}}",
+            "mod_id" to (rootProject.findProperty("chronos.mod.id") as String),
+            "mod_name" to (rootProject.findProperty("chronos.mod.name") as String),
+            "mod_description" to (rootProject.findProperty("chronos.mod.description") as String),
+            "mod_author" to (rootProject.findProperty("chronos.mod.author") as String),
+            "mod_license" to (rootProject.findProperty("chronos.mod.license") as String),
         )
+    // mods.toml: NeoForge 20.2-20.4 / FML 1.x-2.x on those releases. neoforge.mods.toml: 20.5+.
+    listOf("META-INF/mods.toml", "META-INF/neoforge.mods.toml").forEach { path ->
+        filesMatching(path) { expand(neoMetadataExpand) }
     }
 }
 

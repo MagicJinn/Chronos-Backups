@@ -241,7 +241,10 @@ public final class GenerateVariants {
 
         Path meta = dir.resolve("src/main/resources/META-INF");
         Files.createDirectories(meta);
-        write(meta.resolve("neoforge.mods.toml"), renderTemplate("neoModsToml", Map.of()));
+        String neoModsToml = renderTemplate("neoModsToml", Map.of());
+        // NeoForge 20.5+ only reads neoforge.mods.toml. 20.2-20.4 requires mods.toml
+        write(meta.resolve("neoforge.mods.toml"), neoModsToml);
+        write(meta.resolve("mods.toml"), neoModsToml);
     }
 
     private static void writeForgeProject(Path dir, String compileGroup, String mc, String forgeVersion,
@@ -473,10 +476,12 @@ public final class GenerateVariants {
     }
 
     /**
-     * Mod id for {@code fabric.mod.json} {@code depends} on Fabric API. Legacy
-     * Fabric API (roughly Minecraft < 1.18) published as {@code fabric}, newer
-     * artifacts use {@code fabric-api} (and may {@code provide} {@code fabric}).
-     * Current-year Minecraft lines (e.g. 26.x) use {@code fabric-api} only.
+     * {@code fabric.mod.json} {@code depends} on Fabric API. Fabric API
+     * published as {@code fabric} until Minecraft 1.19.1, from 1.19.2 onward the
+     * jar id is {@code fabric-api} (which {@code provides} {@code fabric} on
+     * those lines). Unified 1.19.x jars depend on {@code fabric} so
+     * 1.19.0-1.19.1 resolve correctly. Minecraft 1.20+ and current-year lines
+     * (e.g. 26.x) use {@code fabric-api} only.
      */
     private static String fabricDependencyModIdForModJson(String mc) {
         if (isYearMinorMc(mc)) {
@@ -486,7 +491,7 @@ public final class GenerateVariants {
         try {
             if (p.length >= 2 && "1".equals(p[0])) {
                 int minor = Integer.parseInt(p[1]);
-                return minor >= 18 ? "fabric-api" : "fabric";
+                return minor >= 20 ? "fabric-api" : "fabric";
             }
         } catch (NumberFormatException ignored) {
             // fall through
