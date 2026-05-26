@@ -6,7 +6,7 @@ It exists separately from `shell-shared` so legacy targets (for example Forge 1.
 
 ## What lives here
 
-- A single `/chronos` Brigadier root with `backup` and `cancel` subcommands.
+- A single `/chronos` Brigadier root with `backup`, `cancel`, and `speedtest` subcommands.
 - Loader hook interfaces for permission checks, message delivery, and command return codes.
 - Delegation to `shell-shared` for shared command text and action behavior.
 

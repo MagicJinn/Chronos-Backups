@@ -7,16 +7,14 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 
 /**
- * Single Brigadier tree for {@code /chronos backup|cancel|speedtest}, shared by loaders
- * that ship Brigadier.
- * Uses {@link LiteralArgumentBuilder#literal} so we do not depend on
- * version-specific {@code Commands}
- * classes.
+ * Single Brigadier tree for {@code /chronos backup|cancel|speedtest}, shared by
+ * loaders that ship Brigadier. Uses {@link LiteralArgumentBuilder#literal} so
+ * we do not depend on version-specific {@code Commands} classes.
  *
  * <p>
  * Kept in {@code shell-brigadier} (not {@code shell-shared}) so Forge 1.12
- * variants, which do not
- * put Brigadier on the compile classpath, can still compile shared sources.
+ * variants, which do not put Brigadier on the compile classpath, can still
+ * compile shared sources.
  */
 public final class ChronosBrigadier {
     private ChronosBrigadier() {
