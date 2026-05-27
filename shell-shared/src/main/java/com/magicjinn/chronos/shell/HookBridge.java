@@ -52,6 +52,10 @@ public final class HookBridge {
         Core.OnWorldStopped();
     }
 
+    public static void serverTick() {
+        Core.OnServerTick();
+    }
+
     private HookBridge() {}
 
     private static BackupRuntimeContext buildRuntimeContext(

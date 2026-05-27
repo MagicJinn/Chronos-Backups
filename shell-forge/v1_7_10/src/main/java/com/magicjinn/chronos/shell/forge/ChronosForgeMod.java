@@ -10,6 +10,8 @@ import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.relauncher.FMLLaunchHandler;
 import cpw.mods.fml.relauncher.Side;
 import net.minecraft.server.MinecraftServer;
@@ -31,6 +33,14 @@ public final class ChronosForgeMod {
             Core.OnLoaderStarted(Core.LoaderEnvironment.CLIENT);
         } else if (physical == Side.SERVER) {
             Core.OnLoaderStarted(Core.LoaderEnvironment.DEDICATED_SERVER);
+        }
+        FMLCommonHandler.instance().bus().register(this);
+    }
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            HookBridge.serverTick();
         }
     }
 

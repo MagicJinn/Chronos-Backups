@@ -8,6 +8,7 @@ import com.magicjinn.chronos.shell.mojmap.common.MojmapServerEnvironment;
 import com.magicjinn.chronos.shell.mojmap.common.MojmapShellMessenger;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
 
 public final class ChronosFabricEntrypoint implements ModInitializer {
@@ -24,6 +25,10 @@ public final class ChronosFabricEntrypoint implements ModInitializer {
                     activeServer = server;
                     HookBridge.worldStarted(
                             new MojmapServerEnvironment(server), server, MESSENGER, WORLD_CONTROLLER);
+                });
+        ServerTickEvents.END_SERVER_TICK.register(
+                server -> {
+                    HookBridge.serverTick();
                 });
         ServerLifecycleEvents.SERVER_STOPPED.register(
                 server -> {
