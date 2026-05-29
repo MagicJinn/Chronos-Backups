@@ -55,17 +55,12 @@ public final class ChronosBrigadier {
                 .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.BACKUP)
                         .executes(ctx -> {
                             EnqueueResult start = ChronosCommandActions.tryStartManualBackup();
-                            if (start == EnqueueResult.QUEUED) {
-                                hooks.feedback(
-                                        ctx.getSource(),
-                                        ChronosCommandActions.messageManualBackupStarted(),
-                                        false);
-                            } else if (start == EnqueueResult.ALREADY_RUNNING) {
+                            if (start == EnqueueResult.ALREADY_RUNNING) {
                                 hooks.feedback(
                                         ctx.getSource(),
                                         ChronosCommandActions.messageManualBackupAlreadyRunning(),
                                         false);
-                            } else {
+                            } else if (start == EnqueueResult.NO_RUNTIME) {
                                 hooks.feedback(
                                         ctx.getSource(),
                                         ChronosCommandActions.messageRuntimeInactive(),
@@ -90,17 +85,12 @@ public final class ChronosBrigadier {
                                 .executes(ctx -> {
                                     int s = IntegerArgumentType.getInteger(ctx, "s");
                                     EnqueueResult start = ChronosCommandActions.tryStartSpeedtest(s);
-                                    if (start == EnqueueResult.QUEUED) {
-                                        hooks.feedback(
-                                                ctx.getSource(),
-                                                ChronosCommandActions.messageSpeedtestStarted(s),
-                                                false);
-                                    } else if (start == EnqueueResult.ALREADY_RUNNING) {
+                                    if (start == EnqueueResult.ALREADY_RUNNING) {
                                         hooks.feedback(
                                                 ctx.getSource(),
                                                 ChronosCommandActions.messageSpeedtestAlreadyRunning(),
                                                 false);
-                                    } else {
+                                    } else if (start == EnqueueResult.NO_RUNTIME) {
                                         hooks.feedback(
                                                 ctx.getSource(),
                                                 ChronosCommandActions.messageRuntimeInactive(),

@@ -1,8 +1,10 @@
 package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.shell.ChronosConstants;
+import com.magicjinn.chronos.shell.HookBridge;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -32,6 +34,13 @@ public final class ChronosForgeMod {
         modBus.addListener(
                 (FMLDedicatedServerSetupEvent event) -> MojmapForgeModKernel.onLoaderStartedDedicated());
         MinecraftForge.EVENT_BUS.register(this);
+    }
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            HookBridge.serverTick();
+        }
     }
 
     @SubscribeEvent

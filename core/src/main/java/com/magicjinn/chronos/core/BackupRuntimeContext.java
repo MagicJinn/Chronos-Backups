@@ -76,7 +76,7 @@ public final class BackupRuntimeContext {
 
     public void sendChat(String message) {
         if (chatSink != null) {
-            chatSink.accept(CHAT_PREFIX + message);
+            chatSink.accept(ChatHelper.makeTellraw(CHAT_PREFIX + message));
         }
     }
 }

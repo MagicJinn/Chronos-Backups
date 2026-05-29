@@ -16,6 +16,7 @@ import net.minecraftforge.fml.event.server.FMLServerStartedEvent;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
 import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
 @Mod(ChronosForgeMod.MODID)
@@ -46,6 +47,13 @@ public final class ChronosForgeMod {
     public void onServerStarting(FMLServerStartingEvent event) {
         CommandDispatcher<CommandSource> dispatcher = event.getCommandDispatcher();
         COMMAND_REGISTRAR.register(dispatcher);
+    }
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            HookBridge.serverTick();
+        }
     }
 
     @SubscribeEvent

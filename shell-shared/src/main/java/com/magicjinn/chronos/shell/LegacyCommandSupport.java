@@ -19,11 +19,9 @@ public final class LegacyCommandSupport {
         String subcommand = args[0];
         if (ChronosCommandLiterals.BACKUP.equalsIgnoreCase(subcommand)) {
             EnqueueResult start = ChronosCommandActions.tryStartManualBackup();
-            if (start == EnqueueResult.QUEUED) {
-                sink.send(ChronosCommandActions.messageManualBackupStarted());
-            } else if (start == EnqueueResult.ALREADY_RUNNING) {
+            if (start == EnqueueResult.ALREADY_RUNNING) {
                 sink.send(ChronosCommandActions.messageManualBackupAlreadyRunning());
-            } else {
+            } else if (start == EnqueueResult.NO_RUNTIME) {
                 sink.send(ChronosCommandActions.messageRuntimeInactive());
             }
             return;
@@ -44,11 +42,9 @@ public final class LegacyCommandSupport {
             try {
                 int s = Integer.parseInt(args[1]);
                 EnqueueResult start = ChronosCommandActions.tryStartSpeedtest(s);
-                if (start == EnqueueResult.QUEUED) {
-                    sink.send(ChronosCommandActions.messageSpeedtestStarted(s));
-                } else if (start == EnqueueResult.ALREADY_RUNNING) {
+                if (start == EnqueueResult.ALREADY_RUNNING) {
                     sink.send(ChronosCommandActions.messageSpeedtestAlreadyRunning());
-                } else {
+                } else if (start == EnqueueResult.NO_RUNTIME) {
                     sink.send(ChronosCommandActions.messageRuntimeInactive());
                 }
             } catch (NumberFormatException e) {

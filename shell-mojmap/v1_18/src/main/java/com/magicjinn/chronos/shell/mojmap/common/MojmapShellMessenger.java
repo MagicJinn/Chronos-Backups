@@ -3,16 +3,11 @@ package com.magicjinn.chronos.shell.mojmap.common;
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.ChronosConstants;
 import java.util.function.Supplier;
-import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/**
- * Minecraft 1.18.x - {@link TextComponent} / client message APIs differ from
- * 1.19+.
- */
+/** Minecraft 1.18.x logging and chat using /tellraw. */
 public final class MojmapShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
     private final Supplier<MinecraftServer> server;
@@ -32,14 +27,13 @@ public final class MojmapShellMessenger implements ShellMessenger {
     }
 
     @Override
-    public void sendChat(String message) {
+    public void sendChat(String command) {
         MinecraftServer mcServer = server.get();
-        if (mcServer == null || message == null || message.trim().isEmpty()) {
+        if (mcServer == null || command == null || command.trim().isEmpty()) {
             return;
         }
-        TextComponent text = new TextComponent(message);
-        for (ServerPlayer player : mcServer.getPlayerList().getPlayers()) {
-            player.displayClientMessage(text, false);
-        }
+        mcServer.getCommands().performCommand(
+                mcServer.createCommandSourceStack(),
+                "/" + command);
     }
 }

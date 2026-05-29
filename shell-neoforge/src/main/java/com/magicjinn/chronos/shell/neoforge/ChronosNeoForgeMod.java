@@ -18,6 +18,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 @Mod(ChronosNeoForgeMod.MOD_ID)
 public final class ChronosNeoForgeMod {
@@ -46,6 +47,11 @@ public final class ChronosNeoForgeMod {
         MinecraftServer server = event.getServer();
         activeServer = server;
         HookBridge.worldStarted(new MojmapServerEnvironment(server), server, MESSENGER, WORLD_CONTROLLER);
+    }
+
+    @SubscribeEvent
+    public void onServerTick(ServerTickEvent.Post event) {
+        HookBridge.serverTick();
     }
 
     @SubscribeEvent

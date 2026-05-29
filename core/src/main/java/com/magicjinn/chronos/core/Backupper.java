@@ -78,20 +78,22 @@ public final class Backupper {
     }
 
     /**
-     * Whether a backup run is currently executing its main work.
+     * Whether a backup run is currently active.
      */
     public static boolean isBackupRunActive() {
         return backupRunActive.get();
     }
 
+    /**
+     * Whether a speedtest session is currently active.
+     */
     public static boolean isSpeedtestSessionActive() {
         return speedtestSessionActive.get();
     }
 
     /**
      * Sets {@link #backupCancelRequested} when a backup run or a speedtest session
-     * is active so
-     * in-flight work aborts and/or the speedtest loop stops.
+     * is active so in-flight work aborts and/or the speedtest loop stops.
      *
      * @return {@code true} if that cancel signal was applied
      */
