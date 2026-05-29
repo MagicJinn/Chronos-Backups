@@ -30,7 +30,7 @@ All currently supported versions are listed below. If a specific subversion does
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0-1.20.1. Fabric 1.20.x. NeoForge 1.20.2-1.20.6. |
-| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1], [^4] |
+| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
 | `1.16.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
@@ -57,8 +57,6 @@ All currently supported versions are listed below. If a specific subversion does
 [^2]: Forge 1.7.2 does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)).
 
 [^3]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
-
-[^4]: 1.19.0 builds, but silently fails when trying to create a backup. See [issue #10](https://github.com/MagicJinn/Chronos-Backups/issues/10).
 
 ## Configuration
 
