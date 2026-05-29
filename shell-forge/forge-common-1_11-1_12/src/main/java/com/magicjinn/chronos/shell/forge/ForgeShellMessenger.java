@@ -4,14 +4,10 @@ import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.ChronosConstants;
 import java.util.function.Supplier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/**
- * Shared Forge shell logging/chat for Minecraft 1.11-1.12
- * ({@code PlayerList#sendMessage}).
- */
+/** Shared Forge shell logging/chat for Minecraft 1.11-1.12 using /tellraw. */
 public final class ForgeShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
 
@@ -32,11 +28,11 @@ public final class ForgeShellMessenger implements ShellMessenger {
     }
 
     @Override
-    public void sendChat(String message) {
+    public void sendChat(String command) {
         MinecraftServer mcServer = server.get();
-        if (mcServer == null || message == null || message.trim().isEmpty()) {
+        if (mcServer == null || command == null || command.trim().isEmpty()) {
             return;
         }
-        mcServer.getPlayerList().sendMessage(new TextComponentString(message));
+        mcServer.getCommandManager().executeCommand(mcServer, command);
     }
 }

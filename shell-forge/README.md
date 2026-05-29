@@ -16,9 +16,9 @@ These directories are not standalone projects, variant `build.gradle` files (fro
 |-|-|
 | `forge-common-1_8-1_12/` | Shared `ChronosForgeMod` for old FML (`@Mod`, `FMLServerStartedEvent`, …). Each line under `v1_8`-`v1_12` still supplies `ForgeShellMcRange` (compile-time `acceptedMinecraftVersions` for `@Mod`). |
 | `forge-shared-command-registrar/` | Single `ForgeCommandRegistrar` for all pre-1.13 Forge lines. Kept separate from `forge-common-1_8-1_12` so `v1_7_10` does not pull in the shared `ChronosForgeMod`. |
-| `forge-common-1_7-1_8/` | Shared `ForgeShellMessenger` for 1.7.10 and 1.8 (`ChatComponentText`, legacy player list APIs). |
-| `forge-common-1_9-1_10/` | Shared `ForgeShellMessenger` for 1.9 and 1.10 (`TextComponentString`, `sendChatMsg`). |
-| `forge-common-1_11-1_12/` | Shared `ForgeShellMessenger` for 1.11 and 1.12 (`PlayerList#sendMessage`). |
+| `forge-common-1_7-1_8/` | Shared `ForgeShellMessenger` for 1.7.10 and 1.8 (uses `/tellraw` command). |
+| `forge-common-1_9-1_10/` | Shared `ForgeShellMessenger` for 1.9 and 1.10 (uses `/tellraw` command). |
+| `forge-common-1_11-1_12/` | Shared `ForgeShellMessenger` for 1.11 and 1.12 (uses `/tellraw` command). |
 | `forge-common-1_10-1_12/` | Shared `ChronosBackupCommand` where `CommandBase` uses `getName` / `execute` / `sendMessage` (same shape for 1.10-1.12). |
 
 ## Structure (per-line folders)

@@ -27,10 +27,6 @@ public final class ChronosCommandActions {
 
     private ChronosCommandActions() {}
 
-    public static String messageManualBackupStarted() {
-        return BackupRuntimeContext.CHAT_PREFIX + "Manual backup started.";
-    }
-
     public static String messageRuntimeInactive() {
         return BackupRuntimeContext.CHAT_PREFIX + "Backup runtime is not active yet.";
     }
@@ -41,10 +37,6 @@ public final class ChronosCommandActions {
 
     public static String messageManualBackupAlreadyRunning() {
         return BackupRuntimeContext.CHAT_PREFIX + "A backup is already in progress. Request was not queued.";
-    }
-
-    public static String messageSpeedtestStarted(int seconds) {
-        return BackupRuntimeContext.CHAT_PREFIX + "Speedtest started for " + seconds + " s.";
     }
 
     public static String messageSpeedtestAlreadyRunning() {

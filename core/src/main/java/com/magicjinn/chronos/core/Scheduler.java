@@ -91,7 +91,7 @@ public final class Scheduler {
             return EnqueueResult.ALREADY_RUNNING;
 
         secondsSinceLastBackup = getCurrentTimeSeconds();
-
+        context.sendChat("Manual backup started.");
         Backupper.runBackup(context);
 
         return EnqueueResult.QUEUED;
@@ -113,6 +113,7 @@ public final class Scheduler {
         if (!Backupper.tryBeginSpeedtestSession())
             return EnqueueResult.ALREADY_RUNNING;
 
+        context.sendChat("Speedtest started for " + seconds + " s.");
         Backupper.runSpeedtestSession(context, seconds);
 
         return EnqueueResult.QUEUED;
