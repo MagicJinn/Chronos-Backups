@@ -130,7 +130,7 @@ public final class SmokeTestServers {
         System.out.println("Planned jobs: " + jobs.size() + ", workers: " + cfg.workers
                 + (cfg.reuseGradleDaemon ? ", reuseGradleDaemon: on" : ""));
         for (Job job : jobs) {
-            System.out.println(" - " + job.label + " (cwd=" + job.cwd + ")");
+            System.out.println(" - " + job.label);
         }
 
         ExecutorService pool = Executors.newFixedThreadPool(Math.max(1, cfg.workers));

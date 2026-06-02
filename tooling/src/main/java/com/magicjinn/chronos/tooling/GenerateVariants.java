@@ -163,7 +163,7 @@ public final class GenerateVariants {
                 neoForgeVersion=
                 """.formatted(compileGroup, mc, fabricLoader, fabricApi));
 
-        String archivesName = "chronos-backup-fabric-" + archiveSuffix(unifiedArchiveSource, mc);
+        String archivesName = "chronos-backups-fabric-" + archiveSuffix(unifiedArchiveSource, mc);
         String pluginId = isYearMinorMc(mc) ? "net.fabricmc.fabric-loom" : "net.fabricmc.fabric-loom-remap";
         String depConf = isYearMinorMc(mc) ? "implementation" : "modImplementation";
         String mappings = isYearMinorMc(mc) ? "" : "mappings loom.officialMojangMappings()";
@@ -217,7 +217,7 @@ public final class GenerateVariants {
                 neoForgeVersion=%s
                 """.formatted(compileGroup, mc, neoVersion));
 
-        String archivesName = "chronos-backup-neoforge-" + archiveSuffix(unifiedArchiveSource, mc);
+        String archivesName = "chronos-backups-neoforge-" + archiveSuffix(unifiedArchiveSource, mc);
         String mcRange = minecraftRangeOverride != null && !minecraftRangeOverride.isBlank()
                 ? minecraftRangeOverride
                 : (lineRange ? lineRange(mc) : neoRange(mc));
@@ -257,7 +257,7 @@ public final class GenerateVariants {
                 forgeVersion=%s
                 """.formatted(compileGroup, mc, forgeVersion));
 
-        String archivesName = "chronos-backup-forge-" + archiveSuffix(unifiedArchiveSource, mc);
+        String archivesName = "chronos-backups-forge-" + archiveSuffix(unifiedArchiveSource, mc);
         String gradleTemplate = str(unifiedArchiveSource.get("buildTemplateKey"));
         String mappingsKind = str(unifiedArchiveSource.get("mappingsKind"));
         String metadataTemplate = str(unifiedArchiveSource.get("metadataTemplate"));
@@ -619,7 +619,7 @@ public final class GenerateVariants {
 
     /**
      * Suffix for {@code base.archivesName} (after
-     * {@code chronos-backup-<loader>-}). When {@code unifiedArchiveSource}
+     * {@code chronos-backups-<loader>-}). When {@code unifiedArchiveSource}
      * is non-null and defines {@code archiveVersionTag}, that string is used so
      * unified jars can reflect real supported
      * Minecraft ranges instead of the reference version's

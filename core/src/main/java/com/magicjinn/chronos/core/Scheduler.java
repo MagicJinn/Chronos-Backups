@@ -110,10 +110,12 @@ public final class Scheduler {
         if (Backupper.isBackupRunActive() || Backupper.isSpeedtestSessionActive())
             return EnqueueResult.ALREADY_RUNNING;
 
+        // Send chat message before claiming the session (in case of a crash)
+        context.sendChat("Speedtest started for " + seconds + " s.");
+
         if (!Backupper.tryBeginSpeedtestSession())
             return EnqueueResult.ALREADY_RUNNING;
 
-        context.sendChat("Speedtest started for " + seconds + " s.");
         Backupper.runSpeedtestSession(context, seconds);
 
         return EnqueueResult.QUEUED;

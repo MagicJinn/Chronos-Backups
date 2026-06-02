@@ -3,7 +3,11 @@ name: Build All
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
 
 jobs:
   build-rust-host-native:

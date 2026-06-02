@@ -2,7 +2,10 @@ package com.magicjinn.chronos.shell.mojmap.common;
 
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.ChronosConstants;
+import com.mojang.brigadier.ParseResults;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.function.Supplier;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,10 +33,14 @@ public final class MojmapShellMessenger implements ShellMessenger {
     @Override
     public void sendChat(String command) {
         MinecraftServer mcServer = server.get();
-        if (mcServer == null || command == null || command.trim().isEmpty()) {
+        if (mcServer == null || command == null || command.trim().isEmpty())
             return;
+        CommandSourceStack source = mcServer.createCommandSourceStack();
+        ParseResults<CommandSourceStack> parsed = mcServer.getCommands().getDispatcher().parse(command, source);
+        try {
+            mcServer.getCommands().getDispatcher().execute(parsed);
+        } catch (CommandSyntaxException e) {
+            LOG.error("Failed to execute chat command: " + e.getMessage());
         }
-        mcServer.getCommands().performPrefixedCommand(
-                mcServer.createCommandSourceStack(), command);
     }
 }
