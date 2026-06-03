@@ -286,6 +286,12 @@ tasks.register("cleanVariants") {
     dependsOn(":tooling:runCleanVariants")
 }
 
+tasks.register("testServers") {
+    group = "verification"
+    description = "Runs server integration tests via Java tooling."
+    dependsOn(":tooling:runTestServers")
+}
+
 tasks.register("smokeTest") {
     group = "verification"
     description = "Runs dedicated server smoke tests via Java tooling."

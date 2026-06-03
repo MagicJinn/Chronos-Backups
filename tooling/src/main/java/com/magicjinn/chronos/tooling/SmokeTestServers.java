@@ -57,6 +57,7 @@ public final class SmokeTestServers {
     private SmokeTestServers() {
     }
 
+    @Deprecated(forRemoval = true)
     public static void main(String[] args) throws Exception {
         Args cfg = Args.parse(args);
         reuseGradleDaemonForWorkers = cfg.reuseGradleDaemon;

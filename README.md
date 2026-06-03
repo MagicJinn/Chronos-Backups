@@ -114,7 +114,7 @@ The project is organized as a small, version-agnostic **core** (scheduler + back
 
 Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_1` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
 
-New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files.
+New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` is the single source for Java levels (mod metadata, Gradle toolchains, bytecode targets, and Docker test JVM tags) across Fabric, NeoForge, and Forge.
 
 The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running smoke tests.
 
