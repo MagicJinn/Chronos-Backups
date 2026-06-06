@@ -97,10 +97,22 @@ rustup toolchain install nightly
 
 ### Rust native library
 
-Chronos Backups bundles a custom built native Rust pruning library, which in turn makes use of [mca](https://github.com/VilleOlof/mca) and [simdnbt](https://github.com/azalea-rs/simdnbt) for maximum performance. This is automatically built and bundled with the mod during normal Gradle builds, or can be built manually through `buildRust` for verification. By default, due to platform constraints, local development builds compile and stage only the current host OS/arch native target. In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced jars include all supported native platforms. This means that local builds:
+Chronos Backups bundles a custom built native Rust pruning library, which in turn makes use of [mca](https://github.com/VilleOlof/mca) and [simdnbt](https://github.com/azalea-rs/simdnbt) for maximum performance. This is automatically built and bundled with the mod during normal Gradle builds, or can be built manually through `buildRust` for verification. By default, local builds compile only the **host** OS/arch native library. Staging copies every library already present under `core/native/rust-pruner/target/*/release/` (so CI can merge per-OS host builds before `buildAll` with `-Pchronos.rust.skipBuild=true`). This means that plain local jars:
 
-- are intended for development only, and should not be released through release channels, or even shared with other developers or users (to avoid confusion).
-- cannot be used on a non-native platform. For example, a Windows build will not work on Linux or macOS (this might stop you from building the mod locally and testing it on a dedicated server hosting provider).
+- are intended for development on the current machine only, and should not be released through release channels, or even shared with other developers or users (to avoid confusion).
+- cannot be used on a non-native platform unless you add extra targets or use merged CI artifacts.
+
+**Docker integration tests (`testServers`)** require **Docker** to be installed and running. One command runs `buildAll`, cross-compiles `linux-x86_64` rust-pruner in Docker via `cargo-zigbuild` (glibc 2.17 max, compatible with old dedicated-server images such as `itzg/minecraft-server:java8`), and tests every supported loader/version in Docker:
+
+```powershell
+./gradlew testServers
+```
+
+`linux-x86_64` natives are always built that way (including on Linux CI) so they load on older server distros. Pass `-Pchronos.rust.linuxViaDocker=false` to force a host `cargo` build instead.
+
+If you previously built jars on Windows without `testServers` / `prepareTestServers`, stale outputs may lack `linux-x86_64` natives. Run `./gradlew clean testServers` once after pulling native-Docker changes. You can verify a jar with `jar tf build/libs/chronosbackups-*-forge.jar | findstr natives/linux`.
+
+In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so release jars include every host-built platform that was merged.
 
 > [!Note]
 > Rust builds are only produced for 64-bit systems. 32-bit architectures are not supported.
@@ -124,7 +136,8 @@ All commands should be run from the repository root. The Gradle project provides
 
 - `buildAll`: Builds all enabled variants, then collects output jars.
 - `collectAllJars`: Copies final jars to root `build/libs/` (runs as part of `buildAll`).
-- `buildRust`: Builds native `rust-pruner` libraries (host-native by default, runs automatically as part of any build/run tasks).
+- `buildRust`: Builds native `rust-pruner` libraries (host-only by default; `testServers` adds `linux-x86_64` via Docker on Windows/macOS).
+- `testServers`: Builds jars (with Docker-compatible natives) and runs Docker-based server integration tests (see Rust section above).
 - `generateVariants`: Regenerates `variants/` from `gradle/chronos-compile-groups.json` (should be run automatically when appropriate).
 - `cleanVariants`: Clears the `variants/` folder. Useful when encountering issues with stale/locked variant directories.
 - `smokeTest`: Automated dedicated-server smoke runs. Spins up a server for each variant and runs specific tests to ensure the mod is working correctly.

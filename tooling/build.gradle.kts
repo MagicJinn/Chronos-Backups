@@ -56,6 +56,7 @@ val runTestServers by tasks.registering(JavaExec::class) {
     description = "Runs server integration tests."
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.magicjinn.chronos.tooling.TestServers.TestServers")
+    dependsOn(rootProject.tasks.named("prepareTestServers"))
 }
 
 val runSmokeTest by tasks.registering(JavaExec::class) {

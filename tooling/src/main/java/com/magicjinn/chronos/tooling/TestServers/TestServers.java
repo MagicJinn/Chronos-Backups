@@ -7,16 +7,19 @@ import com.magicjinn.chronos.tooling.TestServers.rcon.RconClient;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class TestServers {
     private static final Gson GSON = new Gson();
@@ -27,9 +30,6 @@ public final class TestServers {
     private static final Path CONFIG_FILE = ROOT
             .resolve("tooling/src/main/java/com/magicjinn/chronos/tooling/TestServers/test-servers-config.json");
 
-    /** The RCON password for the test servers. */
-    public static final String RCON_PASSWORD = "password";
-
     private TestServers() {
     }
 
@@ -38,15 +38,13 @@ public final class TestServers {
             Process process = new ProcessBuilder("docker", "info")
                     .redirectErrorStream(true)
                     .start();
-            int exitCode = process.waitFor();
-            return exitCode == 0;
+            return process.waitFor() == 0;
         } catch (IOException | InterruptedException e) {
             return false;
         }
     }
 
     public static int allocatePort() throws IOException {
-        InetAddress loopback = InetAddress.getByName("127.0.0.1");
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
         for (int attempt = 0; attempt < 256; attempt++) {
             int port = 30000 + rnd.nextInt(35000);
@@ -65,38 +63,13 @@ public final class TestServers {
         }
     }
 
-    public static String sendRconCommand(int port, String message) throws IOException {
-        return RconClient.send("127.0.0.1", port, RCON_PASSWORD, message);
-    }
-
     private static Map<String, Object> readObject(Path file) throws IOException {
         Type type = new TypeToken<Map<String, Object>>() {
         }.getType();
         return GSON.fromJson(Files.readString(file), type);
     }
 
-    private static void runBuildAll() throws IOException {
-        ProcessBuilder pb = new ProcessBuilder(gradleWrapperCommand(ROOT), "buildAll")
-                .directory(ROOT.toFile())
-                .inheritIO();
-        try {
-            int exitCode = pb.start().waitFor();
-            if (exitCode != 0) {
-                throw new IOException("buildAll failed with exit code " + exitCode);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("buildAll interrupted", e);
-        }
-    }
-
-    private static String gradleWrapperCommand(Path cwd) {
-        if (System.getProperty("os.name").toLowerCase().contains("win")) {
-            return cwd.resolve("gradlew.bat").toAbsolutePath().normalize().toString();
-        }
-        return cwd.resolve("gradlew").toAbsolutePath().normalize().toString();
-    }
-
+    /** Use git to locate the repository root. */
     private static Path locateRepoRoot() {
         try {
             Process process = new ProcessBuilder("git", "rev-parse", "--show-toplevel")
@@ -106,7 +79,7 @@ public final class TestServers {
                 return Path.of(new String(process.getInputStream().readAllBytes()).trim());
             }
         } catch (IOException | InterruptedException e) {
-            // fall through
+            // ignore
         }
         return Path.of("").toAbsolutePath().normalize();
     }
@@ -129,102 +102,291 @@ public final class TestServers {
         return Integer.compare(pa.length, pb.length);
     }
 
-    private static TreeSet<DockerMinecraftServer> getServers(List<Map<String, Object>> groups) {
-        TreeSet<DockerMinecraftServer> servers = new TreeSet<>(SERVER_ORDER);
+    private static Map<String, Object> findGroupForVersion(List<Map<String, Object>> groups, String version) {
         for (Map<String, Object> group : groups) {
             if (!shouldBuildGroup(group))
                 continue;
+            // If supportedVersions is at the group root, use it for all loaders
+            if (strList(group.get("supportedVersions")).contains(version)) {
+                return group;
+            }
+            // Otherwise, check each loader's supportedVersions
+            for (Map<String, Object> loaderObj : unifiedLoaderConfigs(group)) {
+                if (strList(loaderObj.get("supportedVersions")).contains(version)) {
+                    return group;
+                }
+            }
+        }
+        return null;
+    }
 
-            // If the group contains a supportedVersions key, then all loaders support all
-            // versions. If the key is not present, that means some loaders do not support
-            // all versions (eg forge 1.20.0-1.20.1, Fabric 1.20.0-1.20.6)
+    private static String resolveArchiveSuffix(Map<String, Object> group, String loaderKey) {
+        Map<String, Object> subObj = findUnifiedConfig(group, loaderKey);
+
+        if (subObj != null) {
+            String override = str(subObj.get("archiveVersionTag"));
+            if (!override.isBlank()) {
+                return override;
+            }
+            String refMc = str(subObj.get("referenceMinecraft"));
+            if (!refMc.isBlank()) {
+                return minecraftLineTag(refMc);
+            }
+        }
+
+        String label = str(group.get("jarTargetLabel"));
+        if (!label.isBlank())
+            return label;
+
+        List<String> prefixes = strList(group.get("minecraftVersionPrefixes"));
+        if (!prefixes.isEmpty())
+            return minecraftLineTag(prefixes.get(0));
+
+        throw new IllegalStateException("Cannot resolve archive suffix for group " + group.get("id"));
+    }
+
+    private static String minecraftLineTag(String version) {
+        String[] p = version.split("\\.");
+        return p.length >= 2 ? p[0] + "." + p[1] + ".x" : version + ".x";
+    }
+
+    /**
+     * Resolves {@code MODRINTH_PROJECTS} for Fabric test servers.
+     */
+    static String resolveFabricModrinthProjects(String minecraftVersion, Map<String, Object> group) {
+        Map<String, Object> fabricUnified = castMap(group.get("fabricUnified"));
+        if (fabricUnified == null) {
+            return "fabric-api";
+        }
+        String fabricApi = str(fabricUnified.get("fabricApi"));
+        if (fabricApi.isBlank()) {
+            return "fabric-api";
+        }
+        String referenceMc = str(fabricUnified.get("referenceMinecraft"));
+        if (!referenceMc.isBlank() && !referenceMc.equals(minecraftVersion)) {
+            return "fabric-api";
+        }
+        return "fabric:fabric-api:" + fabricApi;
+    }
+
+    static String resolveFabricLoaderVersion(String minecraftVersion, Map<String, Object> group) {
+        Map<String, Object> fabricUnified = castMap(group.get("fabricUnified"));
+        if (fabricUnified == null) {
+            return "";
+        }
+        String referenceMc = str(fabricUnified.get("referenceMinecraft"));
+        if (!referenceMc.isBlank() && !referenceMc.equals(minecraftVersion)) {
+            return "";
+        }
+        return str(fabricUnified.get("fabricLoader"));
+    }
+
+    /**
+     * Resolves {@code FORGE_VERSION} for Forge test servers.
+     * Specifically, 1.10.0 has an incorrectly structured version URL.
+     */
+    @SuppressWarnings("unchecked")
+    static String resolveForgeVersionOverride(String minecraftVersion, Map<String, Object> unified) {
+        Object raw = unified.get("forgeVersionOverrides");
+        if (!(raw instanceof Map<?, ?>)) {
+            return null;
+        }
+        Map<String, String> overrides = (Map<String, String>) raw;
+        return overrides.get(minecraftVersion);
+    }
+
+    private static Path findJarForServer(String loaderKey, String version, List<Map<String, Object>> groups)
+            throws IOException {
+        Map<String, Object> group = findGroupForVersion(groups, version);
+        if (group == null) {
+            throw new IllegalArgumentException(
+                    "No compile group found for " + loaderKey + " version " + version);
+        }
+
+        String suffix = resolveArchiveSuffix(group, loaderKey);
+        String loaderLower = loaderKey.toLowerCase();
+        Path buildLibs = ROOT.resolve("build/libs");
+        String pattern = "chronosbackups-" + suffix + "-*-" + loaderLower + ".jar";
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(buildLibs, pattern)) {
+            Iterator<Path> it = stream.iterator();
+            if (!it.hasNext()) {
+                throw new IllegalArgumentException(
+                        "No jar found matching " + pattern + " in " + buildLibs);
+            }
+            Path jar = it.next();
+            if (it.hasNext()) {
+                System.err.println("Warning: multiple jars match " + pattern + ", using " + jar.getFileName());
+            }
+            return jar.toAbsolutePath().normalize();
+        }
+    }
+
+    private static TreeSet<DockerMinecraftServer> getServers(List<Map<String, Object>> groups) throws IOException {
+        TreeSet<DockerMinecraftServer> servers = new TreeSet<>(SERVER_ORDER);
+
+        for (Map<String, Object> group : groups) {
+            if (!shouldBuildGroup(group))
+                continue;
             boolean allLoadersSupportAllVersions = group.containsKey("supportedVersions");
-            for (Map.Entry<String, Object> entry : group.entrySet()) {
-                Object value = entry.getValue();
-
-                if (!(value instanceof Map<?, ?>))
-                    continue;
-
-                Map<String, Object> unified = castMap(value);
-
-                if (!unified.containsKey("loaderKey"))
-                    continue;
-
+            for (Map<String, Object> unified : unifiedLoaderConfigs(group)) {
                 String loaderKey = str(unified.get("loaderKey"));
-
                 List<String> versions = allLoadersSupportAllVersions
                         ? strList(group.get("supportedVersions"))
                         : strList(unified.get("supportedVersions"));
 
                 for (String version : versions) {
-                    try {
-                        int gamePort = allocatePort();
-                        int rconPort = allocatePort();
-                        servers.add(new DockerMinecraftServer(loaderKey, version, gamePort, rconPort));
-                    } catch (IOException e) {
-                        System.err.println(
-                                "Failed to allocate port for " + loaderKey + "-" + version + ": " + e.getMessage());
+                    int gamePort = allocatePort();
+                    int rconPort = allocatePort();
+                    Path modJar = findJarForServer(loaderKey, version, groups);
+                    String fabricLoader = null;
+                    String modrinthProjects = null;
+                    String forgeVersion = null;
+
+                    // Hardcode this for now
+                    if ("FABRIC".equalsIgnoreCase(loaderKey)) {
+                        fabricLoader = resolveFabricLoaderVersion(version, group);
+                        modrinthProjects = resolveFabricModrinthProjects(version, group);
+                    } else if ("FORGE".equalsIgnoreCase(loaderKey)) {
+                        forgeVersion = resolveForgeVersionOverride(version, unified);
                     }
+                    servers.add(new DockerMinecraftServer(
+                            loaderKey, version, gamePort, rconPort, modJar, fabricLoader, modrinthProjects,
+                            forgeVersion));
                 }
             }
+        }
+
+        if (servers.isEmpty()) {
+            throw new IOException("No test servers resolved from compile groups.");
         }
 
         for (DockerMinecraftServer server : servers) {
             System.out.println(server);
         }
-
         return servers;
     }
 
     public static void main(String[] args) throws IOException {
         if (!isDockerAvailable()) {
-            System.err
-                    .println("Docker is not available. Please ensure Docker is installed and running, then try again.");
+            System.err.println(
+                    "Docker is not available. Install Docker Desktop (or Docker Engine), start it, then re-run.");
             System.exit(1);
         }
-        // TODO: remove?
-        System.out.println("Docker is available.");
-        System.out.println("Repo root: " + ROOT);
 
-        Map<String, Object> groupsJson = readObject(GROUPS_FILE);
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> groups = (List<Map<String, Object>>) groupsJson.get("groups");
-        System.out.println("Loaded " + groups.size() + " compile groups from " + GROUPS_FILE.getFileName());
-
+        List<Map<String, Object>> groups = (List<Map<String, Object>>) readObject(GROUPS_FILE).get("groups");
         Map<String, Object> config = readObject(CONFIG_FILE);
+        System.out.println("Testing all supported loader/version pairs.");
+        TreeSet<DockerMinecraftServer> servers = getServers(groups);
+        System.out.println("Found " + servers.size() + " servers to test.");
+
         List<String> readyMarkers = strList(config.get("readyMarkers"));
         String testCommand = str(config.get("testCommand"));
         List<String> failureMarkers = strList(config.get("failureMarkers"));
+        List<String> serverSetupFailureMarkers = strList(config.get("serverSetupFailureMarkers"));
         List<String> successMarkers = strList(config.get("successMarkers"));
+        String longShutdownMarker = str(config.get("longShutdownMarker"));
 
-        // Run buildAll first
-        // runBuildAll(); TODO: Enable
+        List<String> failures = new ArrayList<>();
 
-        TreeSet<DockerMinecraftServer> servers = getServers(groups);
-
-        // start a test docker container
         for (DockerMinecraftServer server : servers) {
             server.createDockerContainer();
-            server.followLogsUntilExit(logLine -> {
-                System.out.println("[callback] " + logLine); // TODO: remove
-                for (String marker : readyMarkers) {
-                    if (logLine.contains(marker)) {
-                        System.out.println("Ready marker hit: " + marker);
+            boolean[] readySeen = new boolean[readyMarkers.size()];
+            AtomicBoolean rconSent = new AtomicBoolean(false);
+            AtomicBoolean stopSent = new AtomicBoolean(false);
+            AtomicBoolean successSeen = new AtomicBoolean(false);
+            AtomicBoolean failureSeen = new AtomicBoolean(false);
+            AtomicBoolean serverSetupFailureSeen = new AtomicBoolean(false);
+            server.followLogsUntilExit(longShutdownMarker, logLine -> {
+                for (int i = 0; i < readyMarkers.size(); i++) {
+                    if (!readySeen[i] && containsIgnoreCase(logLine, readyMarkers.get(i))) {
+                        readySeen[i] = true;
+                        System.out.println("Ready marker hit: " + readyMarkers.get(i));
                     }
                 }
+                if (allReadyMarkersSeen(readySeen) && rconSent.compareAndSet(false, true)) {
+                    System.out.println("All ready markers seen. Sending RCON: " + testCommand);
+                    Thread rconThread = new Thread(() -> {
+                        try {
+                            String response = RconClient.send(server.getRconPort(), testCommand);
+                            if (!response.isBlank()) {
+                                System.out.println("RCON response: " + response.trim());
+                            }
+                        } catch (IOException e) {
+                            if (!RconClient.isBenignShutdownIoMessage(e.getMessage())) {
+                                System.err.println("Failed to send RCON command to " + server.getRconPort() + ": "
+                                        + e.getMessage());
+                            }
+                        }
+                    }, "rcon-cmd-" + server.containerName());
+                    rconThread.setDaemon(true);
+                    rconThread.start();
+                }
                 for (String marker : failureMarkers) {
-                    if (logLine.contains(marker)) {
-                        System.out.println("Failure marker hit: " + marker);
+                    if (containsIgnoreCase(logLine, marker)) {
+                        failureSeen.set(true);
+                        System.err.println("Failure marker hit: " + marker);
+                        RconClient.stopServer(server);
+                    }
+                }
+                for (String marker : serverSetupFailureMarkers) {
+                    if (containsIgnoreCase(logLine, marker)) {
+                        serverSetupFailureSeen.set(true);
+                        System.err.println("Server setup failure marker hit: " + marker);
+                        RconClient.stopServer(server);
                     }
                 }
                 for (String marker : successMarkers) {
-                    if (logLine.contains(marker)) {
+                    if (containsIgnoreCase(logLine, marker) && stopSent.compareAndSet(false, true)) {
+                        successSeen.set(true);
                         System.out.println("Success marker hit: " + marker);
+                        RconClient.stopServer(server);
                     }
                 }
             });
-            break; // TODO: remove
+            if (serverSetupFailureSeen.get()) {
+                failures.add(server + " (server setup failed)");
+            } else if (failureSeen.get()) {
+                failures.add(server + " (failure marker in logs)");
+            } else if (!successSeen.get()) {
+                failures.add(server + " (no success marker before container exit)");
+            }
         }
+
+        if (!failures.isEmpty()) {
+            System.err.println("Docker test failures (" + failures.size() + "):");
+            for (String failure : failures) {
+                System.err.println("  - " + failure);
+            }
+            System.exit(1);
+        }
+        System.out.println("All " + servers.size() + " docker server tests passed.");
+    }
+
+    private static List<Map<String, Object>> unifiedLoaderConfigs(Map<String, Object> group) {
+        List<Map<String, Object>> configs = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : group.entrySet()) {
+            if (!entry.getKey().toLowerCase(Locale.ROOT).contains("unified")) {
+                continue;
+            }
+            if (!(entry.getValue() instanceof Map<?, ?>)) {
+                continue;
+            }
+            Map<String, Object> unified = castMap(entry.getValue());
+            if (unified.containsKey("loaderKey")) {
+                configs.add(unified);
+            }
+        }
+        return configs;
+    }
+
+    private static Map<String, Object> findUnifiedConfig(Map<String, Object> group, String loaderKey) {
+        for (Map<String, Object> unified : unifiedLoaderConfigs(group)) {
+            if (loaderKey.equalsIgnoreCase(str(unified.get("loaderKey"))))
+                return unified;
+        }
+        return null;
     }
 
     private static boolean shouldBuildGroup(Map<String, Object> group) {
@@ -239,13 +401,22 @@ public final class TestServers {
 
     @SuppressWarnings("unchecked")
     private static List<String> strList(Object value) {
-        if (value == null)
-            return List.of();
-        return (List<String>) value;
+        return value == null ? List.of() : (List<String>) value;
     }
 
     private static String str(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
 
+    private static boolean containsIgnoreCase(String haystack, String needle) {
+        return haystack.toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean allReadyMarkersSeen(boolean[] readySeen) {
+        for (boolean seen : readySeen) {
+            if (!seen)
+                return false;
+        }
+        return true;
+    }
 }

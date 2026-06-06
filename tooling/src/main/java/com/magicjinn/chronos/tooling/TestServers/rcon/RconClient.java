@@ -10,7 +10,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
+import com.magicjinn.chronos.tooling.TestServers.docker.DockerMinecraftServer;
+
 public final class RconClient {
+
+    /** The RCON password for the test servers. */
+    public static final String RCON_PASSWORD = "password";
 
     private static final int TYPE_AUTH = 3;
     private static final int TYPE_COMMAND = 2;
@@ -19,8 +24,25 @@ public final class RconClient {
     private RconClient() {
     }
 
-    public static String send(String host, int port, String password, String command) throws IOException {
-        return send(host, port, password, command, 60_000);
+    public static void stopServer(DockerMinecraftServer server) {
+        Thread stopper = new Thread(() -> stopServerBlocking(server.getRconPort()),
+                "rcon-stop-" + server.containerName());
+        stopper.setDaemon(true);
+        stopper.start();
+    }
+
+    public static void stopServerBlocking(int rconPort) {
+        try {
+            sendStopGraceful("127.0.0.1", rconPort, RCON_PASSWORD);
+        } catch (IOException e) {
+            if (!isBenignShutdownIoMessage(e.getMessage()) && !(e instanceof SocketTimeoutException)) {
+                System.err.println("RCON stop failed: " + e.getMessage());
+            }
+        }
+    }
+
+    public static String send(int port, String command) throws IOException {
+        return send("127.0.0.1", port, RCON_PASSWORD, command, 60_000);
     }
 
     public static String send(String host, int port, String password, String command, int readTimeoutMs)
@@ -58,30 +80,27 @@ public final class RconClient {
             OutputStream out = socket.getOutputStream();
             int authId = 0x00112233;
             writePacket(out, authId, TYPE_AUTH, password);
-            Packet authResp = readPacket(in);
+            Packet authResp;
+            try {
+                authResp = readPacket(in);
+            } catch (IOException e) {
+                if (benignShutdownMessage(e.getMessage()))
+                    return;
+                throw e;
+            }
             if (authResp.requestId == -1)
                 throw new IOException("RCON authentication failed");
             int cmdId = 0x00445566;
             writePacket(out, cmdId, TYPE_COMMAND, "stop");
-            boolean gotResponse = false;
-            while (true) {
-                final Packet resp;
-                try {
-                    resp = readPacket(in);
-                } catch (SocketTimeoutException e) {
-                    if (gotResponse)
-                        return;
-                    throw e;
-                } catch (IOException e) {
-                    if (benignShutdownMessage(e.getMessage()))
-                        return;
-                    throw e;
-                }
-                if (resp.requestId != cmdId || resp.type != TYPE_RESPONSE)
-                    throw new IOException("Unexpected RCON packet (id=" + resp.requestId + " type=" + resp.type + ")");
-                gotResponse = true;
-                if (resp.payload.isEmpty())
-                    break;
+            // It's normal for the server to close the connection right after starting
+            // shutdown, so we don't wait for the full RCON response loop here. That
+            // response might never arrive.
+            try {
+                readPacket(in);
+            } catch (IOException e) {
+                if (benignShutdownMessage(e.getMessage()) || e instanceof SocketTimeoutException)
+                    return;
+                throw e;
             }
         }
     }
@@ -161,6 +180,10 @@ public final class RconClient {
             o += r;
         }
         return b;
+    }
+
+    public static boolean isBenignShutdownIoMessage(String message) {
+        return benignShutdownMessage(message);
     }
 
     private static boolean benignShutdownMessage(String message) {

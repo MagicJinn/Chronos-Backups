@@ -19,6 +19,8 @@ plugins {
 
 rootProject.name = "chronos-backups"
 
+apply(from = "gradle/chronos-unimined-retry.gradle")
+
 include(":core")
 include(":tooling")
 
@@ -77,13 +79,43 @@ if (!variantsRoot.isDirectory) {
         )
     }
 } else if (!cleanVariantsRequested) {
+    var includesForgeLine = false
     for (groupDir in variantsRoot.directoriesSorted()) {
         for (projectDir in groupDir.directoriesSorted()) {
             val name = projectDir.name
             if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-")) {
                 include(":$name")
                 project(":$name").projectDir = projectDir
+                if (name.startsWith("forge-line-") || name.startsWith("forge-")) {
+                    includesForgeLine = true
+                }
             }
         }
     }
+    if (includesForgeLine && chronosSerializeForgeConfigure()) {
+        // Parallel configure races on ~/.gradle/unimined (useGlobalCache=true on every Forge variant).
+        gradle.startParameter.isParallelProjectExecutionEnabled = false
+        logger.lifecycle(
+            "[Chronos] Serializing Gradle project configuration for Forge variants " +
+                "(set chronos.gradle.serializeForgeConfigure=false to disable).",
+        )
+    }
+}
+
+fun chronosSerializeForgeConfigure(): Boolean {
+    System.getenv("CHRONOS_SERIALIZE_FORGE_CONFIGURE")?.let { raw ->
+        val v = raw.trim().lowercase()
+        return !(v == "skip" || v == "0" || v == "false" || v == "off")
+    }
+    val propsFile = file("gradle.properties")
+    if (propsFile.isFile) {
+        propsFile.readLines().forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed.startsWith("chronos.gradle.serializeForgeConfigure=")) {
+                val v = trimmed.substringAfter('=').trim().lowercase()
+                return v == "true" || v == "1" || v == "yes" || v == "on"
+            }
+        }
+    }
+    return true
 }

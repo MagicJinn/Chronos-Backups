@@ -12,8 +12,12 @@
         "Address already in use: bind",
         "Failed to start the minecraft server"
     ],
+    "serverSetupFailureMarkers": [
+        "Failed to install",
+        "Server failed"
+    ],
     "successMarkers": [
-        "Chronos backup completed",
         "Speedtest finished"
-    ]
+    ],
+    "longShutdownMarker": "This might take a while..."
 }
