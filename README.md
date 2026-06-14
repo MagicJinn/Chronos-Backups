@@ -95,12 +95,26 @@ Chronos Backups is dedicated to making the development of this mod as easy as po
 rustup toolchain install nightly
 ```
 
+- Install **Docker** to run most tests. Install docker in accordance with your operating system.
+
 ### Rust native library
 
 Chronos Backups bundles a custom built native Rust pruning library, which in turn makes use of [mca](https://github.com/VilleOlof/mca) and [simdnbt](https://github.com/azalea-rs/simdnbt) for maximum performance. This is automatically built and bundled with the mod during normal Gradle builds, or can be built manually through `buildRust` for verification. By default, due to platform constraints, local development builds compile and stage only the current host OS/arch native target. In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced jars include all supported native platforms. This means that local builds:
 
-- are intended for development only, and should not be released through release channels, or even shared with other developers or users (to avoid confusion).
-- cannot be used on a non-native platform. For example, a Windows build will not work on Linux or macOS (this might stop you from building the mod locally and testing it on a dedicated server hosting provider).
+- are intended for development on the current machine only, and should not be released through release channels, or even shared with other developers or users (to avoid confusion).
+- cannot be used on a non-native platform unless you add extra targets or use merged CI artifacts.
+
+**Docker tests (`testServers`)** require **Docker** to be installed and running. One command runs `buildAll`, cross-compiles `linux-x86_64` rust-pruner in Docker via `cargo-zigbuild` (glibc 2.17 max, compatible with old dedicated-server images such as `itzg/minecraft-server:java8`), and tests every supported loader/version in Docker:
+
+```powershell
+./gradlew testServers
+```
+
+`linux-x86_64` natives are always built that way (including on Linux CI) so they load on older server distros. Pass `-Pchronos.rust.linuxViaDocker=false` to force a host `cargo` build instead.
+
+If you previously built jars on Windows without `testServers` / `prepareTestServers`, stale outputs may lack `linux-x86_64` natives. Run `./gradlew clean testServers` once after pulling native-Docker changes. You can verify a jar with `jar tf build/libs/chronosbackups-*-forge.jar | findstr natives/linux`.
+
+In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so release jars include every host-built platform that was merged.
 
 > [!Note]
 > Rust builds are only produced for 64-bit systems. 32-bit architectures are not supported.
@@ -114,9 +128,8 @@ The project is organized as a small, version-agnostic **core** (scheduler + back
 
 Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_1` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
 
-New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchain majors for generated Fabric/NeoForge Gradle files.
-
-The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running smoke tests.
+New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchains for all supported versions.
+The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running tests.
 
 ### Gradle commands
 
@@ -124,10 +137,11 @@ All commands should be run from the repository root. The Gradle project provides
 
 - `buildAll`: Builds all enabled variants, then collects output jars.
 - `collectAllJars`: Copies final jars to root `build/libs/` (runs as part of `buildAll`).
-- `buildRust`: Builds native `rust-pruner` libraries (host-native by default, runs automatically as part of any build/run tasks).
+- `buildRust`: Builds native `rust-pruner` libraries (host-only by default. `testServers` adds `linux-x86_64` via Docker on Windows/macOS).
+- `testServers`: Builds jars (with Docker-compatible natives) and runs Docker-based server integration tests.
 - `generateVariants`: Regenerates `variants/` from `gradle/chronos-compile-groups.json` (should be run automatically when appropriate).
 - `cleanVariants`: Clears the `variants/` folder. Useful when encountering issues with stale/locked variant directories.
-- `smokeTest`: Automated dedicated-server smoke runs. Spins up a server for each variant and runs specific tests to ensure the mod is working correctly.
+- `smokeTest`: (DEPRECATED) Automated dedicated-server smoke runs. Spins up a server for each variant and runs specific tests to ensure the mod is working correctly.
 - `:fabric-line-…:build` / `:neoforge-line-…:build`: Build a specific variant's jar.
 - `:fabric-line-…:runClient` / `:neoforge-line-…:runServer`: Run a specific variant's server or client.
 
@@ -135,26 +149,27 @@ All commands should be run from the repository root. The Gradle project provides
 
 `variants/` is a folder that contains the Gradle projects for each variant. Each variant is a separate project, and is built separately. The `generateVariants` task is used to regenerate the `variants/` folder from the `gradle/chronos-compile-groups.json` file. `generateVariants` should be run automatically when appropriate, but can be run manually alongside `cleanVariants` to force a regeneration. `CHRONOS_VARIANT_GENERATION` environment variable can be set to `skip` to skip the automatic variant regeneration.
 
-#### Smoke testing (`smokeTest`)
+#### Server testing (`testServers`)
 
-For each variant, `smokeTest` starts a dedicated server, watches the log for pass/fail markers defined in `tooling/smoke-test-servers.config.json`, triggers a backup over RCON and waits for it to finish, then triggers a clean shutdown. A non-zero exit, failed backup, or timeout fails the test.
+testServers is a utility that uses Docker and the `itzg/minecraft-server` image to run integration tests for every supported loader/version combination. It first creates a Rust build environment in Docker and uses cargo-zigbuild to compile the rust-pruner library for linux-x86_64. It then builds all JARs with the native library included.
 
-Flags for `smokeTest` (passed via `"-Pchronos.smoke.args="`):
+Once the artifacts are built, testServers starts a Dockerized Minecraft server for each supported loader/version combination. During startup, it checks the server logs for a number of markers to verify that the mod loaded and initialized correctly. Finally, it runs the speedtest command to confirm that backups function correctly and meet expected performance targets.
 
-| Flag | Description |
-|-|-|
-| `--workers <n>` | Thread pool size (default `4`). Multiple smoke jobs may run concurrently, each with its own `./gradlew` subprocess. |
-| `--only <label>` | Restrict to one job label (repeat flag for multiple). Labels match Gradle project names, e.g. `fabric-line-1_21_11`. |
-| `--verbose` | Mirror child Gradle output to the console. |
+To run one or a few targets instead of the full matrix, pass `-Pchronos.testServers.args` with `--only` (repeatable). Targets use the form `loader-version`, with dots or underscores in the version (e.g. `fabric-1.14.4`, `forge-1_14_4`). These match the Docker container id suffix (`chronos-fabric-1_14_4`).
 
-#### Examples
+This test is meant for power users and should be run at least once before any release to ensure the mod is working correctly on every supported version. On the initial run, it will need to pull every Docker Image (7 in total), as well as create and install every loader and version in the server, for over 100 combinations. This can take an extremely long time on first install, but will mostly be cached after that. The entire test run, after the initial install, can still take more than an hour in the best case scenario.
+
+> [!Note]
+> Keep in mind that Docker Images and containers are stored and managed by Docker. Commands like `cleanVariants` and `clean` will not remove them. You will need to manually remove them with your operating system's Docker management tools.
+
+#### Command examples
 
 ```powershell
 ./gradlew cleanVariants
 ./gradlew buildAll
 ./gradlew :neoforge-line-26_1:runClient
 ./gradlew :fabric-line-1_21_11:runServer
-./gradlew smokeTest "-Pchronos.smoke.args=--workers 8"
-./gradlew smokeTest "-Pchronos.smoke.args=--only fabric-line-1_21_11"
-./gradlew smokeTest "-Pchronos.smoke.args=--only neoforge-line-1_21_11 --only neoforge-line-26_1"
+./gradlew testServers
+./gradlew testServers "-Pchronos.testServers.args=--only fabric-1.14.4"
+./gradlew testServers "-Pchronos.testServers.args=--only fabric-1_14_4 --only forge-1_14_4"
 ```

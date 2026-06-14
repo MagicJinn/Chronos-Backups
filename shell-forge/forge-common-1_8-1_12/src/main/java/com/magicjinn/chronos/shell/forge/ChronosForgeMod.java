@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.core.Core;
+import com.magicjinn.chronos.core.ChatCommandStyle;
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.ChronosConstants;
 import com.magicjinn.chronos.shell.HookBridge;
@@ -52,7 +53,11 @@ public final class ChronosForgeMod {
     public void onServerStarted(FMLServerStartedEvent event) {
         activeServer = FMLCommonHandler.instance().getMinecraftServerInstance();
         HookBridge.worldStarted(
-                new ForgeServerEnvironment(activeServer), activeServer, MESSENGER, WORLD_CONTROLLER);
+                new ForgeServerEnvironment(activeServer),
+                activeServer,
+                MESSENGER,
+                WORLD_CONTROLLER,
+                ChatCommandStyle.LEGACY_SAY);
         COMMAND_REGISTRAR.register(activeServer.getCommandManager());
     }
 

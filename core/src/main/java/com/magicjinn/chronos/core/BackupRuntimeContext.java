@@ -18,6 +18,7 @@ public final class BackupRuntimeContext {
     private final Consumer<String> logInfoSink;
     private final Consumer<String> logErrorSink;
     private final Consumer<String> chatSink;
+    private final ChatCommandStyle chatCommandStyle;
 
     public BackupRuntimeContext(
             ServerEnvironment environment,
@@ -26,12 +27,31 @@ public final class BackupRuntimeContext {
             Consumer<String> logInfoSink,
             Consumer<String> logErrorSink,
             Consumer<String> chatSink) {
+        this(
+                environment,
+                serverHandle,
+                worldController,
+                logInfoSink,
+                logErrorSink,
+                chatSink,
+                ChatCommandStyle.MODERN_TELLRAW);
+    }
+
+    public BackupRuntimeContext(
+            ServerEnvironment environment,
+            Object serverHandle,
+            BackupWorldController worldController,
+            Consumer<String> logInfoSink,
+            Consumer<String> logErrorSink,
+            Consumer<String> chatSink,
+            ChatCommandStyle chatCommandStyle) {
         this.environment = environment;
         this.serverHandle = serverHandle;
         this.worldController = worldController;
         this.logInfoSink = logInfoSink;
         this.logErrorSink = logErrorSink;
         this.chatSink = chatSink;
+        this.chatCommandStyle = chatCommandStyle != null ? chatCommandStyle : ChatCommandStyle.MODERN_TELLRAW;
     }
 
     public boolean isDedicatedServer() {
@@ -76,7 +96,10 @@ public final class BackupRuntimeContext {
 
     public void sendChat(String message) {
         if (chatSink != null) {
-            chatSink.accept(ChatHelper.makeTellraw(CHAT_PREFIX + message));
+            String command = chatCommandStyle == ChatCommandStyle.LEGACY_SAY
+                    ? ChatHelper.makeLegacySay(message)
+                    : ChatHelper.makeModernTellraw(CHAT_PREFIX + message);
+            chatSink.accept(command);
         }
     }
 }

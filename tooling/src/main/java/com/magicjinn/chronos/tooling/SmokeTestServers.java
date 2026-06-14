@@ -57,6 +57,7 @@ public final class SmokeTestServers {
     private SmokeTestServers() {
     }
 
+    @Deprecated(forRemoval = true)
     public static void main(String[] args) throws Exception {
         Args cfg = Args.parse(args);
         reuseGradleDaemonForWorkers = cfg.reuseGradleDaemon;
@@ -90,6 +91,11 @@ public final class SmokeTestServers {
             if (unifiedNeo.contains(gid)) {
                 String name = "neoforge-line-" + line;
                 jobs.add(new Job(name, ROOT, List.of(":" + name + ":runServer"), smokeRunDirs(gid, name), Map.of()));
+                if (g.containsKey("neoForgeEarlyUnified")) {
+                    String earlyName = "neoforge-line-" + line + "_early";
+                    jobs.add(new Job(earlyName, ROOT, List.of(":" + earlyName + ":runServer"), smokeRunDirs(gid, earlyName),
+                            Map.of()));
+                }
             }
             if (unifiedForge.contains(gid)) {
                 String name = "forge-line-" + line;

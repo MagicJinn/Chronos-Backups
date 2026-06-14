@@ -51,6 +51,16 @@ val runCleanVariants by tasks.registering(JavaExec::class) {
     mainClass.set("com.magicjinn.chronos.tooling.CleanVariants")
 }
 
+val runTestServers by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Runs server integration tests."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.magicjinn.chronos.tooling.TestServers.TestServers")
+    dependsOn(rootProject.tasks.named("prepareTestServers"))
+    val rawArgs = project.findProperty("chronos.testServers.args")?.toString() ?: ""
+    args = parseCliArgs(rawArgs)
+}
+
 val runSmokeTest by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs dedicated server smoke tests in parallel."

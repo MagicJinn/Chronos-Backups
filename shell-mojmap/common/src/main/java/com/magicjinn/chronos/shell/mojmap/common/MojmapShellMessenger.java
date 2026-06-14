@@ -10,7 +10,7 @@ import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/** Logging and chat for Mojmap servers (Fabric / NeoForge) using /tellraw. */
+/** Logging and chat for Mojmap servers (Fabric / NeoForge) using Brigadier dispatch. */
 public final class MojmapShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
 

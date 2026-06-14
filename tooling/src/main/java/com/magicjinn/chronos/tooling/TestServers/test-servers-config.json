@@ -1,0 +1,23 @@
+{
+    "readyMarkers": [
+        "Chronos is initializing...",
+        "Scheduler is ready and on standby...",
+        "Backupper is ready and on standby...",
+        "RCON running on"
+    ],
+    "testCommand": "/chronos speedtest 4",
+    "failureMarkers": [
+        "Chronos backup failed",
+        "FAILED TO BIND TO PORT",
+        "Address already in use: bind",
+        "Failed to start the minecraft server"
+    ],
+    "serverSetupFailureMarkers": [
+        "Failed to install",
+        "Server failed"
+    ],
+    "successMarkers": [
+        "Speedtest finished"
+    ],
+    "longShutdownMarker": "This might take a while..."
+}

@@ -159,10 +159,11 @@ public final class Backupper {
                 ? String.format(Locale.ROOT, ", average duration per backup: %.2f s",
                         (duration / 1_000_000_000.0) / backups)
                 : "";
-        context.sendChat(
-                "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(start) + ": " + backups
-                        + " successful backup(s)"
-                        + averages);
+        String summary = "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(start) + ": " + backups
+                + " successful backup(s)"
+                + averages;
+        context.logInfo(summary);
+        context.sendChat(summary);
     }
 
     /**

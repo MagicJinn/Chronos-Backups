@@ -1,55 +1,40 @@
 {
-  "yearMinorMcPrefix": "26.",
-  "fabric": {
-    "modJsonJavaMajor": {
-      "nonLegacyFormatDefault": "25",
-      "preYearlyRules": [{
-          "minorMax": 16,
-          "javaMajor": "8"
-        },
-        {
-          "minorEquals": 17,
-          "javaMajor": "16"
-        },
-        {
-          "minorMin": 18,
-          "minorMax": 19,
-          "javaMajor": "17"
-        },
-        {
-          "minorMin": 21,
-          "javaMajor": "21"
-        }
-      ]
+  "yearPrefixes": [{
+    "prefix": "26.",
+    "javaMajor": "25"
+  }],
+  "preYearlyRules": [{
+      "minorMax": 16,
+      "javaMajor": "8"
     },
-    "gradleToolchainMajor": {
-      "whenMatches": "25",
-      "default": "21"
+    {
+      "minorEquals": 17,
+      "javaMajor": "16"
     },
-    "javaDependencyForYearMinorFormat": ">=25",
-    "toolchainAndBytecode": {
-      "prefixRules": [
-        {
-          "minecraftVersionPrefix": "1.20.",
-          "toolchainMajor": "21",
-          "compileRelease": "17"
-        }
-      ]
+    {
+      "minorMin": 18,
+      "minorMax": 19,
+      "javaMajor": "17"
+    },
+    {
+      "minorMin": 21,
+      "javaMajor": "21"
     }
+  ],
+  "nonLegacyDefaultJavaMajor": "25",
+  "legacyFallbackJavaMajor": "21",
+  "prefixRules": [{
+    "minecraftVersionPrefix": "1.20.",
+    "toolchainMajor": "21",
+    "compileRelease": "17",
+    "runtimePatchMin": 5,
+    "runtimeJavaMajor": "21"
+  }],
+  "gradleToolchain": {
+    "yearlyJavaMajor": "25",
+    "defaultJavaMajor": "21"
   },
-  "neoForge": {
-    "javaMajor": {
-      "whenMatches": "25",
-      "default": "21"
-    },
-    "toolchainAndBytecode": {
-      "prefixRules": [
-        {
-          "minecraftVersionPrefix": "1.20.",
-          "toolchainMajor": "21",
-          "compileRelease": "17"
-        }
-      ]
-    }
+  "fabricModJson": {
+    "javaDependencyForYearMinorFormat": ">=25"
   }
 }

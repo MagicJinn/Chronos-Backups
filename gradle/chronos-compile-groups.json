@@ -5,6 +5,7 @@
       "fabricModJson": "fabric-mod.json.template",
       "neoBuildGradleKts": "neo-build.gradle.kts.template",
       "neoModsToml": "neo-neoforge.mods.toml.template",
+      "neoModsTomlEarly": "neo-neoforge-early.mods.toml.template",
       "forgeBuildGradle111": "forge-build-1.11.gradle.template",
       "forgeBuildGradle19": "forge-build-1.9.gradle.template",
       "forgeBuildGradle110": "forge-build-1.10.gradle.template",
@@ -29,66 +30,126 @@
       "forge-line-1_19"
     ]
   },
-  "groups": [
-    {
+  "groups": [{
       "id": "minecraft_1_21_0_to_1_21_10",
       "description": "NeoForge and Fabric unified jars for Minecraft 1.21.0-1.21.10 (pre-PermissionSet command source API).",
-      "minecraftVersionPrefixes": ["1.21.0-1.21.10"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.21.0-1.21.10"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.21.10",
-        "fabricLoader": "0.17.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.136.0+1.21.10",
         "minecraftDep": ">=1.21 <1.21.11",
-        "archiveVersionTag": "1.21.0-1.21.10"
+        "archiveVersionTag": "1.21.0-1.21.10",
+        "loaderKey": "FABRIC"
       },
-      "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
         "referenceMinecraft": "1.21.10",
         "neoForge": "21.10.64",
         "minecraftRange": "[1.21,1.21.11)",
-        "archiveVersionTag": "1.21.0-1.21.10"
-      }
-    }, {
-        "id": "minecraft_1_21_11",
-        "description": "NeoForge and Fabric unified jars for Minecraft 1.21.11+ (PermissionSet on CommandSourceStack).",
-        "minecraftVersionPrefixes": ["1.21.11"],
-      "unifiedFabricJar": true,
+        "archiveVersionTag": "1.21.0-1.21.10",
+        "neoForgeVersionOverrides": {
+          "1.21.2": "beta",
+          "1.21.6": "beta",
+          "1.21.7": "beta",
+          "1.21.9": "beta"
+        },
+        "loaderKey": "NEOFORGE"
+      },
+      "supportedVersions": [
+        "1.21.0",
+        "1.21.1",
+        "1.21.2",
+        "1.21.3",
+        "1.21.4",
+        "1.21.5",
+        "1.21.6",
+        "1.21.7",
+        "1.21.8",
+        "1.21.9",
+        "1.21.10"
+      ]
+    },
+    {
+      "id": "minecraft_1_21_11",
+      "description": "NeoForge and Fabric unified jars for Minecraft 1.21.11+ (PermissionSet on CommandSourceStack).",
+      "minecraftVersionPrefixes": [
+        "1.21.11"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.21.11",
-        "fabricLoader": "0.19.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.141.3+1.21.11",
         "minecraftDep": ">=1.21.11 <1.22",
-        "archiveVersionTag": "1.21.11"
+        "archiveVersionTag": "1.21.11",
+        "loaderKey": "FABRIC"
       },
-      "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
         "referenceMinecraft": "1.21.11",
         "neoForge": "21.11.42",
         "minecraftRange": "[1.21.11,1.22)",
-        "archiveVersionTag": "1.21.11"
-      }
+        "archiveVersionTag": "1.21.11",
+        "loaderKey": "NEOFORGE"
+      },
+      "supportedVersions": [
+        "1.21.11"
+      ]
     },
     {
       "id": "minecraft_1_20",
-      "description": "Fabric on every patch (1.20 - 1.20.6) via one unified Fabric jar. NeoForge 1.20.2+ only (NeoForge 1.20.1 uses a different moddev layout than 1.20.2). Forge unified jar for 1.20.0-1.20.1. Fabric and NeoForge unified jars target Java 17 bytecode with a Java 21 toolchain so they load on Java 17 (1.20.0-1.20.4) and Java 21 (1.20.5+).",
-      "minecraftVersionPrefixes": ["1.20"],
-      "unifiedFabricJar": true,
+      "description": "Fabric on every patch (1.20 - 1.20.6) via one unified Fabric jar. NeoForge split: 1.20.2-1.20.4 (legacy mods.toml + tick events) and 1.20.5-1.20.6 (current API). Forge unified jar for 1.20.0-1.20.1.",
+      "minecraftVersionPrefixes": [
+        "1.20"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.20.6",
-        "fabricLoader": "0.16.10",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.100.8+1.20.6",
         "minecraftDep": ">=1.20 <1.20.7",
-        "archiveVersionTag": "1.20.x"
+        "archiveVersionTag": "1.20.x",
+        "supportedVersions": [
+          "1.20.0",
+          "1.20.1",
+          "1.20.2",
+          "1.20.3",
+          "1.20.4",
+          "1.20.5",
+          "1.20.6"
+        ],
+        "loaderKey": "FABRIC"
       },
-      "unifiedNeoForgeJar": true,
+      "neoForgeEarlyUnified": {
+        "referenceMinecraft": "1.20.4",
+        "neoForge": "20.4.251",
+        "minecraftRange": "[1.20.2,1.20.5)",
+        "archiveVersionTag": "1.20.2-1.20.4",
+        "metadataTemplate": "neoModsTomlEarly",
+        "neoShellVariant": "v1_20_early",
+        "supportedVersions": [
+          "1.20.2",
+          "1.20.3",
+          "1.20.4"
+        ],
+        "neoForgeVersionOverrides": {
+          "1.20.3": "beta"
+        },
+        "loaderKey": "NEOFORGE"
+      },
       "neoForgeUnified": {
         "referenceMinecraft": "1.20.6",
         "neoForge": "20.6.139",
-        "minecraftRange": "[1.20.2,1.20.7)",
-        "archiveVersionTag": "1.20.2-1.20.6"
+        "minecraftRange": "[1.20.5,1.20.7)",
+        "archiveVersionTag": "1.20.5-1.20.6",
+        "supportedVersions": [
+          "1.20.5",
+          "1.20.6"
+        ],
+        "neoForgeVersionOverrides": {
+          "1.20.5": "beta"
+        },
+        "loaderKey": "NEOFORGE"
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.20.1",
         "forge": "47.4.5",
@@ -96,302 +157,424 @@
         "archiveVersionTag": "1.20.0-1.20.1",
         "buildTemplateKey": "forgeBuildGradle120",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
+        "metadataTemplate": "forgeModsToml",
+        "supportedVersions": [
+          "1.20.0",
+          "1.20.1"
+        ],
+        "loaderKey": "FORGE"
       }
     },
     {
       "id": "minecraft_1_18",
       "description": "Fabric unified jar for Minecraft 1.18.x (before 1.20). Forge unified jar (reference Forge MDK 1.18.2-40.3.12).",
-      "minecraftVersionPrefixes": ["1.18"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.18"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.18.2",
-        "fabricLoader": "0.14.25",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.77.0+1.18.2",
         "minecraftDep": ">=1.18 <1.19",
-        "archiveVersionTag": "1.18.x"
+        "archiveVersionTag": "1.18.x",
+        "loaderKey": "FABRIC"
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.18.2",
         "forge": "40.3.12",
         "archiveVersionTag": "1.18.x",
         "buildTemplateKey": "forgeBuildGradle118",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
-      }
+        "metadataTemplate": "forgeModsToml",
+        "loaderKey": "FORGE"
+      },
+      "supportedVersions": [
+        "1.18.0",
+        "1.18.1",
+        "1.18.2"
+      ]
     },
     {
       "id": "minecraft_1_19",
       "description": "Fabric unified jar for Minecraft 1.19.x (before 1.20). Forge unified jar (reference Forge MDK 1.19.4-45.4.3).",
-      "minecraftVersionPrefixes": ["1.19"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.19"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.19.4",
-        "fabricLoader": "0.14.25",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.87.2+1.19.4",
         "minecraftDep": ">=1.19 <1.20",
-        "archiveVersionTag": "1.19.x"
+        "archiveVersionTag": "1.19.x",
+        "loaderKey": "FABRIC"
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.19.4",
         "forge": "45.4.3",
         "archiveVersionTag": "1.19.x",
         "buildTemplateKey": "forgeBuildGradle119",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
-      }
+        "metadataTemplate": "forgeModsToml",
+        "loaderKey": "FORGE"
+      },
+      "supportedVersions": [
+        "1.19.0",
+        "1.19.1",
+        "1.19.2",
+        "1.19.3",
+        "1.19.4"
+      ]
     },
     {
       "id": "minecraft_1_14",
       "description": "Fabric unified jar for Minecraft 1.14.x (loader/API versions aligned with templates/template-mod-template-1.14.4). Forge unified jar (reference Forge MDK 1.14.4-28.2.28).",
-      "minecraftVersionPrefixes": ["1.14"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.14"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.14.4",
-        "fabricLoader": "0.19.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.28.5+1.14",
         "minecraftDep": ">=1.14 <1.15",
-        "archiveVersionTag": "1.14.x"
+        "archiveVersionTag": "1.14.x",
+        "loaderKey": "FABRIC",
+        "supportedVersions": [
+          "1.14.0",
+          "1.14.1",
+          "1.14.2",
+          "1.14.3",
+          "1.14.4"
+        ]
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.14.4",
         "forge": "28.2.28",
         "archiveVersionTag": "1.14.x",
         "buildTemplateKey": "forgeBuildGradle114",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
+        "metadataTemplate": "forgeModsToml",
+        "loaderKey": "FORGE",
+        "supportedVersions": [
+          "1.14.2",
+          "1.14.3",
+          "1.14.4"
+        ]
       }
     },
     {
       "id": "minecraft_1_15",
       "description": "Fabric unified jar for Minecraft 1.15.x (loader/API versions aligned with templates/template-mod-template-1.15.2). Forge unified jar (reference Forge MDK 1.15.2-31.2.60).",
-      "minecraftVersionPrefixes": ["1.15"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.15"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.15.2",
-        "fabricLoader": "0.19.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.28.5+1.15",
         "minecraftDep": ">=1.15 <1.16",
-        "archiveVersionTag": "1.15.x"
+        "archiveVersionTag": "1.15.x",
+        "loaderKey": "FABRIC"
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.15.2",
         "forge": "31.2.60",
         "archiveVersionTag": "1.15.x",
         "buildTemplateKey": "forgeBuildGradle114",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
-      }
+        "metadataTemplate": "forgeModsToml",
+        "loaderKey": "FORGE"
+      },
+      "supportedVersions": [
+        "1.15.0",
+        "1.15.1",
+        "1.15.2"
+      ]
     },
     {
       "id": "minecraft_1_16",
       "description": "Fabric unified jar for Minecraft 1.16.x (loader/API versions aligned with templates/template-mod-template-1.16.5). Forge unified jar (reference Forge MDK 1.16.5-36.2.42).",
-      "minecraftVersionPrefixes": ["1.16"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.16"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.16.5",
-        "fabricLoader": "0.19.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.42.0+1.16",
         "minecraftDep": ">=1.16 <1.17",
-        "archiveVersionTag": "1.16.x"
+        "archiveVersionTag": "1.16.x",
+        "loaderKey": "FABRIC",
+        "supportedVersions": [
+          "1.16.0",
+          "1.16.1",
+          "1.16.2",
+          "1.16.3",
+          "1.16.4",
+          "1.16.5"
+        ]
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.16.5",
         "forge": "36.2.42",
         "archiveVersionTag": "1.16.x",
         "buildTemplateKey": "forgeBuildGradle116",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
+        "metadataTemplate": "forgeModsToml",
+        "loaderKey": "FORGE",
+        "supportedVersions": [
+          "1.16.1",
+          "1.16.2",
+          "1.16.3",
+          "1.16.4",
+          "1.16.5"
+        ]
       }
     },
     {
       "id": "minecraft_1_17",
       "description": "Fabric unified jar for Minecraft 1.17.x (loader/API versions aligned with templates/template-mod-template-1.17.1). Forge unified jar (reference Forge MDK 1.17.1-37.1.1).",
-      "minecraftVersionPrefixes": ["1.17"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "1.17"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "1.17.1",
-        "fabricLoader": "0.19.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.46.1+1.17",
         "minecraftDep": ">=1.17 <1.18",
-        "archiveVersionTag": "1.17.x"
+        "archiveVersionTag": "1.17.x",
+        "loaderKey": "FABRIC",
+        "supportedVersions": [
+          "1.17.0",
+          "1.17.1"
+        ]
       },
-      "unifiedForgeJar": true,
       "forgeUnified": {
         "referenceMinecraft": "1.17.1",
         "forge": "37.1.1",
         "archiveVersionTag": "1.17.x",
         "buildTemplateKey": "forgeBuildGradle117",
         "mappingsKind": "mojmap",
-        "metadataTemplate": "forgeModsToml"
+        "metadataTemplate": "forgeModsToml",
+        "loaderKey": "FORGE",
+        "supportedVersions": [
+          "1.17.1"
+        ]
       }
     },
     {
       "id": "minecraft_26_1",
       "description": "Split from 1.21.x because mappings/toolchains diverge. Unified Fabric and NeoForge jars for the 26.1.x line.",
       "jarTargetLabel": "26.1.x",
-      "minecraftVersionPrefixes": ["26.1"],
-      "unifiedFabricJar": true,
+      "minecraftVersionPrefixes": [
+        "26.1"
+      ],
       "fabricUnified": {
         "referenceMinecraft": "26.1.2",
-        "fabricLoader": "0.19.2",
+        "fabricLoader": "0.19.3",
         "fabricApi": "0.146.0+26.1.2",
-        "minecraftDep": ">=26.1 <26.2"
+        "minecraftDep": ">=26.1 <26.2",
+        "archiveVersionTag": "26.1.x",
+        "loaderKey": "FABRIC"
       },
-      "unifiedNeoForgeJar": true,
       "neoForgeUnified": {
         "referenceMinecraft": "26.1.2",
         "neoForge": "26.1.2.30-beta",
-        "minecraftRange": "[26.1,26.2)"
-      }
+        "minecraftRange": "[26.1,26.2)",
+        "archiveVersionTag": "26.1.x",
+        "neoForgeVersionOverrides": {
+          "26.1.0": "beta",
+          "26.1.1": "beta"
+        },
+        "loaderKey": "NEOFORGE"
+      },
+      "supportedVersions": [
+        "26.1.0",
+        "26.1.1",
+        "26.1.2"
+      ]
     },
     {
       "id": "minecraft_1_12",
       "description": "Forge-only. Unified Forge for all 1.12.x.",
       "jarTargetLabel": "1.12.x",
-      "minecraftVersionPrefixes": ["1.12"],
-      "forgeMcp": {
-        "mcpChannel": "stable",
-        "mcpVersion": "39-1.12"
-      },
-      "unifiedForgeJar": true,
+      "minecraftVersionPrefixes": [
+        "1.12"
+      ],
       "forgeUnified": {
         "referenceMinecraft": "1.12.2",
         "forge": "14.23.5.2864",
         "buildTemplateKey": "forgeBuildGradle112",
         "mappingsKind": "mcp",
-        "metadataTemplate": "forgeMcmodInfo"
-        }
-        }, {
-          "id": "minecraft_1_11",
-          "description": "Forge-only. Unified Forge for all 1.11.x.",
-          "shouldBuild": true,
-          "jarTargetLabel": "1.11.x",
-          "minecraftVersionPrefixes": ["1.11"],
-          "forgeMcp": {
-            "mcpChannel": "stable",
-            "mcpVersion": "32-1.11"
-          },
-          "unifiedForgeJar": true,
-          "forgeUnified": {
-            "referenceMinecraft": "1.11.2",
-            "forge": "13.20.1.2588",
-            "buildTemplateKey": "forgeBuildGradle111",
-            "mappingsKind": "mcp",
-            "metadataTemplate": "forgeMcmodInfo"
-          }
-        }, {
-          "id": "minecraft_1_10",
-          "description": "Forge-only. Unified Forge for all 1.10.x.",
-          "shouldBuild": true,
-          "jarTargetLabel": "1.10.x",
-          "minecraftVersionPrefixes": ["1.10"],
-          "forgeMcp": {
-            "mcpChannel": "stable",
-            "mcpVersion": "29-1.10.2"
-          },
-          "unifiedForgeJar": true,
-          "forgeUnified": {
-            "referenceMinecraft": "1.10.2",
-            "forge": "12.18.3.2511",
-            "buildTemplateKey": "forgeBuildGradle110",
-            "mappingsKind": "mcp",
-            "metadataTemplate": "forgeMcmodInfo"
-          }
-        }, {
-          "id": "minecraft_1_9",
-          "description": "Forge-only. Unified Forge for all 1.9.x.",
-          "shouldBuild": true,
-          "jarTargetLabel": "1.9.x",
-          "minecraftVersionPrefixes": ["1.9"],
-          "forgeMcp": {
-            "mcpChannel": "stable",
-            "mcpVersion": "26-1.9.4"
-          },
-          "unifiedForgeJar": true,
-          "forgeUnified": {
-            "referenceMinecraft": "1.9.4",
-            "forge": "12.17.0.2317-1.9.4",
-            "buildTemplateKey": "forgeBuildGradle19",
-            "mappingsKind": "mcp",
-            "metadataTemplate": "forgeMcmodInfo"
-          }
-        }, {
-          "id": "minecraft_1_8",
-          "description": "Forge-only. Unified Forge for all 1.8.x.",
-          "jarTargetLabel": "1.8.x",
-          "minecraftVersionPrefixes": ["1.8"],
-          "forgeMcp": {
-            "mcpChannel": "stable",
-            "mcpVersion": "22-1.8.9"
-          },
-          "unifiedForgeJar": true,
-          "forgeUnified": {
-            "referenceMinecraft": "1.8.9",
-            "forge": "11.15.1.2318-1.8.9",
-            "buildTemplateKey": "forgeBuildGradle18",
-            "mappingsKind": "mcp",
-            "metadataTemplate": "forgeMcmodInfo"
-          }
-        }, {
-          "id": "minecraft_1_7_10",
-          "description": "Forge-only. Unified Forge for Minecraft 1.7.10.",
-          "jarTargetLabel": "1.7.10",
-          "minecraftVersionPrefixes": ["1.7.10"],
-          "forgeMcp": {
-            "mcpChannel": "stable",
-            "mcpVersion": "12-1.7.10"
-          },
-          "unifiedForgeJar": true,
-          "forgeUnified": {
-            "referenceMinecraft": "1.7.10",
-            "forge": "10.13.4.1614-1.7.10",
-            "archiveVersionTag": "1.7.10",
-            "buildTemplateKey": "forgeBuildGradle17",
-            "mappingsKind": "mcp",
-            "metadataTemplate": "forgeMcmodInfo"
-          }
-          }, {
-          "id": "minecraft_1_7_2",
-          "description": "Forge 1.7.2 (optional). Generator and v1_7_2 ForgeShellMcManifest overlay are wired (searge from 1.7.10 plus snapshot MCP per Unimined issue 184). shouldBuild stays false until Unimined can remap the 1.7.2 FG2 joined jar without InvalidUnqualifiedName on TileEntity mappings.",
-          "shouldBuild": false,
-          "jarTargetLabel": "1.7.2",
-          "minecraftVersionPrefixes": ["1.7.2"],
-          "forgeMcp": {
-            "mcpChannel": "snapshot",
-            "mcpVersion": "20140925-1.7.10"
-          },
-          "unifiedForgeJar": true,
-          "forgeUnified": {
-            "referenceMinecraft": "1.7.2",
-            "forge": "10.12.2.1161-mc172",
-            "archiveVersionTag": "1.7.2",
-            "buildTemplateKey": "forgeBuildGradle17",
-            "mappingsKind": "mcp",
-            "metadataTemplate": "forgeMcmodInfo"
-          }
-          }, {
+        "mcpChannel": "stable",
+        "mcpVersion": "39-1.12",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.12.0",
+          "1.12.1",
+          "1.12.2"
+        ],
+        "loaderKey": "FORGE"
+      }
+    },
+    {
+      "id": "minecraft_1_11",
+      "description": "Forge-only. Unified Forge for all 1.11.x.",
+      "shouldBuild": true,
+      "jarTargetLabel": "1.11.x",
+      "minecraftVersionPrefixes": [
+        "1.11"
+      ],
+      "forgeUnified": {
+        "referenceMinecraft": "1.11.2",
+        "forge": "13.20.1.2588",
+        "buildTemplateKey": "forgeBuildGradle111",
+        "mappingsKind": "mcp",
+        "mcpChannel": "stable",
+        "mcpVersion": "32-1.11",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.11.0",
+          "1.11.2"
+        ],
+        "loaderKey": "FORGE"
+      }
+    },
+    {
+      "id": "minecraft_1_10",
+      "description": "Forge-only. Unified Forge for all 1.10.x.",
+      "shouldBuild": true,
+      "jarTargetLabel": "1.10.x",
+      "minecraftVersionPrefixes": [
+        "1.10"
+      ],
+      "forgeUnified": {
+        "referenceMinecraft": "1.10.2",
+        "forge": "12.18.3.2511",
+        "buildTemplateKey": "forgeBuildGradle110",
+        "mappingsKind": "mcp",
+        "mcpChannel": "stable",
+        "mcpVersion": "29-1.10.2",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.10.0",
+          "1.10.2"
+        ],
+        "forgeInstallerUrlOverrides": {
+          "1.10.0": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.10-12.18.0.2000-1.10.0/forge-1.10-12.18.0.2000-1.10.0-installer.jar"
+        },
+        "loaderKey": "FORGE"
+      }
+    },
+    {
+      "id": "minecraft_1_9",
+      "description": "Forge-only. Unified Forge for all 1.9.x.",
+      "shouldBuild": true,
+      "jarTargetLabel": "1.9.x",
+      "minecraftVersionPrefixes": [
+        "1.9"
+      ],
+      "forgeUnified": {
+        "referenceMinecraft": "1.9.4",
+        "forge": "12.17.0.2317-1.9.4",
+        "buildTemplateKey": "forgeBuildGradle19",
+        "mappingsKind": "mcp",
+        "mcpChannel": "stable",
+        "mcpVersion": "26-1.9.4",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.9.0",
+          "1.9.4"
+        ],
+        "loaderKey": "FORGE"
+      }
+    },
+    {
+      "id": "minecraft_1_8",
+      "description": "Forge-only. Unified Forge for all 1.8.x.",
+      "jarTargetLabel": "1.8.x",
+      "minecraftVersionPrefixes": [
+        "1.8"
+      ],
+      "forgeUnified": {
+        "referenceMinecraft": "1.8.9",
+        "forge": "11.15.1.2318-1.8.9",
+        "buildTemplateKey": "forgeBuildGradle18",
+        "mappingsKind": "mcp",
+        "mcpChannel": "stable",
+        "mcpVersion": "22-1.8.9",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.8.0",
+          "1.8.8",
+          "1.8.9"
+        ],
+        "loaderKey": "FORGE"
+      }
+    },
+    {
+      "id": "minecraft_1_7_10",
+      "description": "Forge-only. Unified Forge for Minecraft 1.7.10.",
+      "jarTargetLabel": "1.7.10",
+      "minecraftVersionPrefixes": [
+        "1.7.10"
+      ],
+      "forgeUnified": {
+        "referenceMinecraft": "1.7.10",
+        "forge": "10.13.4.1614-1.7.10",
+        "archiveVersionTag": "1.7.10",
+        "buildTemplateKey": "forgeBuildGradle17",
+        "mappingsKind": "mcp",
+        "mcpChannel": "stable",
+        "mcpVersion": "12-1.7.10",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.7.10"
+        ],
+        "loaderKey": "FORGE"
+      }
+    },
+    {
+      "id": "minecraft_1_7_2",
+      "description": "Forge 1.7.2 (optional). Generator and v1_7_2 ForgeShellMcManifest overlay are wired (searge from 1.7.10 plus snapshot MCP per Unimined issue 184). shouldBuild stays false until Unimined can remap the 1.7.2 FG2 joined jar without InvalidUnqualifiedName on TileEntity mappings.",
+      "shouldBuild": false,
+      "jarTargetLabel": "1.7.2",
+      "minecraftVersionPrefixes": [
+        "1.7.2"
+      ],
+      "forgeUnified": {
+        "referenceMinecraft": "1.7.2",
+        "forge": "10.12.2.1161-mc172",
+        "archiveVersionTag": "1.7.2",
+        "buildTemplateKey": "forgeBuildGradle17",
+        "mappingsKind": "mcp",
+        "mcpChannel": "snapshot",
+        "mcpVersion": "20140925-1.7.10",
+        "metadataTemplate": "forgeMcmodInfo",
+        "supportedVersions": [
+          "1.7.2"
+        ],
+        "loaderKey": "FORGE"
+      }
+    },
+    {
       "id": "minecraft_1_13",
       "description": "Forge-only. Unified Forge for all 1.13.x.",
       "jarTargetLabel": "1.13.x",
-      "minecraftVersionPrefixes": ["1.13"],
-      "forgeMcp": {
-        "mcpChannel": "snapshot",
-        "mcpVersion": "20180921-1.13"
-      },
-      "unifiedForgeJar": true,
+      "minecraftVersionPrefixes": [
+        "1.13"
+      ],
       "forgeUnified": {
         "referenceMinecraft": "1.13.2",
         "forge": "25.0.223",
         "buildTemplateKey": "forgeBuildGradle113",
         "mappingsKind": "mcp",
-        "metadataTemplate": "forgeModsToml"
-        }
-        }
+        "mcpChannel": "snapshot",
+        "mcpVersion": "20180921-1.13",
+        "metadataTemplate": "forgeModsToml",
+        "supportedVersions": [
+          "1.13.2"
+        ],
+        "loaderKey": "FORGE"
+      }
+    }
   ]
 }

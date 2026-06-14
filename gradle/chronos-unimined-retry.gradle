@@ -1,0 +1,161 @@
+import org.gradle.BuildResult
+import org.gradle.StartParameter
+import org.gradle.api.logging.configuration.ShowStacktrace
+import org.gradle.internal.os.OperatingSystem
+
+/**
+ * Re-runs the same Gradle invocation when Unimined/Mojang metadata flakes during
+ * configuration (common when many forge-line projects configure in parallel).
+ */
+
+ext.deepMessages = { Throwable failure ->
+    def parts = []
+    def current = failure
+    while (current != null) {
+        if (current.message != null) {
+            parts << current.message
+        }
+        current = current.cause
+    }
+    return parts.join(' | ')
+}
+
+ext.isUniminedFlakyFailure = { Throwable failure ->
+    def text = deepMessages(failure)
+    return text.containsIgnoreCase('Failed to get metadata')
+        || text.containsIgnoreCase('no version found for')
+        || text.containsIgnoreCase('minecraft config never applied')
+        || text.containsIgnoreCase('MalformedJsonException')
+}
+
+ext.readChronosRetryMax = {
+    def env = System.getenv('CHRONOS_GRADLE_RETRY_MAX')
+    if (env != null) {
+        def parsed = env as Integer
+        if (parsed != null) {
+            return Math.max(1, Math.min(10, parsed))
+        }
+    }
+    def propsFile = new File(rootDir, 'gradle.properties')
+    if (propsFile.isFile()) {
+        propsFile.eachLine { line ->
+            def trimmed = line.trim()
+            if (trimmed.startsWith('chronos.gradle.retry.max=')) {
+                def parsed = trimmed.substring(trimmed.indexOf('=') + 1).trim() as Integer
+                if (parsed != null) {
+                    return Math.max(1, Math.min(10, parsed))
+                }
+            }
+        }
+    }
+    return 3
+}
+
+ext.chronosRetryAttempt = {
+    def raw = System.getenv('CHRONOS_GRADLE_RETRY_ATTEMPT') ?: '0'
+    def parsed = raw as Integer
+    return parsed != null && parsed >= 0 ? parsed : 0
+}
+
+ext.retryBackoffMs = { int attempt ->
+    if (attempt == 0) {
+        return 2000L
+    }
+    if (attempt == 1) {
+        return 5000L
+    }
+    return 10000L
+}
+
+ext.clearUniminedGlobalCache = {
+    def cache = new File(System.getProperty('user.home'), '.gradle/unimined')
+    if (cache.exists()) {
+        cache.deleteDir()
+        println "[Chronos] Cleared Unimined global cache: ${cache.absolutePath}"
+    }
+}
+
+ext.buildGradleRetryArgs = { StartParameter startParameter ->
+    def cmd = []
+    if (!startParameter.useDaemon) {
+        cmd << '--no-daemon'
+    }
+    if (!startParameter.buildCacheEnabled) {
+        cmd << '--no-build-cache'
+    }
+    if (startParameter.showStacktrace == ShowStacktrace.ALWAYS) {
+        cmd << '--stacktrace'
+    } else if (startParameter.showStacktrace == ShowStacktrace.ALWAYS_FULL) {
+        cmd << '--full-stacktrace'
+    }
+    if (startParameter.offline) {
+        cmd << '--offline'
+    }
+    if (startParameter.refreshDependencies) {
+        cmd << '--refresh-dependencies'
+    }
+    startParameter.projectProperties.each { key, value ->
+        cmd << "-P${key}=${value}"
+    }
+    startParameter.systemPropertiesArgs.each { key, value ->
+        cmd << "-D${key}=${value}"
+    }
+    cmd.addAll(startParameter.taskNames)
+    return cmd
+}
+
+gradle.buildFinished { BuildResult result ->
+    def failure = result.failure
+    if (failure == null) {
+        return
+    }
+    if (!isUniminedFlakyFailure(failure)) {
+        return
+    }
+
+    def attempt = chronosRetryAttempt()
+    def maxAttempts = readChronosRetryMax()
+    if (attempt >= maxAttempts - 1) {
+        println "[Chronos] Unimined/metadata failure persists after ${attempt + 1} attempt(s). " +
+            'Try: ./gradlew cleanUniminedCache then rebuild, or set chronos.gradle.retry.max higher.'
+        return
+    }
+
+    def nextAttempt = attempt + 1
+    def delayMs = retryBackoffMs(attempt)
+    def firstLine = failure.message?.readLines()?.find { it } ?: ''
+    println "[Chronos] Flaky Unimined/Mojang metadata (${attempt + 1}/${maxAttempts}): ${firstLine}"
+    println "[Chronos] Retrying the same Gradle command in ${delayMs}ms..."
+    Thread.sleep(delayMs)
+    clearUniminedGlobalCache()
+
+    def wrapper = OperatingSystem.current().isWindows()
+        ? rootDir.resolve('gradlew.bat')
+        : rootDir.resolve('gradlew')
+    if (!wrapper.isFile()) {
+        println "[Chronos] Cannot retry: missing ${wrapper.absolutePath}"
+        return
+    }
+
+    def command = [wrapper.absolutePath]
+    command.addAll(buildGradleRetryArgs(gradle.startParameter))
+
+    def pb = new ProcessBuilder(command)
+    pb.directory(rootDir)
+    pb.redirectErrorStream(true)
+    pb.environment().putAll(System.getenv())
+    pb.environment().put('CHRONOS_GRADLE_RETRY_ATTEMPT', nextAttempt.toString())
+    def process = pb.start()
+
+    def output = process.inputStream.getText('UTF-8')
+    if (output) {
+        print output
+    }
+    def exit = process.waitFor()
+    if (exit == 0) {
+        println "[Chronos] Gradle retry succeeded on attempt ${nextAttempt + 1}."
+    } else {
+        println "[Chronos] Gradle retry failed with exit code ${exit}."
+    }
+    Runtime.runtime.halt(exit)
+}

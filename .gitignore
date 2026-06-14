@@ -10,6 +10,9 @@
 .idea/
 *.iml
 /.vscode
+.project
+.classpath
+.settings/
 
 # Minecraft / mod runs
 **/run/

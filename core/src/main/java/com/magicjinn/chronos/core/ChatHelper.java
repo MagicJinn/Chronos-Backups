@@ -46,12 +46,24 @@ public final class ChatHelper {
     }
 
     /**
-     * Makes a tellraw command for the given message.
-     * 
-     * @param message The message to send.
-     * @return The tellraw command to be executed.
+     * Broadcast command for Minecraft 1.13+. Skips {@code tellraw} when no
+     * players are online, avoiding console errors on empty dedicated servers.
      */
+    public static String makeModernTellraw(String message) {
+        return "execute if entity @a run tellraw @a " + jsonTellraw(message);
+    }
+
+    /**
+     * Broadcast command for Minecraft 1.12.2 and below.
+     */
+    public static String makeLegacySay(String message) {
+        if (message == null || message.isEmpty()) {
+            return "say";
+        }
+        return "say " + message;
+    }
+
     public static String makeTellraw(String message) {
-        return "tellraw @a " + jsonTellraw(message);
+        return makeModernTellraw(message);
     }
 }

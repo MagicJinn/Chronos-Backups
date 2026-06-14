@@ -2,15 +2,19 @@ package com.magicjinn.chronos.shell.fabric;
 
 import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.magicjinn.chronos.shell.ShellCommandRegistrar;
-import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.registry.CommandRegistry;
 import net.minecraft.network.chat.TextComponent;
 
-/** Minecraft 1.14-1.18 - Fabric command API v1 ({@link TextComponent} chat). */
+/**
+ * Minecraft 1.14-1.18 - legacy {@link CommandRegistry} ({@link TextComponent}
+ * chat).
+ */
 final class FabricCommandRegistrar implements ShellCommandRegistrar {
     @Override
     public void register(Object registrationContext) {
-        CommandRegistrationCallback.EVENT.register(
-                (dispatcher, dedicated) -> ChronosBrigadier.register(
+            CommandRegistry.INSTANCE.register(
+                            true,
+                            dispatcher -> ChronosBrigadier.register(
                         dispatcher,
                         FabricMojmapBrigadierHooks.hooks(
                                 (source, message, broadcastToOps) -> source.sendSuccess(

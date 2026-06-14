@@ -1,15 +1,15 @@
 package com.magicjinn.chronos.shell.mojmap.common;
-
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.magicjinn.chronos.shell.ChronosConstants;
+import com.mojang.brigadier.ParseResults;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.function.Supplier;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/**
- * Minecraft 1.14-1.15 logging and chat using /tellraw.
- */
+/** Minecraft 1.14-1.15 logging and chat using Brigadier command dispatch. */
 public final class MojmapShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
     private final Supplier<MinecraftServer> server;
@@ -34,8 +34,13 @@ public final class MojmapShellMessenger implements ShellMessenger {
         if (mcServer == null || command == null || command.trim().isEmpty()) {
             return;
         }
-        mcServer.getCommands().performCommand(
-                mcServer.createCommandSourceStack(),
-                "/" + command);
+
+        CommandSourceStack source = mcServer.createCommandSourceStack();
+        ParseResults<CommandSourceStack> parsed = mcServer.getCommands().getDispatcher().parse(command, source);
+        try {
+            mcServer.getCommands().getDispatcher().execute(parsed);
+        } catch (CommandSyntaxException e) {
+            LOG.error("Failed to execute chat command: " + e.getMessage());
+        }
     }
 }
