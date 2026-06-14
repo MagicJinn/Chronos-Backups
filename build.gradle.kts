@@ -431,14 +431,15 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
         if (pfx.isEmpty()) continue
         val primary = pfx.map { it.toString() }.minByOrNull { it.length } ?: continue
         val slug = primary.replace(".", "_")
-        (gm["fabricUnified"] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
-            putTag("fabric", slug, it)
-        }
-        (gm["neoForgeUnified"] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
-            putTag("neoforge", slug, it)
-        }
-        (gm["forgeUnified"] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
-            putTag("forge", slug, it)
+        listOf(
+            Triple("fabric", "fabricUnified", slug),
+            Triple("neoforge", "neoForgeUnified", slug),
+            Triple("neoforge", "neoForgeEarlyUnified", slug + "_early"),
+            Triple("forge", "forgeUnified", slug),
+        ).forEach { (loader, unifiedKey, tagSlug) ->
+            (gm[unifiedKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
+                putTag(loader, tagSlug, it)
+            }
         }
     }
     out.mapValues { it.value.toMap() }

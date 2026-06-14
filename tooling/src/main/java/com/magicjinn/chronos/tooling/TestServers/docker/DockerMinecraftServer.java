@@ -7,7 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -19,8 +21,10 @@ public class DockerMinecraftServer {
 
     private final String loaderKey;
     private final String version;
-    private final int gamePort;
-    private final int rconPort;
+    /** MC version passed to the Docker {@code VERSION} env var (may differ from {@link #version}). */
+    private final String dockerVersion;
+    private int gamePort;
+    private int rconPort;
     private final Path modJarPath;
     /** Optional. Passed as {@code FABRIC_LOADER_VERSION} for Fabric servers. */
     private final String fabricLoaderVersion;
@@ -30,10 +34,19 @@ public class DockerMinecraftServer {
     private final String modrinthProjects;
     /**
      * Optional. Passed as {@code FORGE_VERSION} for Forge servers. Overrides the
-     * Forge version that would otherwise be auto-resolved from the promotions JSON
-     * (e.g. 1.10.0 has an incorrectly structured version URL).
+     * Forge version that would otherwise be auto-resolved from the promotions JSON.
      */
     private final String forgeVersion;
+    /**
+     * Optional. Passed as {@code NEOFORGE_VERSION} for NeoForge servers when
+     * mc-image-helper cannot resolve {@code latest} for the requested Minecraft version.
+     */
+    private final String neoForgeVersion;
+    /**
+     * Optional. Passed as {@code FORGE_INSTALLER_URL} for Forge servers whose
+     * installer is not reachable via the standard Maven path (e.g. 1.10.0).
+     */
+    private final String forgeInstallerUrl;
 
     public DockerMinecraftServer(
             String loaderKey,
@@ -41,7 +54,9 @@ public class DockerMinecraftServer {
             int gamePort,
             int rconPort,
             Path modJarPath) {
-        this(loaderKey, version, gamePort, rconPort, modJarPath, null, null, null);
+        this(loaderKey, version, version, modJarPath, null, null, null, null, null);
+        this.gamePort = gamePort;
+        this.rconPort = rconPort;
     }
 
     public DockerMinecraftServer(
@@ -52,7 +67,9 @@ public class DockerMinecraftServer {
             Path modJarPath,
             String fabricLoaderVersion,
             String modrinthProjects) {
-        this(loaderKey, version, gamePort, rconPort, modJarPath, fabricLoaderVersion, modrinthProjects, null);
+        this(loaderKey, version, version, modJarPath, fabricLoaderVersion, modrinthProjects, null, null, null);
+        this.gamePort = gamePort;
+        this.rconPort = rconPort;
     }
 
     public DockerMinecraftServer(
@@ -64,14 +81,60 @@ public class DockerMinecraftServer {
             String fabricLoaderVersion,
             String modrinthProjects,
             String forgeVersion) {
-        this.loaderKey = loaderKey;
-        this.version = version;
+        this(loaderKey, version, version, modJarPath, fabricLoaderVersion, modrinthProjects, forgeVersion, null, null);
         this.gamePort = gamePort;
         this.rconPort = rconPort;
+    }
+
+    public DockerMinecraftServer(
+            String loaderKey,
+            String version,
+            String dockerVersion,
+            Path modJarPath,
+            String fabricLoaderVersion,
+            String modrinthProjects,
+            String forgeVersion,
+            String forgeInstallerUrl) {
+        this(loaderKey, version, dockerVersion, modJarPath, fabricLoaderVersion, modrinthProjects, forgeVersion,
+                forgeInstallerUrl, null);
+    }
+
+    public DockerMinecraftServer(
+            String loaderKey,
+            String version,
+            String dockerVersion,
+            Path modJarPath,
+            String fabricLoaderVersion,
+            String modrinthProjects,
+            String forgeVersion,
+            String forgeInstallerUrl,
+            String neoForgeVersion) {
+        this.loaderKey = loaderKey;
+        this.version = version;
+        this.dockerVersion = dockerVersion;
         this.modJarPath = modJarPath;
         this.fabricLoaderVersion = fabricLoaderVersion;
         this.modrinthProjects = modrinthProjects;
         this.forgeVersion = forgeVersion;
+        this.forgeInstallerUrl = forgeInstallerUrl;
+        this.neoForgeVersion = neoForgeVersion;
+    }
+
+    /** Binds host ports immediately before {@link #createDockerContainer()}. */
+    public void assignPorts(Set<Integer> usedPorts) throws IOException {
+        gamePort = TestServers.allocatePort(usedPorts);
+        rconPort = TestServers.allocatePort(usedPorts);
+    }
+
+    public void releasePorts(Set<Integer> usedPorts) {
+        if (gamePort > 0) {
+            usedPorts.remove(gamePort);
+            gamePort = 0;
+        }
+        if (rconPort > 0) {
+            usedPorts.remove(rconPort);
+            rconPort = 0;
+        }
     }
 
     public String getLoaderKey() {
@@ -80,6 +143,11 @@ public class DockerMinecraftServer {
 
     public String getVersion() {
         return version;
+    }
+
+    /** Key for {@code --only} filters and Docker instance ids (e.g. {@code fabric-1_14_4}). */
+    public String testTargetKey() {
+        return getLoaderKey().toLowerCase(Locale.ROOT) + "-" + getVersion().replace('.', '_');
     }
 
     public int getGamePort() {
@@ -106,16 +174,23 @@ public class DockerMinecraftServer {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(loaderKey).append('-').append(version)
-                .append(" (game port: ").append(gamePort).append(", RCON port: ").append(rconPort).append(')')
-                .append(" (mod jar: ").append(modJarPath.getFileName()).append(')');
-        if ("FABRIC".equalsIgnoreCase(loaderKey) && modrinthProjects != null && !modrinthProjects.isBlank()) {
-            sb.append(" (MODRINTH_PROJECTS: ").append(modrinthProjects).append(')');
-        } else if ("FORGE".equalsIgnoreCase(loaderKey) && forgeVersion != null && !forgeVersion.isBlank()) {
-            sb.append(" (FORGE_VERSION: ").append(forgeVersion).append(')');
-        }
-        return sb.toString();
+        String ports = gamePort > 0 && rconPort > 0
+                ? " (game port: " + gamePort + ", RCON port: " + rconPort + ')'
+                : "";
+        String env = switch (loaderKey.toUpperCase(Locale.ROOT)) {
+            case "FABRIC" -> optionalDetail("MODRINTH_PROJECTS", modrinthProjects);
+            case "FORGE" -> {
+                String detail = optionalDetail("FORGE_INSTALLER_URL", forgeInstallerUrl);
+                yield detail.isEmpty() ? optionalDetail("FORGE_VERSION", forgeVersion) : detail;
+            }
+            case "NEOFORGE" -> optionalDetail("NEOFORGE_VERSION", neoForgeVersion);
+            default -> "";
+        };
+        return loaderKey + '-' + version + ports + " (mod jar: " + modJarPath.getFileName() + ')' + env;
+    }
+
+    private static String optionalDetail(String label, String value) {
+        return value != null && !value.isBlank() ? " (" + label + ": " + value + ')' : "";
     }
 
     public Path dataDir() {
@@ -131,6 +206,9 @@ public class DockerMinecraftServer {
      * defaults.
      */
     public void createDockerContainer() throws IOException {
+        if (gamePort <= 0 || rconPort <= 0) {
+            throw new IllegalStateException("Call assignPorts() before createDockerContainer()");
+        }
         if (gamePort == rconPort) {
             throw new IllegalArgumentException("game and RCON ports must differ");
         }
@@ -160,7 +238,7 @@ public class DockerMinecraftServer {
         command.add("-e");
         command.add("TYPE=" + getLoaderKey());
         command.add("-e");
-        command.add("VERSION=" + dockerMinecraftVersion(getVersion(), getLoaderKey()));
+        command.add("VERSION=" + dockerVersion);
         if ("FABRIC".equalsIgnoreCase(loaderKey)) {
             command.add("-e");
             command.add("MODRINTH_LOADER=fabric");
@@ -172,9 +250,15 @@ public class DockerMinecraftServer {
                 command.add("-e");
                 command.add("MODRINTH_PROJECTS=" + modrinthProjects);
             }
+        } else if ("FORGE".equalsIgnoreCase(loaderKey) && forgeInstallerUrl != null && !forgeInstallerUrl.isBlank()) {
+            command.add("-e");
+            command.add("FORGE_INSTALLER_URL=" + forgeInstallerUrl);
         } else if ("FORGE".equalsIgnoreCase(loaderKey) && forgeVersion != null && !forgeVersion.isBlank()) {
             command.add("-e");
             command.add("FORGE_VERSION=" + forgeVersion);
+        } else if ("NEOFORGE".equalsIgnoreCase(loaderKey) && neoForgeVersion != null && !neoForgeVersion.isBlank()) {
+            command.add("-e");
+            command.add("NEOFORGE_VERSION=" + neoForgeVersion);
         }
         command.add("-e");
         command.add("ENABLE_RCON=TRUE");
@@ -270,14 +354,15 @@ public class DockerMinecraftServer {
      * without a {@code .0} patch (e.g. {@code 1.8} not {@code 1.8.0}, {@code 1.12}
      * not {@code 1.12.0}). Newer Forge releases (1.13+) keep the full semver.
      */
-    static String dockerMinecraftVersion(String version, String loaderKey) {
+    public static String dockerMinecraftVersion(String version, String loaderKey) {
         if (!endsWithZeroPatch(version)) {
             return version;
         }
         int minor = minecraftMinorVersion(version);
-        if ("FABRIC".equalsIgnoreCase(loaderKey) && minor <= 15) {
+        if ("FABRIC".equalsIgnoreCase(loaderKey)) {
             return stripZeroPatch(version);
-        } else if ("FORGE".equalsIgnoreCase(loaderKey) && minor <= 12) {
+        }
+        if ("FORGE".equalsIgnoreCase(loaderKey) && minor <= 12) {
             return stripZeroPatch(version);
         }
         return version;
@@ -305,7 +390,7 @@ public class DockerMinecraftServer {
     }
 
     private String dockerInstanceId() {
-        return getLoaderKey().toLowerCase() + "-" + getVersion().replace('.', '_');
+        return testTargetKey();
     }
 
     private String dockerContainerName() {

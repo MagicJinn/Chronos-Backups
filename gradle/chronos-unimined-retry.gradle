@@ -36,7 +36,7 @@ ext.readChronosRetryMax = {
             return Math.max(1, Math.min(10, parsed))
         }
     }
-    def propsFile = rootDir.resolve('gradle.properties')
+    def propsFile = new File(rootDir, 'gradle.properties')
     if (propsFile.isFile()) {
         propsFile.eachLine { line ->
             def trimmed = line.trim()

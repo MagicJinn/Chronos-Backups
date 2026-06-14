@@ -85,7 +85,7 @@ public final class ChronosJavaMatrix {
     public String runtimeJavaMajor(String mc) {
         PrefixRule prefix = matchingPrefixRule(mc);
         if (prefix != null) {
-            return prefix.compileRelease();
+            return prefix.runtimeJavaMajor(mc);
         }
         if (!mc.startsWith("1.")) {
             String yearly = yearPrefixJavaMajor(mc);
@@ -235,7 +235,10 @@ public final class ChronosJavaMatrix {
             String tm = str(r.get("toolchainMajor"));
             String cr = str(r.get("compileRelease"));
             if (!prefix.isBlank() && !tm.isBlank() && !cr.isBlank()) {
-                built.add(new PrefixRule(prefix, tm, cr, str(r.get("modJsonJavaMajor"))));
+                int runtimePatchMin = parseOptionalInt(r.get("runtimePatchMin"), -1);
+                String runtimeJavaMajor = str(r.get("runtimeJavaMajor"));
+                built.add(new PrefixRule(
+                        prefix, tm, cr, str(r.get("modJsonJavaMajor")), runtimePatchMin, runtimeJavaMajor));
             }
         }
         return List.copyOf(built);
@@ -248,10 +251,40 @@ public final class ChronosJavaMatrix {
             String minecraftVersionPrefix,
             String toolchainMajor,
             String compileRelease,
-            String modJsonJavaMajorOverride) {
+            String modJsonJavaMajorOverride,
+            int runtimePatchMin,
+            String runtimeJavaMajorOverride) {
         String modJsonJavaMajorOrCompileRelease() {
             return modJsonJavaMajorOverride.isBlank() ? compileRelease : modJsonJavaMajorOverride;
         }
+
+        String runtimeJavaMajor(String mc) {
+            if (runtimePatchMin >= 0
+                    && !runtimeJavaMajorOverride.isBlank()
+                    && minecraftPatch(mc) >= runtimePatchMin) {
+                return runtimeJavaMajorOverride;
+            }
+            return compileRelease;
+        }
+    }
+
+    private static int minecraftPatch(String mc) {
+        String[] parts = mc.split("\\.");
+        if (parts.length < 3) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(parts[2]);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private static int parseOptionalInt(Object value, int defaultValue) {
+        if (!(value instanceof Number n)) {
+            return defaultValue;
+        }
+        return n.intValue();
     }
 
     @SuppressWarnings("unchecked")

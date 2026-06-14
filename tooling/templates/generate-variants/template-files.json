@@ -3,6 +3,7 @@
   "fabricModJson": "fabric-mod.json.template",
   "neoBuildGradleKts": "neo-build.gradle.kts.template",
   "neoModsToml": "neo-neoforge.mods.toml.template",
+  "neoModsTomlEarly": "neo-neoforge-early.mods.toml.template",
   "forgeBuildGradle111": "forge-build-1.11.gradle.template",
   "forgeBuildGradle19": "forge-build-1.9.gradle.template",
   "forgeBuildGradle110": "forge-build-1.10.gradle.template",

@@ -155,6 +155,8 @@ testServers is a utility that uses Docker and the `itzg/minecraft-server` image 
 
 Once the artifacts are built, testServers starts a Dockerized Minecraft server for each supported loader/version combination. During startup, it checks the server logs for a number of markers to verify that the mod loaded and initialized correctly. Finally, it runs the speedtest command to confirm that backups function correctly and meet expected performance targets.
 
+To run one or a few targets instead of the full matrix, pass `-Pchronos.testServers.args` with `--only` (repeatable). Targets use the form `loader-version`, with dots or underscores in the version (e.g. `fabric-1.14.4`, `forge-1_14_4`). These match the Docker container id suffix (`chronos-fabric-1_14_4`).
+
 This test is meant for power users and should be run at least once before any release to ensure the mod is working correctly on every supported version. On the initial run, it will need to pull every Docker Image (7 in total), as well as create and install every loader and version in the server, for over 100 combinations. This can take an extremely long time on first install, but will mostly be cached after that. The entire test run, after the initial install, can still take more than an hour in the best case scenario.
 
 > [!Note]
@@ -168,4 +170,6 @@ This test is meant for power users and should be run at least once before any re
 ./gradlew :neoforge-line-26_1:runClient
 ./gradlew :fabric-line-1_21_11:runServer
 ./gradlew testServers
+./gradlew testServers "-Pchronos.testServers.args=--only fabric-1.14.4"
+./gradlew testServers "-Pchronos.testServers.args=--only fabric-1_14_4 --only forge-1_14_4"
 ```

@@ -42,75 +42,19 @@ public final class GenerateVariants {
 
         Map<String, Object> groupsJson = readObject(GROUPS_FILE);
         List<Map<String, Object>> groups = castList(groupsJson.get("groups"));
-        List<Map<String, Object>> rows = collectRowsFromGroups(groups);
 
         Map<String, String> rootProps = readRootProps();
         String loomVersion = rootProps.getOrDefault("loom.version", "1.10.1");
         String neoforgeModdev = rootProps.getOrDefault("neoforge.moddev.plugin.version", "2.0.141");
 
-        Map<String, Map<String, Object>> groupsById = new HashMap<>();
-        for (Map<String, Object> g : groups) {
-            if (!shouldBuildGroup(g))
-                continue;
-            groupsById.put(str(g.get("id")), g);
-        }
-
         Set<Path> validPaths = new HashSet<>();
         int generated = 0;
-
-        for (Map<String, Object> row : rows) {
-            String mc = str(row.get("minecraft"));
-            String compileGroup = str(row.get("compileGroup"));
-            List<String> loaders = strList(row.get("loaders"));
-            if (loaders.isEmpty())
-                loaders = List.of("fabric", "neoforge");
-
-            Map<String, Object> gdef = groupsById.get(compileGroup);
-            if (gdef == null)
-                throw new IllegalStateException("Unknown compileGroup: " + compileGroup);
-
-            boolean unifiedFabric = bool(gdef.get("unifiedFabricJar")) && gdef.containsKey("fabricUnified");
-            boolean unifiedNeo = bool(gdef.get("unifiedNeoForgeJar")) && gdef.containsKey("neoForgeUnified");
-            boolean unifiedForge = bool(gdef.get("unifiedForgeJar")) && gdef.containsKey("forgeUnified");
-
-            String slug = mc.replace(".", "_");
-            Path groupDir = VARIANTS_ROOT.resolve(compileGroup);
-            Path fabricDir = groupDir.resolve("fabric-" + slug);
-            Path neoDir = groupDir.resolve("neoforge-" + slug);
-            Path forgeDir = groupDir.resolve("forge-" + slug);
-
-            if (!loaders.contains("fabric"))
-                deleteTree(fabricDir);
-            if (!loaders.contains("neoforge") || unifiedNeo)
-                deleteTree(neoDir);
-            if (!loaders.contains("forge") || unifiedForge)
-                deleteTree(forgeDir);
-
-            if (loaders.contains("fabric") && !unifiedFabric) {
-                writeFabricProject(fabricDir, compileGroup, mc, str(row.get("fabricLoader")), str(row.get("fabricApi")),
-                        loomVersion, null, null);
-                validPaths.add(fabricDir);
-                generated++;
-            }
-
-            if (loaders.contains("neoforge") && !unifiedNeo) {
-                writeNeoProject(neoDir, compileGroup, mc, str(row.get("neoForge")), neoforgeModdev, false, null, null);
-                validPaths.add(neoDir);
-                generated++;
-            }
-            if (loaders.contains("forge") && !unifiedForge) {
-                writeForgeProject(forgeDir, compileGroup, mc, str(row.get("forge")), null,
-                        forgeMcpFromGroup(gdef));
-                validPaths.add(forgeDir);
-                generated++;
-            }
-        }
 
         for (Map<String, Object> g : groups) {
             if (!shouldBuildGroup(g))
                 continue;
             String gid = str(g.get("id"));
-            if (bool(g.get("unifiedFabricJar")) && g.containsKey("fabricUnified")) {
+            if (g.containsKey("fabricUnified")) {
                 Map<String, Object> fu = castMap(g.get("fabricUnified"));
                 String line = primaryLinePrefix(g);
                 String projectName = "fabric-line-" + line.replace(".", "_");
@@ -122,26 +66,31 @@ public final class GenerateVariants {
                 validPaths.add(dir);
                 generated++;
             }
-            if (bool(g.get("unifiedNeoForgeJar")) && g.containsKey("neoForgeUnified")) {
-                Map<String, Object> nu = castMap(g.get("neoForgeUnified"));
-                String line = primaryLinePrefix(g);
-                String projectName = "neoforge-line-" + line.replace(".", "_");
+            for (String neoKey : List.of("neoForgeEarlyUnified", "neoForgeUnified")) {
+                if (!g.containsKey(neoKey)) {
+                    continue;
+                }
+                Map<String, Object> nu = castMap(g.get(neoKey));
+                String line = primaryLinePrefix(g).replace(".", "_");
+                String projectName = "neoForgeEarlyUnified".equals(neoKey)
+                        ? "neoforge-line-" + line + "_early"
+                        : "neoforge-line-" + line;
                 Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
                 String neoMcRange = nu.get("minecraftRange") != null ? str(nu.get("minecraftRange")) : null;
-                if (neoMcRange != null && neoMcRange.isBlank())
+                if (neoMcRange != null && neoMcRange.isBlank()) {
                     neoMcRange = null;
+                }
                 writeNeoProject(dir, gid, str(nu.get("referenceMinecraft")), str(nu.get("neoForge")), neoforgeModdev,
-                        true, neoMcRange, nu);
+                        neoMcRange, nu);
                 validPaths.add(dir);
                 generated++;
             }
-            if (bool(g.get("unifiedForgeJar")) && g.containsKey("forgeUnified")) {
+            if (g.containsKey("forgeUnified")) {
                 Map<String, Object> fu = castMap(g.get("forgeUnified"));
                 String line = primaryLinePrefix(g);
                 String projectName = "forge-line-" + line.replace(".", "_");
                 Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
-                writeForgeProject(dir, gid, str(fu.get("referenceMinecraft")), str(fu.get("forge")), fu,
-                        forgeMcpFromGroup(g));
+                writeForgeProject(dir, gid, str(fu.get("referenceMinecraft")), str(fu.get("forge")), fu);
                 validPaths.add(dir);
                 generated++;
             }
@@ -207,7 +156,7 @@ public final class GenerateVariants {
     }
 
     private static void writeNeoProject(Path dir, String compileGroup, String mc, String neoVersion,
-            String moddevVersion, boolean lineRange, String minecraftRangeOverride,
+            String moddevVersion, String minecraftRangeOverride,
             Map<String, Object> unifiedArchiveSource) throws IOException {
         Files.createDirectories(dir);
         write(dir.resolve("gradle.properties"), """
@@ -220,7 +169,7 @@ public final class GenerateVariants {
         String archivesName = "chronos-backups-neoforge-" + archiveSuffix(unifiedArchiveSource, mc);
         String mcRange = minecraftRangeOverride != null && !minecraftRangeOverride.isBlank()
                 ? minecraftRangeOverride
-                : (lineRange ? lineRange(mc) : neoRange(mc));
+                : lineRange(mc);
         ChronosJavaMatrix.ToolchainAndRelease neoJava = JAVA_MATRIX.toolchainAndRelease(mc);
         Map<String, String> neoValues = new HashMap<>();
         neoValues.put("moddevVersion", moddevVersion);
@@ -230,25 +179,51 @@ public final class GenerateVariants {
         neoValues.put("minecraftRange", mcRange);
         neoValues.put("javaToolchainMajor", neoJava.toolchainMajor());
         neoValues.put("javaDependencyResolutionMajor", neoJava.toolchainMajor());
-        neoValues.put(
-                "neoJavaCompileOptionsKts",
+        neoValues.put("neoJavaCompileOptionsKts",
                 neoJava.toolchainMajor().equals(neoJava.compileRelease())
                         ? "options.release.set(" + neoJava.compileRelease() + ")"
                         : "options.compilerArgs.addAll(listOf(\"--release\", \"" + neoJava.compileRelease() + "\"))");
-        neoValues.put("neoForgeLineDir", minecraftLineFolder(mc));
+        putNeoForgeShellSourceLines(neoValues, mc, unifiedArchiveSource);
         putMojmapSourceDirLines(neoValues, mc);
         write(dir.resolve("build.gradle.kts"), renderTemplate("neoBuildGradleKts", neoValues));
 
         Path meta = dir.resolve("src/main/resources/META-INF");
         Files.createDirectories(meta);
-        String neoModsToml = renderTemplate("neoModsToml", Map.of());
+        String metadataKey = unifiedArchiveSource != null ? str(unifiedArchiveSource.get("metadataTemplate")) : "";
+        if (metadataKey.isBlank()) {
+            metadataKey = "neoModsToml";
+        }
+        String neoModsToml = renderTemplate(metadataKey, Map.of());
         // NeoForge 20.5+ only reads neoforge.mods.toml. 20.2-20.4 requires mods.toml
         write(meta.resolve("neoforge.mods.toml"), neoModsToml);
         write(meta.resolve("mods.toml"), neoModsToml);
     }
 
+    /**
+     * Early NeoForge lines (1.20.2-1.20.4) replace {@code ChronosNeoForgeMod} from
+     * {@code shell-neoforge/src} with a line tree using legacy tick events.
+     */
+    private static void putNeoForgeShellSourceLines(Map<String, String> neoValues, String mc,
+            Map<String, Object> unified) {
+        String shellVariant = unified != null ? str(unified.get("neoShellVariant")) : "";
+        if (shellVariant.isBlank()) {
+            neoValues.put("neoForgeLineDir", minecraftLineFolder(mc));
+            neoValues.put("neoShellExcludeKts", "");
+            neoValues.put("neoShellExtraSrcKts", "");
+            return;
+        }
+        neoValues.put("neoForgeLineDir", shellVariant);
+        neoValues.put("neoShellExcludeKts", """
+                java.exclude { details ->
+                    val path = details.file.absolutePath.replace("\\\\", "/")
+                    path.contains("shell-neoforge/src/main/java") && details.name == "ChronosNeoForgeMod.java"
+                }
+                """);
+        neoValues.put("neoShellExtraSrcKts", "");
+    }
+
     private static void writeForgeProject(Path dir, String compileGroup, String mc, String forgeVersion,
-            Map<String, Object> unifiedArchiveSource, Map<String, String> groupForgeMcp) throws IOException {
+            Map<String, Object> unifiedArchiveSource) throws IOException {
         Files.createDirectories(dir);
         write(dir.resolve("gradle.properties"), """
                 # Generated by tooling Java generator - do not hand-edit.
@@ -276,7 +251,7 @@ public final class GenerateVariants {
             putMojmapSourceDirLines(forgeGradleValues, mc);
             putForgeMojmapAuxiliaryGroovy(forgeGradleValues, mc);
         } else {
-            putForgeMcpMappings(forgeGradleValues, unifiedArchiveSource, groupForgeMcp, compileGroup);
+            putForgeMcpMappings(forgeGradleValues, unifiedArchiveSource, compileGroup);
         }
         putForge17LineSourcesGroovy(forgeGradleValues, gradleTemplate, mc);
         write(dir.resolve("build.gradle"), renderTemplate(gradleTemplate, forgeGradleValues));
@@ -397,15 +372,6 @@ public final class GenerateVariants {
         return "fabric-api";
     }
 
-    private static String neoRange(String mc) {
-        String[] p = mc.split("\\.");
-        if (p.length == 2)
-            return "[" + mc + "," + p[0] + "." + (Integer.parseInt(p[1]) + 1) + ")";
-        if (p.length >= 3)
-            return "[" + mc + "," + p[0] + "." + p[1] + ".999]";
-        return "[" + mc + "," + mc + "]";
-    }
-
     private static String lineRange(String linePrefix) {
         String[] p = linePrefix.split("\\.");
         if (p.length == 2)
@@ -442,28 +408,18 @@ public final class GenerateVariants {
     }
 
     /**
-     * MCP coordinates for Unimined {@code searge() + mcp} mappings on legacy Forge (1.12 / 1.13).
-     * Optional {@code mcpChannel} / {@code mcpVersion} on {@code forgeUnified} override;
-     * otherwise values come from the compile group's {@code forgeMcp} in {@code chronos-compile-groups.json}.
+     * MCP coordinates for Unimined {@code searge() + mcp} mappings on legacy Forge
+     * (1.7–1.13).
+     * Reads {@code mcpChannel} and {@code mcpVersion} from {@code forgeUnified}.
      */
-    private static void putForgeMcpMappings(Map<String, String> out, Map<String, Object> unifiedArchiveSource,
-            Map<String, String> groupForgeMcp, String compileGroup) {
-        String channel = "";
-        String artifact = "";
-        if (unifiedArchiveSource != null) {
-            channel = str(unifiedArchiveSource.get("mcpChannel"));
-            artifact = str(unifiedArchiveSource.get("mcpVersion"));
-        }
-        if (artifact.isBlank()) {
-            channel = str(groupForgeMcp.get("mcpChannel"));
-            artifact = str(groupForgeMcp.get("mcpVersion"));
-        }
-        if (channel.isBlank()) {
-            channel = str(groupForgeMcp.get("mcpChannel"));
-        }
-        if (artifact.isBlank()) {
+    private static void putForgeMcpMappings(Map<String, String> out, Map<String, Object> forgeUnified,
+            String compileGroup) {
+        String channel = str(forgeUnified.get("mcpChannel"));
+        String artifact = str(forgeUnified.get("mcpVersion"));
+        if (channel.isBlank() || artifact.isBlank()) {
             throw new IllegalStateException(
-                    "compile group \"" + compileGroup + "\" needs forgeMcp (or forgeUnified mcpVersion) for legacy Forge");
+                    "compile group \"" + compileGroup
+                            + "\" forgeUnified needs mcpChannel and mcpVersion when mappingsKind is mcp");
         }
         out.put("mcpChannel", channel);
         out.put("mcpVersion", artifact);
@@ -497,17 +453,6 @@ public final class GenerateVariants {
                     sourceSets.main.java.srcDir(rootProject.file('shell-forge/v1_7_10/src/main/java'))
                     """.stripLeading());
         }
-    }
-
-    private static Map<String, String> forgeMcpFromGroup(Map<String, Object> group) {
-        Object raw = group.get("forgeMcp");
-        if (raw == null)
-            return Map.of();
-        Map<String, Object> m = castMap(raw);
-        Map<String, String> out = new HashMap<>();
-        out.put("mcpChannel", str(m.get("mcpChannel")));
-        out.put("mcpVersion", str(m.get("mcpVersion")));
-        return out;
     }
 
     private static String minecraftLineTag(String version) {
@@ -649,20 +594,22 @@ public final class GenerateVariants {
 
     /**
      * Picks the {@code FabricCommandRegistrar} source slice (Fabric command API v1
-     * vs v2,
-     * {@code sendSuccess} overloads).
+     * vs v2, {@code sendSuccess} overloads).
+     * TODO. Softcode this
      */
     private static void putFabricRegistrarSourceDirLines(Map<String, String> values, String mc) {
         int minor = minecraftMinorLine(mc);
-        String dir;
+        String slice;
         if (minor >= 14 && minor <= 18) {
-            dir = "shell-fabric/v1_14-v1_18/src/main/java";
+            slice = "    rootProject.file('shell-fabric/v1_14-v1_18/src/main/java'),";
         } else if (minor == 19) {
-            dir = "shell-fabric/v1_19/src/main/java";
+            slice = "    rootProject.file('shell-fabric/v1_19-v1_20/src/main/java'),\n"
+                    + "    rootProject.file('shell-fabric/v1_19/src/main/java'),";
         } else {
-            dir = "shell-fabric/v1_20/src/main/java";
+            slice = "    rootProject.file('shell-fabric/v1_19-v1_20/src/main/java'),\n"
+                    + "    rootProject.file('shell-fabric/v1_20/src/main/java'),";
         }
-        values.put("fabricRegistrarSliceGroovy", "    rootProject.file('" + dir + "'),");
+        values.put("fabricRegistrarSliceGroovy", slice);
     }
 
     /**
@@ -748,22 +695,6 @@ public final class GenerateVariants {
         if (pfx.isEmpty())
             return "";
         return pfx.stream().min(Comparator.comparingInt(String::length)).orElse("");
-    }
-
-    private static List<Map<String, Object>> collectRowsFromGroups(List<Map<String, Object>> groups) {
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (Map<String, Object> group : groups) {
-            if (!shouldBuildGroup(group))
-                continue;
-            String groupId = str(group.get("id"));
-            List<Map<String, Object>> variants = castList(group.get("variants"));
-            for (Map<String, Object> variant : variants) {
-                Map<String, Object> row = new HashMap<>(variant);
-                row.put("compileGroup", groupId);
-                rows.add(row);
-            }
-        }
-        return rows;
     }
 
     private static void pruneStaleVariantDirs(Set<Path> validPaths) throws IOException {
@@ -862,9 +793,14 @@ public final class GenerateVariants {
 
     private static Map<String, String> readTemplates() {
         Map<String, String> out = new HashMap<>();
+        Path rootNeoModsToml = ROOT.resolve("META-INF/neoforge.mods.toml");
         for (Map.Entry<String, String> e : TEMPLATE_FILES.entrySet()) {
             Path path = TEMPLATES_DIR.resolve(e.getValue());
             try {
+                if ("neoModsToml".equals(e.getKey()) && Files.isRegularFile(rootNeoModsToml)) {
+                    out.put(e.getKey(), Files.readString(rootNeoModsToml, StandardCharsets.UTF_8));
+                    continue;
+                }
                 if (!Files.isRegularFile(path))
                     throw new IllegalStateException("Missing template file: " + path);
                 out.put(e.getKey(), Files.readString(path, StandardCharsets.UTF_8));

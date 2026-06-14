@@ -1,14 +1,18 @@
 package com.magicjinn.chronos.shell.mojmap.common;
 
 import com.magicjinn.chronos.core.BackupWorldController;
+import java.lang.reflect.Method;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
 /**
  * Minecraft 1.14-1.15: {@link MinecraftServer#saveAllChunks} + per-dimension
  * {@link ServerLevel#noSave}
- * (no {@code saveEverything} / {@code executeBlocking}), aligned with 1.14.4
- * Mojmap names.
+ * (no {@code saveEverything}). Server-thread scheduling uses reflection so one
+ * jar covers early 1.14.x ({@code postToMainThread}) and later patches
+ * ({@code executeBlocking} / {@code submit} on {@code BlockableEventLoop}).
  */
 public final class MojmapBackupWorldController implements BackupWorldController {
     private static final String SERVER_THREAD_NAME = "Server thread";
@@ -52,6 +56,93 @@ public final class MojmapBackupWorldController implements BackupWorldController 
             task.run();
             return;
         }
-        server.submit(task).join();
+        // TODO. This sucks. Remove all reflection in the future.
+        Method executeBlocking = findMethod(server.getClass(), "executeBlocking", Runnable.class);
+        if (executeBlocking != null) {
+            invokeChecked(executeBlocking, server, task);
+            return;
+        }
+        Method submit = findMethod(server.getClass(), "submit", Runnable.class);
+        if (submit != null) {
+            Object future = invokeChecked(submit, server, task);
+            if (future instanceof CompletableFuture) {
+                ((CompletableFuture<?>) future).join();
+            }
+            return;
+        }
+        runOnServerThreadAsync(server, task);
+    }
+
+    private static void runOnServerThreadAsync(MinecraftServer server, Runnable task) {
+        Method schedule = firstMethod(
+                server.getClass(),
+                new String[] { "execute", "postToMainThread", "tell" },
+                Runnable.class);
+        if (schedule == null) {
+            throw new IllegalStateException(
+                    "Cannot schedule backup work on the Minecraft server thread");
+        }
+        CountDownLatch latch = new CountDownLatch(1);
+        Throwable[] failure = new Throwable[1];
+        Runnable wrapped = () -> {
+            try {
+                task.run();
+            } catch (Throwable t) {
+                failure[0] = t;
+            } finally {
+                latch.countDown();
+            }
+        };
+        invokeChecked(schedule, server, wrapped);
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        rethrow(failure[0]);
+    }
+
+    private static Method firstMethod(Class<?> type, String[] names, Class<?>... params) {
+        for (String name : names) {
+            Method method = findMethod(type, name, params);
+            if (method != null) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static Method findMethod(Class<?> type, String name, Class<?>... params) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                return current.getDeclaredMethod(name, params);
+            } catch (NoSuchMethodException ignored) {
+                // try superclass
+            }
+        }
+        return null;
+    }
+
+    private static Object invokeChecked(Method method, Object target, Object arg) {
+        try {
+            method.setAccessible(true);
+            return method.invoke(target, arg);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void rethrow(Throwable failure) {
+        if (failure == null) {
+            return;
+        }
+        if (failure instanceof RuntimeException) {
+            throw (RuntimeException) failure;
+        }
+        if (failure instanceof Error) {
+            throw (Error) failure;
+        }
+        throw new RuntimeException(failure);
     }
 }

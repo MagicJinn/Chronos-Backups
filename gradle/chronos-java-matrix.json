@@ -26,7 +26,9 @@
   "prefixRules": [{
     "minecraftVersionPrefix": "1.20.",
     "toolchainMajor": "21",
-    "compileRelease": "17"
+    "compileRelease": "17",
+    "runtimePatchMin": 5,
+    "runtimeJavaMajor": "21"
   }],
   "gradleToolchain": {
     "yearlyJavaMajor": "25",

@@ -7,7 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/** Forge 1.13 logging and chat using /tellraw. */
+/** Forge 1.13 logging and chat. */
 public final class ForgeShellMessenger implements ShellMessenger {
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
 

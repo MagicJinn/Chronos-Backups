@@ -57,6 +57,8 @@ val runTestServers by tasks.registering(JavaExec::class) {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.magicjinn.chronos.tooling.TestServers.TestServers")
     dependsOn(rootProject.tasks.named("prepareTestServers"))
+    val rawArgs = project.findProperty("chronos.testServers.args")?.toString() ?: ""
+    args = parseCliArgs(rawArgs)
 }
 
 val runSmokeTest by tasks.registering(JavaExec::class) {
