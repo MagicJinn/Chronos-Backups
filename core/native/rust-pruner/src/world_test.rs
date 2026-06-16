@@ -6,12 +6,12 @@ use crate::world_copy;
 const DEFAULT_WORLD_NAME: &str = "world";
 const DEFAULT_PRUNE_SECONDS: u64 = 120;
 
-fn worlds_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("worlds")
+fn test_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test")
 }
 
 fn resolve_world_path(world_name: &str) -> PathBuf {
-    worlds_root().join(world_name)
+    test_root().join(world_name)
 }
 
 fn remove_dir_all_quiet(path: &Path) {
@@ -24,7 +24,7 @@ struct TempSnapshot {
 
 impl TempSnapshot {
     fn new(world_name: &str) -> Self {
-        let path = worlds_root()
+        let path = test_root()
             .join(".prune-test-tmp")
             .join(format!("{world_name}-{}", std::process::id()));
         remove_dir_all_quiet(&path);
@@ -46,7 +46,7 @@ fn copy_world_snapshot(source: &Path, dest: &Path) -> Result<(), std::io::Error>
     Ok(())
 }
 
-/// Copies a gitignored test world, prunes the snapshot, prints elapsed prune time, then discards it.
+/// Copies a test world, prunes the snapshot, prints elapsed prune time, then discards it.
 pub fn run(world_name: Option<&str>) -> i32 {
     let world_name = world_name.unwrap_or(DEFAULT_WORLD_NAME);
     let source = resolve_world_path(world_name);
@@ -81,6 +81,6 @@ pub fn run(world_name: Option<&str>) -> i32 {
     }
     let elapsed = started.elapsed();
 
-    println!("prune_secs={:.6}", elapsed.as_secs_f64());
+    println!("Time to prune the world snapshot: {:.6} seconds", elapsed.as_secs_f64());
     0
 }
