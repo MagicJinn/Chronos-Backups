@@ -16,9 +16,13 @@ required-features = ["world-test"]
 
 [dependencies]
 mca = "2.1.2"
-simdnbt = "0.10.0"
+na_nbt = { version = "0.2.1", features = ["shared"], default-features = false }
 flate2 = "1"
 rayon = "1"
 walkdir = "2"
 jni = "0.21"
 rawzip = "0.4.4"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

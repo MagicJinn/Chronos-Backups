@@ -1,13 +1,14 @@
 use mca::{Compression, RegionReader, RegionWriter};
+use mca::write::{PendingData, WritableChunk};
 use rayon::prelude::*;
 use std::fmt::{Display, Formatter};
 use std::fs::{self, read};
-use std::io::Cursor;
-use std::io::{Error, ErrorKind};
+use std::io::{BufWriter, Error, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::snapshot_zip::ZipStreamSink;
+use na_nbt::{CompoundRef, ValueRef};
 
 // Worlds have a meaningfully different structure before and after 26.1 snapshot 6
 // World structure has changed over the years, but it's never been significantly different, so we could always work around it in those versions
@@ -20,6 +21,8 @@ const POI_FOLDER_NAME: &str = "poi";
 const INHABITED_TIME_TAG_NAME: &str = "InhabitedTime";
 const MIN_ANVIL_REGION_FILE_BYTES: u64 = 8192;
 const REGION_SLOT_COUNT: usize = 32 * 32;
+
+type KeptChunk = (u8, u8, Vec<u8>, Compression);
 
 pub struct DataFolder {
     pub region_directory: PathBuf,
@@ -65,7 +68,7 @@ pub fn prune_world(
         if worker_threads == 1 { "" } else { "s" }
     );
 
-    let mut region_jobs: Vec<(PathBuf, PathBuf, PathBuf)> = Vec::new();
+    let mut region_jobs: Vec<(PathBuf, Arc<Path>, Arc<Path>)> = Vec::new();
 
     // Build a job list once, then process each region file in parallel.
     for data_folder in data_folders {
@@ -76,6 +79,8 @@ pub fn prune_world(
             );
             continue;
         }
+        let entities_dir: Arc<Path> = data_folder.entities_directory.into();
+        let poi_dir: Arc<Path> = data_folder.poi_directory.into();
         let region_files = data_folder.region_directory.read_dir()?;
         for region_file in region_files {
             let region_file = match region_file {
@@ -108,8 +113,8 @@ pub fn prune_world(
 
             region_jobs.push((
                 region_path,
-                data_folder.entities_directory.clone(),
-                data_folder.poi_directory.clone(),
+                Arc::clone(&entities_dir),
+                Arc::clone(&poi_dir),
             ));
         }
     }
@@ -130,8 +135,8 @@ pub fn prune_world(
             .map(|(region_path, entities_dir, poi_dir)| {
                 process_region_file(
                     region_path.as_path(),
-                    entities_dir.as_path(),
-                    poi_dir.as_path(),
+                    entities_dir.as_ref(),
+                    poi_dir.as_ref(),
                     inhabited_time_ticks_required,
                     zip_sink.as_ref(),
                 )
@@ -197,10 +202,13 @@ fn process_region_file(
     // to avoid HashSet hashing/allocation overhead.
     let mut slots_to_clear = [false; REGION_SLOT_COUNT];
     let mut pruned_in_region: usize = 0;
+    let mut kept_chunks: Vec<KeptChunk> = Vec::with_capacity(generated.len());
 
+    // Single pass: decide prune vs keep while chunk payload is still hot in cache.
     for &(x, z) in &generated {
-        let maybe_chunk = match region_reader.chunk(x, z) {
-            Ok(chunk) => chunk,
+        let compressed = match region_reader.chunk_data(x, z) {
+            Ok(Some(chunk)) => chunk,
+            Ok(None) => continue,
             Err(err) => {
                 eprintln!(
                     "Warning: failed to read chunk ({}, {}) in {}, skipping chunk: {}",
@@ -213,15 +221,29 @@ fn process_region_file(
             }
         };
 
-        let Some(chunk_data) = maybe_chunk else {
-            continue;
+        let payload = compressed.data.as_ref().to_vec();
+        let compression = compressed.compression.clone();
+        let decompressed = match region_reader.decompress_to_internal_buffer(compressed) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                eprintln!(
+                    "Warning: failed to decompress chunk ({}, {}) in {}, skipping chunk: {}",
+                    x,
+                    z,
+                    region_path.display(),
+                    err
+                );
+                continue;
+            }
         };
 
-        let inhabited_time = read_inhabited_time_ticks(chunk_data);
+        let inhabited_time = read_inhabited_time_ticks(decompressed);
         if inhabited_time < inhabited_time_ticks_required {
             if mark_slot(&mut slots_to_clear, x, z) {
                 pruned_in_region += 1;
             }
+        } else {
+            kept_chunks.push((x, z, payload, compression));
         }
     }
 
@@ -229,40 +251,26 @@ fn process_region_file(
         return Ok(0);
     }
 
-    let mut kept_chunks: Vec<(u8, u8, Vec<u8>)> = Vec::new();
-    for &(x, z) in &generated {
-        if is_slot_marked(&slots_to_clear, x, z) {
-            continue;
-        }
-        match region_reader.chunk(x, z) {
-            Ok(Some(chunk)) => kept_chunks.push((x, z, chunk.to_vec())),
-            Ok(None) => {}
-            Err(err) => {
-                eprintln!(
-                    "Warning: failed to re-read kept chunk ({}, {}) in {}: {}",
-                    x,
-                    z,
-                    region_path.display(),
-                    err
-                );
-            }
-        }
-    }
-
     write_mca_or_delete(region_path, kept_chunks, zip_sink)?;
 
     if let Some(region_file_name) = region_path.file_name() {
-        clear_matching_slots_in_sibling_mca(
-            entities_dir,
-            region_file_name,
-            &slots_to_clear,
-            zip_sink,
-        );
-        clear_matching_slots_in_sibling_mca(
-            poi_dir,
-            region_file_name,
-            &slots_to_clear,
-            zip_sink,
+        rayon::join(
+            || {
+                clear_matching_slots_in_sibling_mca(
+                    entities_dir,
+                    region_file_name,
+                    &slots_to_clear,
+                    zip_sink,
+                );
+            },
+            || {
+                clear_matching_slots_in_sibling_mca(
+                    poi_dir,
+                    region_file_name,
+                    &slots_to_clear,
+                    zip_sink,
+                );
+            },
         );
     }
 
@@ -313,7 +321,7 @@ fn clear_matching_slots_in_sibling_mca(
         }
     };
 
-    let mut reader = match RegionReader::new(&file) {
+    let reader = match RegionReader::new(&file) {
         Ok(reader) => reader,
         Err(_) => {
             return;
@@ -339,17 +347,24 @@ fn clear_matching_slots_in_sibling_mca(
         return;
     }
 
-    let mut kept_chunks: Vec<(u8, u8, Vec<u8>)> = Vec::new();
+    let mut kept_chunks: Vec<KeptChunk> = Vec::with_capacity(generated.len());
     for &(x, z) in &generated {
         if is_slot_marked(slots_to_clear, x, z) {
             continue;
         }
 
-        match reader.chunk(x, z) {
-            Ok(Some(chunk)) => kept_chunks.push((x, z, chunk.to_vec())),
-            Ok(None) => {}
-            Err(_) => {}
-        }
+        let compressed = match reader.chunk_data(x, z) {
+            Ok(Some(chunk)) => chunk,
+            Ok(None) => continue,
+            Err(_) => continue,
+        };
+
+        kept_chunks.push((
+            x,
+            z,
+            compressed.data.as_ref().to_vec(),
+            compressed.compression.clone(),
+        ));
     }
 
     let _ = write_mca_or_delete(&path, kept_chunks, zip_sink);
@@ -371,7 +386,7 @@ fn has_minimum_anvil_header(path: &Path) -> bool {
 
 fn write_mca_or_delete(
     path: &Path,
-    chunks: Vec<(u8, u8, Vec<u8>)>,
+    chunks: Vec<KeptChunk>,
     zip_sink: Option<&Arc<ZipStreamSink>>,
 ) -> Result<(), std::io::Error> {
     if chunks.is_empty() {
@@ -384,10 +399,14 @@ fn write_mca_or_delete(
     }
 
     let mut writer = RegionWriter::new();
-    for (x, z, data) in chunks {
-        writer
-            .set_chunk(x, z, data, Compression::default())
-            .map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))?;
+    for (x, z, data, compression) in chunks {
+        *writer.chunk_mut(x, z).map_err(|e| {
+            Error::new(ErrorKind::InvalidData, e.to_string())
+        })? = Some(WritableChunk {
+            data: PendingData::new_compressed(data, compression),
+            chunk: (x, z),
+            timestamp: None,
+        });
     }
 
     if let Some(sink) = zip_sink {
@@ -404,10 +423,11 @@ fn write_mca_or_delete(
         return Ok(());
     }
 
-    let mut out = fs::File::create(path)?;
+    let mut out = BufWriter::new(fs::File::create(path)?);
     writer
         .write(&mut out)
         .map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))?;
+    out.flush()?;
     Ok(())
 }
 
@@ -429,26 +449,26 @@ fn is_slot_marked(slots: &[bool; REGION_SLOT_COUNT], x: u8, z: u8) -> bool {
 
 /// Cumulative player time in ticks.
 /// Older chunks store this under `Level`, 1.18+ stores it on the chunk root.
+/// Always check `Level` first: worlds upgraded past 1.18 can still contain
+/// unmigrated region chunks whose `InhabitedTime` only exists under `Level`.
 fn read_inhabited_time_ticks(chunk_nbt: &[u8]) -> u64 {
-    let mut cursor = Cursor::new(chunk_nbt);
-    let root = match simdnbt::borrow::read(&mut cursor) {
-        Ok(simdnbt::borrow::Nbt::Some(root)) => root,
-        Ok(simdnbt::borrow::Nbt::None) => return 0,
+    let doc = match na_nbt::read_borrowed::<na_nbt::BE>(chunk_nbt) {
+        Ok(doc) => doc,
         Err(_) => return 0,
     };
+    let root = doc.root();
 
-    if let Some(level) = root.compound("Level") {
-        if let Some(inhabited_time) = level.long(INHABITED_TIME_TAG_NAME) {
+    if let Some(level) = root.get_::<na_nbt::tag::Compound>("Level") {
+        if let Some(inhabited_time) = level.get_::<na_nbt::tag::Long>(INHABITED_TIME_TAG_NAME) {
             return inhabited_time.max(0) as u64;
         }
     }
 
-    // 1.18+
-    if let Some(inhabited_time) = root.long(INHABITED_TIME_TAG_NAME) {
+    if let Some(inhabited_time) = root.get_::<na_nbt::tag::Long>(INHABITED_TIME_TAG_NAME) {
         return inhabited_time.max(0) as u64;
     }
 
-    return 0;
+    0
 }
 
 fn get_data_folders(

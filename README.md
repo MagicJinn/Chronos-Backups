@@ -99,7 +99,7 @@ rustup toolchain install nightly
 
 ### Rust native library
 
-Chronos Backups bundles a custom built native Rust pruning library, which in turn makes use of [mca](https://github.com/VilleOlof/mca) and [simdnbt](https://github.com/azalea-rs/simdnbt) for maximum performance. This is automatically built and bundled with the mod during normal Gradle builds, or can be built manually through `buildRust` for verification. By default, due to platform constraints, local development builds compile and stage only the current host OS/arch native target. In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced jars include all supported native platforms. This means that local builds:
+Chronos Backups bundles a custom built native Rust pruning library, which in turn makes use of [mca](https://github.com/VilleOlof/mca) and [na_nbt](https://docs.rs/na_nbt) for maximum performance. This is automatically built and bundled with the mod during normal Gradle builds, or can be built manually through `buildRust` for verification. By default, due to platform constraints, local development builds compile and stage only the current host OS/arch native target. In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so the produced jars include all supported native platforms. This means that local builds:
 
 - are intended for development on the current machine only, and should not be released through release channels, or even shared with other developers or users (to avoid confusion).
 - cannot be used on a non-native platform unless you add extra targets or use merged CI artifacts.

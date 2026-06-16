@@ -1,6 +1,6 @@
 //! Rust implementation of the Chronos backup utility.
 //! Smart stuff we do here:
-//! Use mca and simdnbt for maximum performance
+//! Use mca and na_nbt for maximum performance
 //! Copy files in parallel using rayon
 //! Zip the snapshot using rawzip, and instead of writing back to disk (cache) we stream the pruned files directly into the zip
 
@@ -11,7 +11,8 @@ mod world_copy;
 #[cfg(feature = "world-test")]
 mod world_test;
 
-use std::io::{Cursor, ErrorKind, Read};
+use na_nbt::ValueRef;
+use std::io::{ErrorKind, Read};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -67,17 +68,17 @@ fn get_data_version(world_folder: PathBuf) -> u32 {
         return 0;
     }
 
-    let nbt = match simdnbt::borrow::read(&mut Cursor::new(decompressed.as_slice())) {
-        Ok(nbt) => nbt,
+    let doc = match na_nbt::read_borrowed::<na_nbt::BE>(&decompressed) {
+        Ok(doc) => doc,
         Err(e) => {
             eprintln!("Error: failed to read level.dat: {e}");
             return 0;
         }
     };
 
-    nbt.unwrap()
-        .compound("Data")
-        .and_then(|data| data.int("DataVersion"))
+    doc.root()
+        .get("Data")
+        .and_then(|data| data.get_::<na_nbt::tag::Int>("DataVersion"))
         .unwrap_or(0) as u32
 }
 
