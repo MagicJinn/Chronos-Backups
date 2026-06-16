@@ -119,6 +119,15 @@ In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runner
 > [!Note]
 > Rust builds are only produced for 64-bit systems. 32-bit architectures are not supported.
 
+To benchmark pruning locally, place a world at `core/native/rust-pruner/test/world/` (gitignored) and run:
+
+```bash
+cd core/native/rust-pruner
+cargo +nightly run --release --features world-test --bin prune-world-test
+```
+
+It copies the world, prunes the snapshot, prints the results, and discards the backup.
+
 ### Project structure
 
 The project is organized as a small, version-agnostic **core** (scheduler + backup runner) plus loader/version-specific **shells**, with one central place to edit mod metadata.
