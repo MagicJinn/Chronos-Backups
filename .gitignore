@@ -26,3 +26,4 @@ variants/
 # Other
 /core/native/rust-pruner/target
 /core/native/rust-pruner/.cargo/config.toml
+/core/native/rust-pruner/worlds/

@@ -6,6 +6,14 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+world-test = []
+
+[[bin]]
+name = "prune-world-test"
+path = "src/bin/prune_world_test.rs"
+required-features = ["world-test"]
+
 [dependencies]
 mca = "2.1.2"
 simdnbt = "0.10.0"

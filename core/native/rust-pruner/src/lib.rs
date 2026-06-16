@@ -8,6 +8,9 @@ mod pruner;
 mod snapshot_zip;
 mod world_copy;
 
+#[cfg(feature = "world-test")]
+mod world_test;
+
 use std::io::{Cursor, ErrorKind, Read};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -18,6 +21,11 @@ use jni::objects::{JClass, JIntArray, JObjectArray, JStaticMethodID, JString};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jint, jintArray, jobjectArray, jstring};
 use jni::JNIEnv;
+
+#[cfg(feature = "world-test")]
+pub fn run_prune_world_test(world_name: Option<&str>) -> i32 {
+    world_test::run(world_name)
+}
 
 pub fn prune_world_folder(
     world_folder: PathBuf,
