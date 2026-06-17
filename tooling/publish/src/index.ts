@@ -9,6 +9,7 @@ import {
   lookupJarTarget,
 } from "./compile-groups-index.js";
 import { createModrinthVersion, resolveModrinthProjectId } from "./modrinth.js";
+import { ModrinthGameVersionResolver } from "./modrinth-versions.js";
 import { artifactVersionNumber, parseJarFileName } from "./parse-jar.js";
 
 export interface PublishConfig {
@@ -112,6 +113,15 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
         config.modrinthToken,
         config.dryRun,
       );
+  const modrinthVersionResolver = config.skipModrinth ? null : new ModrinthGameVersionResolver();
+  if (modrinthVersionResolver && !config.dryRun) {
+    await modrinthVersionResolver.load();
+  }
+  const curseforgeResolver =
+    config.skipCurseforge || config.dryRun ? null : new CurseForgeVersionResolver(config.curseforgeToken ?? "");
+  if (curseforgeResolver) {
+    await curseforgeResolver.load();
+  }
 
   const jarNames = await listJarFiles(config.jarsDir);
   if (jarNames.length === 0) {
@@ -132,20 +142,28 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       const target = lookupJarTarget(index, parsed.mcTarget, parsed.loader);
       const filePath = path.join(config.jarsDir, fileName);
       const versionNumber = artifactVersionNumber(parsed);
+      const modrinthGameVersions =
+        config.dryRun || !modrinthVersionResolver
+          ? target.gameVersions
+          : modrinthVersionResolver.resolve(target.gameVersions);
+      const modrinthVersionsDiffer =
+        modrinthGameVersions.length !== target.gameVersions.length ||
+        modrinthGameVersions.some((version, index) => version !== target.gameVersions[index]);
 
       console.log(
         `\n→ ${fileName}\n  loader=${parsed.loader} mc=${parsed.mcTarget} mod=${parsed.modVersion} ` +
-          `versions=[${target.gameVersions.join(", ")}]`,
+          `versions=[${target.gameVersions.join(", ")}]` +
+          (modrinthVersionsDiffer ? ` modrinth=[${modrinthGameVersions.join(", ")}]` : ""),
       );
 
       if (!config.skipModrinth && (config.modrinthToken || config.dryRun)) {
         const result = await createModrinthVersion(config.modrinthToken ?? "", {
           projectId: modrinthProjectId,
           versionNumber,
-          name: config.title,
+          name: fileName, // Filename instead of title to unify Curseforge and Modrinth approach
           changelog: config.changelog,
           loaders: [parsed.loader],
-          gameVersions: target.gameVersions,
+          gameVersions: modrinthGameVersions,
           filePath,
           fileName,
           dryRun: config.dryRun,
@@ -154,10 +172,10 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       }
 
       if (!config.skipCurseforge && (config.curseforgeToken || config.dryRun)) {
-        const resolver = new CurseForgeVersionResolver(config.curseforgeToken ?? "");
-        const result = await uploadCurseForgeFile(config.curseforgeToken ?? "", resolver, {
+        const cfResolver = curseforgeResolver ?? new CurseForgeVersionResolver("");
+        const result = await uploadCurseForgeFile(config.curseforgeToken ?? "", cfResolver, {
           projectId: config.curseforgeProjectId,
-          displayName: config.title,
+          displayName: fileName,
           changelog: config.changelog,
           loader: parsed.loader,
           gameVersions: target.gameVersions,

@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "npm run build && node --test dist/parse-jar.test.js",
+    "test": "npm run build && node --test dist/*.test.js",
     "publish-release": "npm run build && npm run start"
   },
   "engines": {
