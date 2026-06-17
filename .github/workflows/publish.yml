@@ -1,0 +1,49 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    if: ${{ !github.event.release.draft && !github.event.release.prerelease && !startsWith(github.event.release.tag_name, 'nightly') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tooling/publish/package-lock.json
+
+      - name: Download release jars
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: ${{ github.repository }}
+          tag: ${{ github.event.release.tag_name }}
+          fileName: "*.jar"
+          out-file-path: release-jars
+
+      - name: Install publish dependencies
+        working-directory: tooling/publish
+        run: npm ci
+
+      - name: Build publish script
+        working-directory: tooling/publish
+        run: npm run build
+
+      - name: Publish to Modrinth and CurseForge
+        working-directory: tooling/publish
+        env:
+          CHRONOS_REPO_ROOT: ${{ github.workspace }}
+          CHRONOS_JARS_DIR: ${{ github.workspace }}/release-jars
+          RELEASE_TITLE: ${{ github.event.release.name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          MODRINTH_PROJECT: chronos-backups
+          CURSEFORGE_PROJECT_ID: "1535678"
+        run: npm start

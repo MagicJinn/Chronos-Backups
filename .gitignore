@@ -23,6 +23,11 @@ variants/
 /core/bin
 /tooling/bin
 
+# Node (publish tooling)
+tooling/publish/node_modules/
+tooling/publish/dist/
+/release-jars-test/
+
 # Other
 /core/native/rust-pruner/target
 /core/native/rust-pruner/.cargo/config.toml
