@@ -133,6 +133,22 @@ export class CurseForgeVersionResolver {
     }
 
     const loaders = preferVersionCandidates(loaderCandidates);
+    const primaryLoader = loaders[0];
+    if (primaryLoader === undefined) {
+      throw new Error(
+        `CurseForge loader id not found for "${loader}". ` +
+          "Ensure CurseForge lists this mod loader slug in /api/game/versions.",
+      );
+    }
+
+    const primaryMcId = (list: VersionCandidate[]): number => {
+      const primary = list[0];
+      if (primary === undefined) {
+        throw new Error("CurseForge resolved an empty game version candidate list.");
+      }
+      return primary.id;
+    };
+
     const combinations: number[][] = [];
     const seen = new Set<string>();
 
@@ -147,18 +163,25 @@ export class CurseForgeVersionResolver {
 
     for (const loaderCandidate of loaders) {
       addCombination(
-        mcLists.map((list) => list[0].id),
+        mcLists.map((list) => primaryMcId(list)),
         loaderCandidate.id,
       );
     }
 
     for (let mcIndex = 0; mcIndex < mcLists.length; mcIndex++) {
       const alternatives = mcLists[mcIndex];
+      if (alternatives === undefined) {
+        continue;
+      }
       for (let altIndex = 1; altIndex < alternatives.length; altIndex++) {
+        const alternative = alternatives[altIndex];
+        if (alternative === undefined) {
+          continue;
+        }
         const mcIds = mcLists.map((list, index) =>
-          index === mcIndex ? alternatives[altIndex].id : list[0].id,
+          index === mcIndex ? alternative.id : primaryMcId(list),
         );
-        addCombination(mcIds, loaders[0].id);
+        addCombination(mcIds, primaryLoader.id);
       }
     }
 
