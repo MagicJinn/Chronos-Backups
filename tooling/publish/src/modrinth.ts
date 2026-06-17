@@ -1,23 +1,17 @@
 import { openAsBlob } from "node:fs";
 
 const MODRINTH_API = "https://api.modrinth.com/v2";
+const MODRINTH_V3_API = "https://api.modrinth.com/v3";
 const USER_AGENT = "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)";
 
 /** Modrinth project ids are 8-character base62 strings (no hyphens). */
 const MODRINTH_PROJECT_ID_PATTERN = /^[0-9A-Za-z]{8}$/;
 
-export type ModrinthSideSupport = "required" | "optional" | "unsupported" | "unknown";
-
-export interface ModrinthProjectEnvironment {
-  client_side: ModrinthSideSupport;
-  server_side: ModrinthSideSupport;
-}
-
-/** Required on dedicated servers and singleplayer integrated servers, not on clients. */
-export const CHRONOS_MODRINTH_ENVIRONMENT: ModrinthProjectEnvironment = {
-  client_side: "unsupported",
-  server_side: "required",
-};
+/**
+ * Server-side only, including singleplayer integrated servers.
+ * Maps to Modrinth UI: "Server-side only" + "Works in singleplayer too".
+ */
+export const CHRONOS_MODRINTH_ENVIRONMENT = "server_only" as const;
 
 export interface ModrinthVersionRequest {
   projectId: string;
@@ -53,35 +47,20 @@ function modrinthHeaders(token?: string): Record<string, string> {
   return headers;
 }
 
-async function fetchModrinthProjectEnvironment(
-  projectId: string,
-): Promise<ModrinthProjectEnvironment | null> {
-  const response = await fetch(`${MODRINTH_API}/project/${projectId}`, {
+async function fetchModrinthProjectEnvironment(projectId: string): Promise<string[] | null> {
+  const response = await fetch(`${MODRINTH_V3_API}/project/${projectId}`, {
     headers: { "User-Agent": USER_AGENT },
   });
   if (!response.ok) {
     return null;
   }
 
-  const project = (await response.json()) as {
-    client_side?: ModrinthSideSupport;
-    server_side?: ModrinthSideSupport;
-  };
-  if (!project.client_side || !project.server_side) {
-    return null;
-  }
-
-  return {
-    client_side: project.client_side,
-    server_side: project.server_side,
-  };
+  const project = (await response.json()) as { environment?: string[] };
+  return project.environment ?? null;
 }
 
-function environmentsMatch(
-  current: ModrinthProjectEnvironment,
-  desired: ModrinthProjectEnvironment,
-): boolean {
-  return current.client_side === desired.client_side && current.server_side === desired.server_side;
+function projectEnvironmentMatches(current: string[] | null, desired: string): boolean {
+  return current?.length === 1 && current[0] === desired;
 }
 
 async function verifyModrinthToken(token: string): Promise<boolean> {
@@ -100,10 +79,10 @@ function modrinthEnvironmentAuthHelp(status: number, tokenValid: boolean): strin
   }
 
   return (
-    `Modrinth returned ${status} for PATCH /project. Version uploads only need VERSION_CREATE; ` +
-    "setting client_side/server_side needs PROJECT_WRITE (\"Write projects\"). " +
+    `Modrinth returned ${status} for PATCH /v3/project. Version uploads only need VERSION_CREATE; ` +
+    "setting project environment needs PROJECT_WRITE (\"Write projects\"). " +
     "Regenerate the token with Write projects enabled, update MODRINTH_TOKEN, or set " +
-    "client_side=unsupported and server_side=required once in Modrinth project settings."
+    `environment to ${CHRONOS_MODRINTH_ENVIRONMENT} once in Modrinth project settings.`
   );
 }
 
@@ -137,35 +116,31 @@ export async function resolveModrinthProjectId(
 export async function ensureModrinthProjectEnvironment(
   token: string,
   projectId: string,
-  environment: ModrinthProjectEnvironment,
+  environment: string = CHRONOS_MODRINTH_ENVIRONMENT,
   dryRun = false,
 ): Promise<boolean> {
   if (dryRun) {
-    console.log("[dry-run] Modrinth project environment:", JSON.stringify(environment));
+    console.log("[dry-run] Modrinth project environment:", JSON.stringify([environment]));
     return true;
   }
 
   const current = await fetchModrinthProjectEnvironment(projectId);
-  if (current && environmentsMatch(current, environment)) {
-    console.log(
-      `Modrinth project environment already set (client_side=${current.client_side}, server_side=${current.server_side}).`,
-    );
+  if (projectEnvironmentMatches(current, environment)) {
+    console.log(`Modrinth project environment already set (${environment}).`);
     return true;
   }
 
-  const response = await fetch(`${MODRINTH_API}/project/${projectId}`, {
+  const response = await fetch(`${MODRINTH_V3_API}/project/${projectId}`, {
     method: "PATCH",
     headers: {
       ...modrinthHeaders(token),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(environment),
+    body: JSON.stringify({ environment: [environment] }),
   });
 
   if (response.ok) {
-    console.log(
-      `Modrinth project environment updated (client_side=${environment.client_side}, server_side=${environment.server_side}).`,
-    );
+    console.log(`Modrinth project environment updated (${environment}).`);
     return true;
   }
 
@@ -192,6 +167,7 @@ export async function createModrinthVersion(
     version_type: "release",
     loaders: request.loaders,
     game_versions: request.gameVersions,
+    environment: CHRONOS_MODRINTH_ENVIRONMENT,
     featured: false,
     dependencies: [],
     file_parts: [filePart],
@@ -207,7 +183,7 @@ export async function createModrinthVersion(
   form.append("data", JSON.stringify(metadata));
   form.append(filePart, await openAsBlob(request.filePath), request.fileName);
 
-  const response = await fetch(`${MODRINTH_API}/version`, {
+  const response = await fetch(`${MODRINTH_V3_API}/version`, {
     method: "POST",
     headers: modrinthHeaders(token),
     body: form,
