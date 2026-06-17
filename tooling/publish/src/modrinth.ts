@@ -31,12 +31,80 @@ export interface ModrinthVersionRequest {
   dryRun: boolean;
 }
 
+function normalizeModrinthToken(token: string): string {
+  let value = token.trim();
+  if (value.toLowerCase().startsWith("authorization:")) {
+    value = value.slice("authorization:".length).trim();
+  }
+  if (value.toLowerCase().startsWith("bearer ")) {
+    value = value.slice("bearer ".length).trim();
+  }
+  return value;
+}
+
 function modrinthHeaders(token?: string): Record<string, string> {
   const headers: Record<string, string> = { "User-Agent": USER_AGENT };
   if (token) {
-    headers.Authorization = token;
+    const normalized = normalizeModrinthToken(token);
+    if (normalized) {
+      headers.Authorization = normalized;
+    }
   }
   return headers;
+}
+
+async function fetchModrinthProjectEnvironment(
+  projectId: string,
+): Promise<ModrinthProjectEnvironment | null> {
+  const response = await fetch(`${MODRINTH_API}/project/${projectId}`, {
+    headers: { "User-Agent": USER_AGENT },
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const project = (await response.json()) as {
+    client_side?: ModrinthSideSupport;
+    server_side?: ModrinthSideSupport;
+  };
+  if (!project.client_side || !project.server_side) {
+    return null;
+  }
+
+  return {
+    client_side: project.client_side,
+    server_side: project.server_side,
+  };
+}
+
+function environmentsMatch(
+  current: ModrinthProjectEnvironment,
+  desired: ModrinthProjectEnvironment,
+): boolean {
+  return current.client_side === desired.client_side && current.server_side === desired.server_side;
+}
+
+async function verifyModrinthToken(token: string): Promise<boolean> {
+  const response = await fetch(`${MODRINTH_API}/user`, {
+    headers: modrinthHeaders(token),
+  });
+  return response.ok;
+}
+
+function modrinthEnvironmentAuthHelp(status: number, tokenValid: boolean): string {
+  if (!tokenValid) {
+    return (
+      "MODRINTH_TOKEN is missing or invalid (Modrinth /user check failed). " +
+      "Copy the token value only (mrp_..., no Bearer prefix) into GitHub secrets."
+    );
+  }
+
+  return (
+    `Modrinth returned ${status} for PATCH /project. Version uploads only need VERSION_CREATE; ` +
+    "setting client_side/server_side needs PROJECT_WRITE (\"Write projects\"). " +
+    "Regenerate the token with Write projects enabled, update MODRINTH_TOKEN, or set " +
+    "client_side=unsupported and server_side=required once in Modrinth project settings."
+  );
 }
 
 /** Version create expects a base62 project id, not a slug. */
@@ -71,10 +139,18 @@ export async function ensureModrinthProjectEnvironment(
   projectId: string,
   environment: ModrinthProjectEnvironment,
   dryRun = false,
-): Promise<void> {
+): Promise<boolean> {
   if (dryRun) {
     console.log("[dry-run] Modrinth project environment:", JSON.stringify(environment));
-    return;
+    return true;
+  }
+
+  const current = await fetchModrinthProjectEnvironment(projectId);
+  if (current && environmentsMatch(current, environment)) {
+    console.log(
+      `Modrinth project environment already set (client_side=${current.client_side}, server_side=${current.server_side}).`,
+    );
+    return true;
   }
 
   const response = await fetch(`${MODRINTH_API}/project/${projectId}`, {
@@ -86,10 +162,20 @@ export async function ensureModrinthProjectEnvironment(
     body: JSON.stringify(environment),
   });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Modrinth project environment update failed (${response.status}): ${body}`);
+  if (response.ok) {
+    console.log(
+      `Modrinth project environment updated (client_side=${environment.client_side}, server_side=${environment.server_side}).`,
+    );
+    return true;
   }
+
+  const body = await response.text();
+  const tokenValid = await verifyModrinthToken(token);
+  console.warn(
+    `WARN: Modrinth project environment update failed (${response.status}): ${body}\n` +
+      `${modrinthEnvironmentAuthHelp(response.status, tokenValid)}`,
+  );
+  return false;
 }
 
 export async function createModrinthVersion(
