@@ -1,6 +1,10 @@
 import { openAsBlob } from "node:fs";
 
 const MODRINTH_API = "https://api.modrinth.com/v2";
+const USER_AGENT = "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)";
+
+/** Modrinth project ids are 8-character base62 strings (no hyphens). */
+const MODRINTH_PROJECT_ID_PATTERN = /^[0-9A-Za-z]{8}$/;
 
 export interface ModrinthVersionRequest {
   projectId: string;
@@ -12,6 +16,41 @@ export interface ModrinthVersionRequest {
   filePath: string;
   fileName: string;
   dryRun: boolean;
+}
+
+function modrinthHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = { "User-Agent": USER_AGENT };
+  if (token) {
+    headers.Authorization = token;
+  }
+  return headers;
+}
+
+/** Version create expects a base62 project id, not a slug. */
+export async function resolveModrinthProjectId(
+  slugOrId: string,
+  token?: string,
+  dryRun = false,
+): Promise<string> {
+  if (MODRINTH_PROJECT_ID_PATTERN.test(slugOrId)) {
+    return slugOrId;
+  }
+
+  if (dryRun) {
+    return "dryrunid";
+  }
+
+  const response = await fetch(`${MODRINTH_API}/project/${encodeURIComponent(slugOrId)}`, {
+    headers: modrinthHeaders(token),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Failed to resolve Modrinth project "${slugOrId}" (${response.status}): ${body}`);
+  }
+
+  const project = (await response.json()) as { id: string };
+  return project.id;
 }
 
 export async function createModrinthVersion(
@@ -45,10 +84,7 @@ export async function createModrinthVersion(
 
   const response = await fetch(`${MODRINTH_API}/version`, {
     method: "POST",
-    headers: {
-      Authorization: token,
-      "User-Agent": "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)",
-    },
+    headers: modrinthHeaders(token),
     body: form,
   });
 

@@ -106,14 +106,15 @@ export function parseJarFileName(
   };
 }
 
-/** Unique Modrinth/CurseForge version id per artifact (Modrinth max 32 chars). */
+/** Unique Modrinth version number per artifact (max 32 chars, URL-safe). */
 export function artifactVersionNumber(parsed: ParsedJar): string {
-  const raw = `${parsed.modVersion}+${parsed.mcTarget}-${parsed.loader}`;
+  const mcTarget = parsed.mcTarget.replace(/-/g, "_");
+  const raw = `${parsed.modVersion}+${mcTarget}+${parsed.loader}`;
   if (raw.length <= 32) {
     return raw;
   }
-  for (let loaderChars = 4; loaderChars >= 1; loaderChars--) {
-    const trimmed = `${parsed.modVersion}+${parsed.mcTarget}-${parsed.loader.slice(0, loaderChars)}`;
+  for (let loaderChars = parsed.loader.length; loaderChars >= 1; loaderChars--) {
+    const trimmed = `${parsed.modVersion}+${mcTarget}+${parsed.loader.slice(0, loaderChars)}`;
     if (trimmed.length <= 32) {
       return trimmed;
     }

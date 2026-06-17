@@ -8,7 +8,7 @@ import {
   loadJarTargetIndex,
   lookupJarTarget,
 } from "./compile-groups-index.js";
-import { createModrinthVersion } from "./modrinth.js";
+import { createModrinthVersion, resolveModrinthProjectId } from "./modrinth.js";
 import { artifactVersionNumber, parseJarFileName } from "./parse-jar.js";
 
 export interface PublishConfig {
@@ -105,6 +105,13 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
   const compileGroupsPath = defaultCompileGroupsPath(config.repoRoot);
   const index = await loadJarTargetIndex(compileGroupsPath);
   const knownLoaders = knownLoadersFromIndex(index);
+  const modrinthProjectId = config.skipModrinth
+    ? config.modrinthProjectId
+    : await resolveModrinthProjectId(
+        config.modrinthProjectId,
+        config.modrinthToken,
+        config.dryRun,
+      );
 
   const jarNames = await listJarFiles(config.jarsDir);
   if (jarNames.length === 0) {
@@ -133,7 +140,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
 
       if (!config.skipModrinth && (config.modrinthToken || config.dryRun)) {
         const result = await createModrinthVersion(config.modrinthToken ?? "", {
-          projectId: config.modrinthProjectId,
+          projectId: modrinthProjectId,
           versionNumber,
           name: config.title,
           changelog: config.changelog,
