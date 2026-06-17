@@ -95,7 +95,7 @@ Chronos Backups is dedicated to making the development of this mod as easy as po
 rustup toolchain install nightly
 ```
 
-- Install **Docker** to run most tests. Install docker in accordance with your operating system.
+- Install **Docker** to run most tests. Follow your operating system specific installation instructions, ensuring the `docker` command is available in your environment.
 
 ### Rust native library
 
@@ -110,11 +110,7 @@ Chronos Backups bundles a custom built native Rust pruning library, which in tur
 ./gradlew testServers
 ```
 
-`linux-x86_64` natives are always built that way (including on Linux CI) so they load on older server distros. Pass `-Pchronos.rust.linuxViaDocker=false` to force a host `cargo` build instead.
-
-If you previously built jars on Windows without `testServers` / `prepareTestServers`, stale outputs may lack `linux-x86_64` natives. Run `./gradlew clean testServers` once after pulling native-Docker changes. You can verify a jar with `jar tf build/libs/chronosbackups-*-forge.jar | findstr natives/linux`.
-
-In GitHub Actions, Chronos builds rust-pruner on Linux, Windows and macOS runners, then merges those artifacts before `buildAll`, so release jars include every host-built platform that was merged.
+`linux-x86_64` natives are always built that way (including on Linux CI) so they load on older server distros.
 
 > [!Note]
 > Rust builds are only produced for 64-bit systems. 32-bit architectures are not supported.
@@ -130,15 +126,14 @@ It copies the world, prunes the snapshot, prints the results, and discards the b
 
 ### Project structure
 
-The project is organized as a small, version-agnostic **core** (scheduler + backup runner) plus loader/version-specific **shells**, with one central place to edit mod metadata.
+The project is organized as a small, version-agnostic **core** (scheduler + backup runner) plus loader/version-specific **shells**, with gradle.properties as the central place to edit mod metadata shared across all variants/loaders.
 
 - **Shell layer**: loader and version specific integration code that hooks into the server/runtime and registers commands, events and other hooks.
 - **Core layer**: loader-agnostic scheduling and backup execution logic reused across all targets.
 
 Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_1` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
 
-New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchains for all supported versions.
-The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running tests.
+New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchains for all supported versions. The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running tests.
 
 ### Gradle commands
 
