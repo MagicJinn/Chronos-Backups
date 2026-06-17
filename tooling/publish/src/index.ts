@@ -146,14 +146,22 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
         config.dryRun || !modrinthVersionResolver
           ? target.gameVersions
           : modrinthVersionResolver.resolve(target.gameVersions);
+      const curseforgeGameVersions =
+        config.dryRun || !curseforgeResolver
+          ? target.gameVersions
+          : curseforgeResolver.resolve(target.gameVersions);
       const modrinthVersionsDiffer =
         modrinthGameVersions.length !== target.gameVersions.length ||
         modrinthGameVersions.some((version, index) => version !== target.gameVersions[index]);
+      const curseforgeVersionsDiffer =
+        curseforgeGameVersions.length !== target.gameVersions.length ||
+        curseforgeGameVersions.some((version, index) => version !== target.gameVersions[index]);
 
       console.log(
-        `\n→ ${fileName}\n  loader=${parsed.loader} mc=${parsed.mcTarget} mod=${parsed.modVersion} ` +
+        `\n> ${fileName}\n  loader=${parsed.loader} mc=${parsed.mcTarget} mod=${parsed.modVersion} ` +
           `versions=[${target.gameVersions.join(", ")}]` +
-          (modrinthVersionsDiffer ? ` modrinth=[${modrinthGameVersions.join(", ")}]` : ""),
+          (modrinthVersionsDiffer ? ` modrinth=[${modrinthGameVersions.join(", ")}]` : "") +
+          (curseforgeVersionsDiffer ? ` curseforge=[${curseforgeGameVersions.join(", ")}]` : ""),
       );
 
       if (!config.skipModrinth && (config.modrinthToken || config.dryRun)) {
@@ -178,7 +186,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           displayName: fileName,
           changelog: config.changelog,
           loader: parsed.loader,
-          gameVersions: target.gameVersions,
+          gameVersions: curseforgeGameVersions,
           filePath,
           fileName,
           dryRun: config.dryRun,

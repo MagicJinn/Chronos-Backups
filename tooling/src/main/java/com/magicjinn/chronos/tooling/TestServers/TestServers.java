@@ -451,7 +451,7 @@ public final class TestServers {
                     false);
             if (failure != null) {
                 TestServersConsole.retry(
-                        "First attempt failed for " + server + ": " + failure + " — retrying once...");
+                        "First attempt failed for " + server + ": " + failure + " . Retrying once...");
                 try {
                     server.removeDockerContainer();
                 } catch (IOException e) {

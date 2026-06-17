@@ -3,24 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { defaultCompileGroupsPath, loadJarTargetIndex } from "./compile-groups-index.js";
-import {
-  fetchModrinthGameVersionTags,
-  resolveModrinthGameVersions,
-} from "./modrinth-versions.js";
+import { fetchModrinthGameVersionTags, resolveModrinthGameVersions } from "./modrinth-versions.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-
-test("resolveModrinthGameVersions maps .0 patches to major.minor tags", () => {
-  const tags = new Set(["9.9", "9.9.2"]);
-  const resolved = resolveModrinthGameVersions(["9.9.0", "9.9.2"], tags);
-  assert.deepEqual(resolved, ["9.9", "9.9.2"]);
-});
-
-test("resolveModrinthGameVersions drops versions with no Modrinth tag", () => {
-  const tags = new Set(["9.9.1", "9.9.10"]);
-  const resolved = resolveModrinthGameVersions(["9.9.0", "9.9.1", "9.9.10"], tags);
-  assert.deepEqual(resolved, ["9.9.1", "9.9.10"]);
-});
 
 test("resolveModrinthGameVersions throws when nothing resolves", () => {
   const tags = new Set(["1.0"]);

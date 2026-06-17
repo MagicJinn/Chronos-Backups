@@ -20,7 +20,7 @@ Shared sources under `src/main/java/com/magicjinn/chronos/shell/fabric/`:
 
 Version-specific Fabric slices (lifecycle and command APIs differ by line):
 
-- `v1_14-v1_18/src/main/java/com/magicjinn/chronos/shell/fabric/` — lifecycle v0 + command API v1
-- `v1_19-v1_20/src/main/java/com/magicjinn/chronos/shell/fabric/FabricBootstrap.java` — shared lifecycle v1 bootstrap for 1.19+
-- `v1_19/src/main/java/com/magicjinn/chronos/shell/fabric/FabricCommandRegistrar.java` — command API v2 (`sendSuccess` overload)
-- `v1_20/src/main/java/com/magicjinn/chronos/shell/fabric/FabricCommandRegistrar.java` — command API v2 (`Supplier<Component>` overload)
+- `v1_14-v1_18/src/main/java/com/magicjinn/chronos/shell/fabric/` - lifecycle v0 + command API v1
+- `v1_19-v1_20/src/main/java/com/magicjinn/chronos/shell/fabric/FabricBootstrap.java` - shared lifecycle v1 bootstrap for 1.19+
+- `v1_19/src/main/java/com/magicjinn/chronos/shell/fabric/FabricCommandRegistrar.java` - command API v2 (`sendSuccess` overload)
+- `v1_20/src/main/java/com/magicjinn/chronos/shell/fabric/FabricCommandRegistrar.java` - command API v2 (`Supplier<Component>` overload)

@@ -398,7 +398,7 @@ public final class GenerateVariants {
         return lineRange(minecraftLinePrefix(referenceMc));
     }
 
-    /** {@code 1.14.4} → {@code 1.14} for unified-line {@code mods.toml} ranges. */
+    /** {@code 1.14.4} > {@code 1.14} for unified-line {@code mods.toml} ranges. */
     private static String minecraftLinePrefix(String mc) {
         String[] p = mc.split("\\.");
         if (p.length >= 2) {

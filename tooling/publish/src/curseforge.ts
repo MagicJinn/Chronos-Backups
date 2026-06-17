@@ -1,4 +1,5 @@
 import { openAsBlob } from "node:fs";
+import { resolveSupportedGameVersions } from "./game-versions.js";
 
 const CURSEFORGE_API = "https://minecraft.curseforge.com/api";
 
@@ -75,6 +76,19 @@ function invalidDependencyId(errorBody: string): number | undefined {
   return Number.isFinite(id) ? id : undefined;
 }
 
+export function resolveCurseForgeGameVersions(
+  supportedVersions: string[],
+  validNames: ReadonlySet<string>,
+): string[] {
+  const resolved = resolveSupportedGameVersions(supportedVersions, validNames);
+  if (resolved.length === 0) {
+    throw new Error(
+      `No CurseForge game versions match: ${supportedVersions.join(", ")}`,
+    );
+  }
+  return resolved;
+}
+
 export class CurseForgeVersionResolver {
   private readonly mcVersionCandidatesByName = new Map<string, VersionCandidate[]>();
   private readonly loaderCandidatesBySlug = new Map<string, VersionCandidate[]>();
@@ -110,6 +124,16 @@ export class CurseForgeVersionResolver {
     }
 
     this.loaded = true;
+  }
+
+  resolve(supportedVersions: string[]): string[] {
+    if (!this.loaded) {
+      throw new Error("CurseForgeVersionResolver.load() must be called first");
+    }
+    return resolveCurseForgeGameVersions(
+      supportedVersions,
+      new Set(this.mcVersionCandidatesByName.keys()),
+    );
   }
 
   resolveGameVersionIdCombinations(names: string[], loader: string): number[][] {

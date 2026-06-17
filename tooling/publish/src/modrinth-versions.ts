@@ -1,3 +1,5 @@
+import { resolveSupportedGameVersions } from "./game-versions.js";
+
 const MODRINTH_API = "https://api.modrinth.com/v2";
 const USER_AGENT = "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)";
 
@@ -28,27 +30,13 @@ export function resolveModrinthGameVersions(
   supportedVersions: string[],
   validTags: ReadonlySet<string>,
 ): string[] {
-  const resolved = new Set<string>();
-
-  for (const version of supportedVersions) {
-    if (validTags.has(version)) {
-      resolved.add(version);
-      continue;
-    }
-
-    const majorMinor = /^(\d+\.\d+)\.0$/.exec(version)?.[1];
-    if (majorMinor && validTags.has(majorMinor)) {
-      resolved.add(majorMinor);
-    }
-  }
-
-  if (resolved.size === 0) {
+  const resolved = resolveSupportedGameVersions(supportedVersions, validTags);
+  if (resolved.length === 0) {
     throw new Error(
       `No Modrinth game version tags match: ${supportedVersions.join(", ")}`,
     );
   }
-
-  return [...resolved].sort();
+  return resolved;
 }
 
 export class ModrinthGameVersionResolver {
