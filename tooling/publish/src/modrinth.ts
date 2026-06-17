@@ -6,6 +6,19 @@ const USER_AGENT = "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Ba
 /** Modrinth project ids are 8-character base62 strings (no hyphens). */
 const MODRINTH_PROJECT_ID_PATTERN = /^[0-9A-Za-z]{8}$/;
 
+export type ModrinthSideSupport = "required" | "optional" | "unsupported" | "unknown";
+
+export interface ModrinthProjectEnvironment {
+  client_side: ModrinthSideSupport;
+  server_side: ModrinthSideSupport;
+}
+
+/** Required on dedicated servers and singleplayer integrated servers, not on clients. */
+export const CHRONOS_MODRINTH_ENVIRONMENT: ModrinthProjectEnvironment = {
+  client_side: "unsupported",
+  server_side: "required",
+};
+
 export interface ModrinthVersionRequest {
   projectId: string;
   versionNumber: string;
@@ -51,6 +64,32 @@ export async function resolveModrinthProjectId(
 
   const project = (await response.json()) as { id: string };
   return project.id;
+}
+
+export async function ensureModrinthProjectEnvironment(
+  token: string,
+  projectId: string,
+  environment: ModrinthProjectEnvironment,
+  dryRun = false,
+): Promise<void> {
+  if (dryRun) {
+    console.log("[dry-run] Modrinth project environment:", JSON.stringify(environment));
+    return;
+  }
+
+  const response = await fetch(`${MODRINTH_API}/project/${projectId}`, {
+    method: "PATCH",
+    headers: {
+      ...modrinthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(environment),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Modrinth project environment update failed (${response.status}): ${body}`);
+  }
 }
 
 export async function createModrinthVersion(

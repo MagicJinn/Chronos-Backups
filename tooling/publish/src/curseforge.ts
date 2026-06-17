@@ -5,6 +5,7 @@ const CURSEFORGE_API = "https://minecraft.curseforge.com/api";
 
 /** Minecraft Java release versions use names like 1.20.1, 26.1.2, etc. */
 const MINECRAFT_VERSION_NAME = /^\d+(?:\.\d+)+$/;
+const CURSEFORGE_ENVIRONMENT_NAMES = new Set(["client", "server"]);
 
 interface CurseForgeGameVersion {
   id: number;
@@ -92,6 +93,7 @@ export function resolveCurseForgeGameVersions(
 export class CurseForgeVersionResolver {
   private readonly mcVersionCandidatesByName = new Map<string, VersionCandidate[]>();
   private readonly loaderCandidatesBySlug = new Map<string, VersionCandidate[]>();
+  private readonly environmentCandidatesByName = new Map<string, VersionCandidate[]>();
   private loaded = false;
 
   constructor(private readonly token: string) {}
@@ -116,8 +118,11 @@ export class CurseForgeVersionResolver {
     const versions = (await response.json()) as CurseForgeGameVersion[];
     for (const version of versions) {
       const candidate = { id: version.id, gameVersionTypeID: version.gameVersionTypeID };
+      const nameLower = version.name.toLowerCase();
       if (MINECRAFT_VERSION_NAME.test(version.name)) {
         addCandidate(this.mcVersionCandidatesByName, version.name, candidate);
+      } else if (CURSEFORGE_ENVIRONMENT_NAMES.has(nameLower)) {
+        addCandidate(this.environmentCandidatesByName, nameLower, candidate);
       } else {
         addCandidate(this.loaderCandidatesBySlug, version.slug.toLowerCase(), candidate);
       }
@@ -137,6 +142,7 @@ export class CurseForgeVersionResolver {
   }
 
   resolveGameVersionIdCombinations(names: string[], loader: string): number[][] {
+    const serverEnvironmentId = this.resolveServerEnvironmentId();
     const mcLists = names.map((name) => {
       const candidates = this.mcVersionCandidatesByName.get(name);
       if (!candidates?.length) {
@@ -177,12 +183,12 @@ export class CurseForgeVersionResolver {
     const seen = new Set<string>();
 
     const addCombination = (mcIds: number[], loaderId: number): void => {
-      const key = [...mcIds, loaderId].join(",");
+      const key = [...mcIds, loaderId, serverEnvironmentId].join(",");
       if (seen.has(key)) {
         return;
       }
       seen.add(key);
-      combinations.push([...mcIds, loaderId]);
+      combinations.push([...mcIds, loaderId, serverEnvironmentId]);
     };
 
     for (const loaderCandidate of loaders) {
@@ -210,6 +216,22 @@ export class CurseForgeVersionResolver {
     }
 
     return combinations;
+  }
+
+  private resolveServerEnvironmentId(): number {
+    if (!this.loaded) {
+      throw new Error("CurseForgeVersionResolver.load() must be called first");
+    }
+
+    const candidates = preferVersionCandidates(this.environmentCandidatesByName.get("server") ?? []);
+    const primary = candidates[0];
+    if (primary === undefined) {
+      throw new Error(
+        'CurseForge has no "Server" environment version id. ' +
+          "Ensure /api/game/versions lists the Server environment.",
+      );
+    }
+    return primary.id;
   }
 }
 
@@ -254,6 +276,7 @@ export async function uploadCurseForgeFile(
       releaseType: "release",
       loader: request.loader,
       gameVersions: request.gameVersions,
+      environment: "Server",
     };
     console.log(`[dry-run] CurseForge ${request.fileName}:`, JSON.stringify(metadata, null, 2));
     return { id: 0 };

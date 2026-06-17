@@ -8,7 +8,7 @@ import {
   loadJarTargetIndex,
   lookupJarTarget,
 } from "./compile-groups-index.js";
-import { createModrinthVersion, resolveModrinthProjectId } from "./modrinth.js";
+import { createModrinthVersion, ensureModrinthProjectEnvironment, resolveModrinthProjectId, CHRONOS_MODRINTH_ENVIRONMENT } from "./modrinth.js";
 import { ModrinthGameVersionResolver } from "./modrinth-versions.js";
 import { artifactVersionNumber, parseJarFileName } from "./parse-jar.js";
 
@@ -113,6 +113,14 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
         config.modrinthToken,
         config.dryRun,
       );
+  if (!config.skipModrinth && (config.modrinthToken || config.dryRun)) {
+    await ensureModrinthProjectEnvironment(
+      config.modrinthToken ?? "",
+      modrinthProjectId,
+      CHRONOS_MODRINTH_ENVIRONMENT,
+      config.dryRun,
+    );
+  }
   const modrinthVersionResolver = config.skipModrinth ? null : new ModrinthGameVersionResolver();
   if (modrinthVersionResolver && !config.dryRun) {
     await modrinthVersionResolver.load();
