@@ -592,8 +592,8 @@ val collectAllJars =
     }
     for (sub in packableSubprojects) {
         from(sub.layout.buildDirectory.dir("libs")) {
-            include("*.jar")
-            exclude("*-sources.jar", "*-javadoc.jar", "*-dev.jar")
+            // Only the current mod version; stale jars from prior version bumps stay in variant build/libs.
+            include("*-$modVersion.jar")
             rename { collectedJarName(modId, modVersion, sub.name) }
         }
     }

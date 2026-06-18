@@ -129,9 +129,7 @@ gradle.buildFinished { BuildResult result ->
     Thread.sleep(delayMs)
     clearUniminedGlobalCache()
 
-    def wrapper = OperatingSystem.current().isWindows()
-        ? rootDir.resolve('gradlew.bat')
-        : rootDir.resolve('gradlew')
+    def wrapper = new File(rootDir, OperatingSystem.current().isWindows() ? 'gradlew.bat' : 'gradlew')
     if (!wrapper.isFile()) {
         println "[Chronos] Cannot retry: missing ${wrapper.absolutePath}"
         return
