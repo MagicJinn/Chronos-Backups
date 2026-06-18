@@ -1,4 +1,5 @@
 import { openAsBlob } from "node:fs";
+import { modrinthDependenciesForLoaders } from "./publish-dependencies.js";
 
 const MODRINTH_API = "https://api.modrinth.com/v2";
 const MODRINTH_V3_API = "https://api.modrinth.com/v3";
@@ -169,7 +170,7 @@ export async function createModrinthVersion(
     game_versions: request.gameVersions,
     environment: CHRONOS_MODRINTH_ENVIRONMENT,
     featured: false,
-    dependencies: [],
+    dependencies: modrinthDependenciesForLoaders(request.loaders),
     file_parts: [filePart],
     primary_file: filePart,
   };

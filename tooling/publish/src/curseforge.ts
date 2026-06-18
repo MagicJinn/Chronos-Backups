@@ -1,5 +1,6 @@
 import { openAsBlob } from "node:fs";
 import { resolveSupportedGameVersions } from "./game-versions.js";
+import { curseforgeRelationsForLoader } from "./publish-dependencies.js";
 
 const CURSEFORGE_API = "https://minecraft.curseforge.com/api";
 
@@ -268,6 +269,8 @@ export async function uploadCurseForgeFile(
   resolver: CurseForgeVersionResolver,
   request: CurseForgeVersionRequest,
 ): Promise<{ id: number }> {
+  const relations = curseforgeRelationsForLoader(request.loader);
+
   if (request.dryRun) {
     const metadata = {
       changelog: request.changelog,
@@ -277,6 +280,7 @@ export async function uploadCurseForgeFile(
       loader: request.loader,
       gameVersions: request.gameVersions,
       environment: "Server",
+      ...(relations ? { relations } : {}),
     };
     console.log(`[dry-run] CurseForge ${request.fileName}:`, JSON.stringify(metadata, null, 2));
     return { id: 0 };
@@ -294,6 +298,7 @@ export async function uploadCurseForgeFile(
       displayName: request.displayName,
       releaseType: "release",
       gameVersions: gameVersionIds,
+      ...(relations ? { relations } : {}),
     };
 
     try {
