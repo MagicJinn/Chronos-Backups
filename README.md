@@ -37,6 +37,7 @@ All currently supported versions are listed below. If a specific subversion does
 
 | Minecraft    | Support       | Loader(s)                 | Backup | Config       | Notes                                                                                                                       |
 | ------------ | ------------- | ------------------------- | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `26.2.x`     | ✅ Supported   | Fabric + NeoForge         | ✅      | 🟠 File-only | -                                                                                                                           |
 | `26.1.x`     | ✅ Supported   | Fabric + NeoForge         | ✅      | 🟠 File-only | -                                                                                                                           |
 | `1.21.x`     | ✅ Supported   | Fabric + NeoForge         | ✅      | 🟠 File-only | -                                                                                                                           |
 | `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge | ✅      | 🟠 File-only | Forge 1.20.0-1.20.1. Fabric 1.20.x. NeoForge 1.20.2-1.20.6.                                                                 |

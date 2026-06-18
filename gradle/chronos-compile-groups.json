@@ -393,6 +393,32 @@
       ]
     },
     {
+      "id": "minecraft_26_2",
+      "description": "Unified Fabric and NeoForge jars for the 26.2.x line (same Mojmap shells as 26.1).",
+      "jarTargetLabel": "26.2.x",
+      "minecraftVersionPrefixes": [
+        "26.2"
+      ],
+      "fabricUnified": {
+        "referenceMinecraft": "26.2",
+        "fabricLoader": "0.19.3",
+        "fabricApi": "0.152.1+26.2",
+        "minecraftDep": ">=26.2 <26.3",
+        "archiveVersionTag": "26.2.x",
+        "loaderKey": "FABRIC"
+      },
+      "neoForgeUnified": {
+        "referenceMinecraft": "26.2",
+        "neoForge": "26.2.0.3-beta",
+        "minecraftRange": "[26.2,26.3)",
+        "archiveVersionTag": "26.2.x",
+        "loaderKey": "NEOFORGE"
+      },
+      "supportedVersions": [
+        "26.2"
+      ]
+    },
+    {
       "id": "minecraft_1_12",
       "description": "Forge-only. Unified Forge for all 1.12.x.",
       "jarTargetLabel": "1.12.x",

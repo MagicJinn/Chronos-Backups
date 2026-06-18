@@ -467,7 +467,10 @@ public final class TestServers {
         List<String> failures = new ArrayList<>();
         Set<Integer> usedPorts = new HashSet<>();
 
+        int index = 0;
         for (DockerMinecraftServer server : servers) {
+            // Log the index of the server being tested
+            System.out.println("Testing server " + (++index) + " of " + servers.size());
             String failure = runDockerServerTest(
                     server,
                     usedPorts,
