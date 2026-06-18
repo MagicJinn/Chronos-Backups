@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.ZipFile;
 
 public final class TestServers {
     private static final Gson GSON = new Gson();
@@ -306,6 +307,20 @@ public final class TestServers {
         return overrides.get(minecraftVersion);
     }
 
+    private static final String LINUX_RUST_PRUNER_NATIVE = "natives/linux-x86_64/librust_pruner.so";
+
+    private static void requireLinuxRustPrunerNative(Path jar) throws IOException {
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            if (zip.getEntry(LINUX_RUST_PRUNER_NATIVE) == null) {
+                throw new IllegalStateException(
+                        jar.getFileName()
+                                + " is missing "
+                                + LINUX_RUST_PRUNER_NATIVE
+                                + ". Rebuild with ./gradlew clean prepareTestServers (Docker must be running to build the Linux rust-pruner).");
+            }
+        }
+    }
+
     private static Path findJarForUnified(Map<String, Object> unified, String loaderKey, Map<String, Object> group)
             throws IOException {
         String suffix = str(unified.get("archiveVersionTag"));
@@ -328,16 +343,30 @@ public final class TestServers {
         String pattern = "chronosbackups-" + suffix + "-*-" + loaderLower + ".jar";
 
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(buildLibs, pattern)) {
-            Iterator<Path> it = stream.iterator();
-            if (!it.hasNext()) {
+            Path jar = null;
+            for (Path candidate : stream) {
+                if (jar == null || Files.getLastModifiedTime(candidate).compareTo(Files.getLastModifiedTime(jar)) > 0) {
+                    jar = candidate;
+                }
+            }
+            if (jar == null) {
                 throw new IllegalArgumentException(
                         "No jar found matching " + pattern + " in " + buildLibs);
             }
-            Path jar = it.next();
-            if (it.hasNext()) {
-                TestServersConsole.warn(
-                        "Warning: multiple jars match " + pattern + ", using " + jar.getFileName());
+            try (DirectoryStream<Path> again = Files.newDirectoryStream(buildLibs, pattern)) {
+                long matches = 0;
+                for (Path ignored : again) {
+                    matches++;
+                }
+                if (matches > 1) {
+                    TestServersConsole.warn(
+                            "Warning: multiple jars match "
+                                    + pattern
+                                    + ", using newest "
+                                    + jar.getFileName());
+                }
             }
+            requireLinuxRustPrunerNative(jar);
             return jar.toAbsolutePath().normalize();
         }
     }

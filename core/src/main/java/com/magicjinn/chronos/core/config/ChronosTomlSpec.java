@@ -22,7 +22,7 @@ public final class ChronosTomlSpec {
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 9; // TODO: reset to 1 on 1.0.0
+    public static final int CONFIG_VERSION = 1;
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text

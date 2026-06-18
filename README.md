@@ -17,6 +17,16 @@
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
 
+## Commands
+
+| Command | Description |
+| - | - |
+| `/chronos backup` | Run a manual backup immediately. |
+| `/chronos cancel` | Stop the backup currently in progress. |
+| `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic. not for normal use). |
+
+The required permission level defaults to **4**. See `commandRequiredPermissionLevel` in [Configuration](#configuration).
+
 ## Limitations
 
 Chronos prioritizes aged world data, chunks that do not yet count as "old enough" for pruning can be left out of a snapshot. If you enter a **new** chunk, change blocks or items, and a backup runs **before** that area is included, those changes may be missing from that backup (depending on configuration). That situation is seen as extremely rare and can only cause **loss** on restore, never duplication.
@@ -30,33 +40,31 @@ All currently supported versions are listed below. If a specific subversion does
 | `26.1.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.21.x` | ✅ Supported | Fabric + NeoForge | ✅ | 🟠 File-only | - |
 | `1.20.x` | ✅ Supported | Forge + Fabric + NeoForge | ✅ | 🟠 File-only | Forge 1.20.0-1.20.1. Fabric 1.20.x. NeoForge 1.20.2-1.20.6. |
-| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
-| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
-| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | [^1] |
+| `1.19.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
+| `1.18.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
+| `1.17.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
 | `1.16.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
 | `1.15.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
 | `1.14.x` | ✅ Supported | Fabric + Forge | ✅ | 🟠 File-only | - |
-| `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
-| `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
-| `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
-| `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
-| `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
-| `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^3] |
-| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2], [^3] |
-| `1.6.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
-| `1.5.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
-| `1.4.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
-| `1.3.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^3] |
+| `1.13.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2] |
+| `1.12.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2] |
+| `1.11.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2] |
+| `1.10.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2] |
+| `1.9.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2] |
+| `1.8.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^2] |
+| `1.7.x` | ✅ Supported | Forge | ✅ | 🟠 File-only | [^1], [^2] |
+| `1.6.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^2] |
+| `1.5.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^2] |
+| `1.4.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^2] |
+| `1.3.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | [^2] |
 | `1.2.x` | ❌ Unsupported | Forge | ❌ | 🔴 None | - |
 | Beta & Alpha | ❌ Unsupported | Babric | ❌ | 🔴 None | Beta & Alpha versions may be supported in the future, but the flagship Chronos feature (world pruning) will be unavailable. |
 
 [//]: # (If a note occurs more than once, move it to a footnote as shown below. If a note appears once, but the version has multiple notes, move it to a footnote as well. If a note appears once and the version has no other notes, leave it in the notes section.)
 
-[^1]: Working, but fails our tests. See [issue #7](https://github.com/MagicJinn/Chronos-Backups/issues/7).
+[^1]: Forge 1.7.2 does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)).
 
-[^2]: Forge 1.7.2 does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)).
-
-[^3]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
+[^2]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
 
 ## Configuration
 

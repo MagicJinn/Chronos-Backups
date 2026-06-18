@@ -1,4 +1,5 @@
 import groovy.json.JsonSlurper
+import org.gradle.jvm.tasks.Jar
 import org.gradle.language.jvm.tasks.ProcessResources
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
@@ -201,6 +202,19 @@ fun hostRustTarget(): RustNativeTarget {
     return rustNativeTargets.first { it.osId == hostOs && it.archId == hostArch }
 }
 
+/** cargo-zigbuild with a glibc suffix may emit under `triple.glibcMax` instead of `triple`. */
+fun rustReleaseLibraryFile(target: RustNativeTarget): java.io.File {
+    val base = rootProject.file("core/native/rust-pruner/target")
+    val candidates = mutableListOf<java.io.File>()
+    if (target.rustTargetTriple == "x86_64-unknown-linux-gnu") {
+        val glibcMax = rustLinuxGlibcMaxProvider.get()
+        candidates +=
+            base.resolve("x86_64-unknown-linux-gnu.$glibcMax/release/${target.libraryFileName}")
+    }
+    candidates += base.resolve("${target.rustTargetTriple}/release/${target.libraryFileName}")
+    return candidates.firstOrNull { it.isFile } ?: candidates.last()
+}
+
 fun parseRustExtraTargetIds(raw: String): List<Pair<String, String>> =
     raw.split(',')
         .map { it.trim() }
@@ -215,7 +229,7 @@ val rustCompileTargetsProvider =
     providers.provider {
         val extraRaw =
             rustExtraTargetsPropertyProvider.orNull?.takeIf { it.isNotBlank() }
-                ?: if (isTestServersGradleInvocation() && currentOsId() != "linux") {
+                ?: if (isTestServersGradleInvocation()) {
                     "linux-x86_64"
                 } else {
                     ""
@@ -317,10 +331,7 @@ val stageRustPrunerNative =
             val requireAllTargets = rustRequireAllTargetsProvider.get()
 
             for (target in rustNativeTargets) {
-                val source =
-                    rootProject.file(
-                        "core/native/rust-pruner/target/${target.rustTargetTriple}/release/${target.libraryFileName}"
-                    )
+                val source = rustReleaseLibraryFile(target)
                 if (!source.isFile) {
                     missing += "${target.osId}-${target.archId}/${target.libraryFileName}"
                     continue
@@ -349,13 +360,15 @@ val stageRustPrunerNative =
                         "Set -Pchronos.rust.requireAllTargets=true to fail when any target is missing."
                 )
             }
-            if (isTestServersGradleInvocation() && currentOsId() != "linux") {
+            if (isTestServersGradleInvocation()) {
                 val linuxLib = outputRoot.resolve("natives/linux-x86_64/librust_pruner.so")
                 if (!linuxLib.isFile) {
+                    val glibcMax = rustLinuxGlibcMaxProvider.get()
                     throw GradleException(
                         "testServers requires natives/linux-x86_64/librust_pruner.so in the mod jar. " +
                             "The Linux rust-pruner build did not produce a library under " +
-                            "core/native/rust-pruner/target/x86_64-unknown-linux-gnu/release/. " +
+                            "core/native/rust-pruner/target/x86_64-unknown-linux-gnu/release/ " +
+                            "or core/native/rust-pruner/target/x86_64-unknown-linux-gnu.$glibcMax/release/. " +
                             "Ensure Docker is running, then run: ./gradlew clean testServers"
                     )
                 }
@@ -445,15 +458,19 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
     out.mapValues { it.value.toMap() }
 }
 
+val chronosRustPrunerResources =
+    rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources")
+
 configure(packableSubprojects) {
     afterEvaluate {
-        tasks.matching { it.name == "build" }.configureEach {
+        tasks.matching { it.name == "build" || it.name == "jar" || it.name == "remapJar" }.configureEach {
             dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         }
     }
     tasks.withType<ProcessResources>().configureEach {
         dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
-        from(rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources"))
+        inputs.dir(chronosRustPrunerResources).withPropertyName("chronosRustPrunerResources")
+        from(chronosRustPrunerResources)
         dependsOn(rootProject.tasks.named("prepareBuildIcon"))
         val projectName = project.name
         if (projectName.startsWith("fabric-")) {
@@ -467,6 +484,15 @@ configure(packableSubprojects) {
                 rename { "icon.png" }
             }
         }
+    }
+    tasks.withType<Jar>().configureEach {
+        if (name != "jar" && name != "remapJar") {
+            return@configureEach
+        }
+        dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
+        inputs.dir(chronosRustPrunerResources).withPropertyName("chronosRustPrunerResources")
+        from(chronosRustPrunerResources)
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 }
 
@@ -497,22 +523,6 @@ tasks.register("cleanUniminedCache") {
             logger.lifecycle("Unimined cache not present: ${cache.absolutePath}")
         }
     }
-}
-
-val prepareTestServers =
-    tasks.register("prepareTestServers") {
-        group = "verification"
-        description = "Builds rust-pruner (Docker Linux on Windows), stages natives, then buildAll."
-        dependsOn(generateVariants)
-        dependsOn(buildRust)
-        dependsOn(stageRustPrunerNative)
-        dependsOn("buildAll")
-    }
-
-tasks.register("testServers") {
-    group = "verification"
-    description = "Docker integration tests. Requires Docker; builds deps automatically (see prepareTestServers)."
-    dependsOn(":tooling:runTestServers")
 }
 
 tasks.register("smokeTest") {
@@ -568,6 +578,18 @@ val collectAllJars =
     val modId =
         (findProperty("chronos.mod.id") ?: "chronosbackups").toString().lowercase()
     val modVersion = (findProperty("chronos.mod.version") ?: "0.0.0").toString()
+    doFirst {
+        val dest = layout.buildDirectory.dir("libs").get().asFile
+        dest.mkdirs()
+        dest
+            .listFiles { f ->
+                f.isFile && f.name.startsWith("$modId-") && f.name.endsWith(".jar")
+            }?.forEach { stale ->
+                if (!stale.delete()) {
+                    throw GradleException("Could not remove stale collected jar: ${stale.absolutePath}")
+                }
+            }
+    }
     for (sub in packableSubprojects) {
         from(sub.layout.buildDirectory.dir("libs")) {
             include("*.jar")
@@ -577,8 +599,65 @@ val collectAllJars =
     }
     }
 
+val verifyTestServerNativeJars =
+    tasks.register("verifyTestServerNativeJars") {
+        group = "verification"
+        description = "Fails if collected mod jars are missing natives/linux-x86_64/librust_pruner.so."
+        dependsOn(collectAllJars)
+        onlyIf { isTestServersGradleInvocation() }
+        doLast {
+            val libsDir = layout.buildDirectory.dir("libs").get().asFile
+            if (!libsDir.isDirectory) {
+                throw GradleException("Missing ${libsDir.absolutePath}; run buildAll first.")
+            }
+            val modId =
+                (findProperty("chronos.mod.id") ?: "chronosbackups").toString().lowercase()
+            val modVersion = (findProperty("chronos.mod.version") ?: "0.0.0").toString()
+            val versionToken = "-$modVersion-"
+            val jars =
+                libsDir.listFiles { f ->
+                    f.isFile &&
+                        f.name.endsWith(".jar") &&
+                        f.name.startsWith("$modId-") &&
+                        f.name.contains(versionToken)
+                } ?: emptyArray()
+            if (jars.isEmpty()) {
+                throw GradleException("No chronosbackups jars in ${libsDir.absolutePath}.")
+            }
+            val entry = "natives/linux-x86_64/librust_pruner.so"
+            val missing =
+                jars.filter { jar ->
+                    java.util.zip.ZipFile(jar).use { zip -> zip.getEntry(entry) == null }
+                }
+            if (missing.isNotEmpty()) {
+                val names = missing.map { it.name }.sorted().joinToString(", ")
+                throw GradleException(
+                    "testServers mod jar(s) missing $entry: $names. " +
+                        "Run ./gradlew clean prepareTestServers with Docker running so the Linux rust-pruner is built and packaged."
+                )
+            }
+        }
+    }
+
 tasks.register("buildAll") {
     group = "build"
     description = "Builds every included variant subproject and collects final jars."
     dependsOn(collectAllJars)
+}
+
+val prepareTestServers =
+    tasks.register("prepareTestServers") {
+        group = "verification"
+        description = "Builds rust-pruner (Docker Linux on Windows), stages natives, then buildAll."
+        dependsOn(generateVariants)
+        dependsOn(buildRust)
+        dependsOn(stageRustPrunerNative)
+        dependsOn("buildAll")
+        dependsOn(verifyTestServerNativeJars)
+    }
+
+tasks.register("testServers") {
+    group = "verification"
+    description = "Docker integration tests. Requires Docker; builds deps automatically (see prepareTestServers)."
+    dependsOn(":tooling:runTestServers")
 }
