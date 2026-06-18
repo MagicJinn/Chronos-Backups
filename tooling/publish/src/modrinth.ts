@@ -48,45 +48,6 @@ function modrinthHeaders(token?: string): Record<string, string> {
   return headers;
 }
 
-async function fetchModrinthProjectEnvironment(projectId: string): Promise<string[] | null> {
-  const response = await fetch(`${MODRINTH_V3_API}/project/${projectId}`, {
-    headers: { "User-Agent": USER_AGENT },
-  });
-  if (!response.ok) {
-    return null;
-  }
-
-  const project = (await response.json()) as { environment?: string[] };
-  return project.environment ?? null;
-}
-
-function projectEnvironmentMatches(current: string[] | null, desired: string): boolean {
-  return current?.length === 1 && current[0] === desired;
-}
-
-async function verifyModrinthToken(token: string): Promise<boolean> {
-  const response = await fetch(`${MODRINTH_API}/user`, {
-    headers: modrinthHeaders(token),
-  });
-  return response.ok;
-}
-
-function modrinthEnvironmentAuthHelp(status: number, tokenValid: boolean): string {
-  if (!tokenValid) {
-    return (
-      "MODRINTH_TOKEN is missing or invalid (Modrinth /user check failed). " +
-      "Copy the token value only (mrp_..., no Bearer prefix) into GitHub secrets."
-    );
-  }
-
-  return (
-    `Modrinth returned ${status} for PATCH /v3/project. Version uploads only need VERSION_CREATE; ` +
-    "setting project environment needs PROJECT_WRITE (\"Write projects\"). " +
-    "Regenerate the token with Write projects enabled, update MODRINTH_TOKEN, or set " +
-    `environment to ${CHRONOS_MODRINTH_ENVIRONMENT} once in Modrinth project settings.`
-  );
-}
-
 /** Version create expects a base62 project id, not a slug. */
 export async function resolveModrinthProjectId(
   slugOrId: string,
@@ -112,46 +73,6 @@ export async function resolveModrinthProjectId(
 
   const project = (await response.json()) as { id: string };
   return project.id;
-}
-
-export async function ensureModrinthProjectEnvironment(
-  token: string,
-  projectId: string,
-  environment: string = CHRONOS_MODRINTH_ENVIRONMENT,
-  dryRun = false,
-): Promise<boolean> {
-  if (dryRun) {
-    console.log("[dry-run] Modrinth project environment:", JSON.stringify([environment]));
-    return true;
-  }
-
-  const current = await fetchModrinthProjectEnvironment(projectId);
-  if (projectEnvironmentMatches(current, environment)) {
-    console.log(`Modrinth project environment already set (${environment}).`);
-    return true;
-  }
-
-  const response = await fetch(`${MODRINTH_V3_API}/project/${projectId}`, {
-    method: "PATCH",
-    headers: {
-      ...modrinthHeaders(token),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ environment: [environment] }),
-  });
-
-  if (response.ok) {
-    console.log(`Modrinth project environment updated (${environment}).`);
-    return true;
-  }
-
-  const body = await response.text();
-  const tokenValid = await verifyModrinthToken(token);
-  console.warn(
-    `WARN: Modrinth project environment update failed (${response.status}): ${body}\n` +
-      `${modrinthEnvironmentAuthHelp(response.status, tokenValid)}`,
-  );
-  return false;
 }
 
 export async function createModrinthVersion(
