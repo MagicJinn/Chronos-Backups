@@ -7,7 +7,7 @@ import {
 
 test("modrinthDependenciesForLoaders adds Fabric API for fabric", () => {
   assert.deepEqual(modrinthDependenciesForLoaders(["fabric"]), [
-    { project_id: "fabric-api", dependency_type: "required" },
+    { project_id: "P7dR8mSH", dependency_type: "required" },
   ]);
 });
 
