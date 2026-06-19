@@ -72,15 +72,15 @@ All currently supported versions are listed below. If a specific subversion does
 The mod's configuration is stored in the `config/chronos.toml` file. This file is automatically created when the mod is first run, and is located in the `config` folder of the mod's directory. For the forseeable future, there is no GUI configuration available. Config options include:
 
 - `backupFolderName`: The name of the folder that will contain the backups.
-- `pruneChunks`: Whether chunk pruning is enabled for backup snapshots.
-- `pruneTimeRequirementSeconds`: Minimum playtime (in seconds) for a region to count toward snapshot pruning.
+- `pruneChunks`: Whether chunk pruning is enabled for backups.
+- `pruneTimeRequirementSeconds`: Minimum playtime (in seconds) for a chunk to count toward world pruning.
 - `pruneMaxWorkerThreads`: Maximum worker threads for pruning. 0 (or less) means "auto" (pruner picks a sensible default).
 - `scheduleBackups`: Whether to run backups on a timer.
 - `backupIntervalSeconds`: Seconds between automatic backup runs.
-- `maxStoredBackups`: Maximum backups kept per world. After a successful backup, oldest snapshots are removed if the limit is exceeded. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
-- `compressionMethod`: Whether to compress the backup snapshot into a zip file or store it as an uncompressed folder. Accepts `"zip"` or `"none"`.
+- `maxStoredBackups`: Maximum backups kept per world. After a successful backup, oldest backups are removed if the limit is exceeded. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
+- `compressionMethod`: Whether to compress the backups into a zip file or store it as an uncompressed folder. Accepts `"zip"` or `"none"`.
 - `commandRequiredPermissionLevel`: Permission level required to run `/chronos`.
-- `copyBlacklist`: Folders and files to exclude from the backup snapshot copy.
+- `copyBlacklist`: Folders and files to exclude from the backup.
 
 This list may be out of date. To see the latest available configuration options and their descriptions, see [ChronosTomlSpec.java](https://github.com/MagicJinn/Chronos-Backups/blob/main/core/src/main/java/com/magicjinn/chronos/core/config/ChronosTomlSpec.java).
 
