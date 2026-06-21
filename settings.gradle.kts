@@ -25,17 +25,61 @@ include(":core")
 include(":tooling")
 
 val requestedTasks = gradle.startParameter.taskNames
+
+fun taskBareName(taskName: String): String = taskName.substringAfterLast(':')
+
+fun taskProjectName(taskName: String): String? {
+    val trimmed = taskName.trim()
+    if (!trimmed.contains(':')) {
+        return null
+    }
+    val segments = trimmed.split(':').filter { it.isNotEmpty() }
+    return if (segments.size >= 2) segments[segments.size - 2] else null
+}
+
+fun taskNeedsVariantsRoot(taskName: String): Boolean {
+    val bare = taskBareName(taskName)
+    return bare == "buildAll" ||
+        bare == "collectAllJars" ||
+        bare == "prepareTestServers" ||
+        bare == "testServers" ||
+        bare == "runTestServers" ||
+        bare == "verifyTestServerNativeJars"
+}
+
+fun taskTargetsVariantProject(taskName: String): Boolean {
+    val projectName = taskProjectName(taskName) ?: return false
+    return projectName.startsWith("fabric-") ||
+        projectName.startsWith("fabric-line-") ||
+        projectName.startsWith("forge-") ||
+        projectName.startsWith("forge-line-") ||
+        projectName.startsWith("neoforge-") ||
+        projectName.startsWith("neoforge-line-")
+}
+
+fun taskRequiresExistingVariants(taskName: String): Boolean {
+    val bare = taskBareName(taskName)
+    return taskNeedsVariantsRoot(taskName) ||
+        taskTargetsVariantProject(taskName) ||
+        bare == "generateVariants" ||
+        bare == "runGenerateVariants" ||
+        bare == "smokeTest" ||
+        bare == "runSmokeTest"
+}
+
 val bootstrapVariantGeneration = requestedTasks.any { taskName ->
-    taskName == "generateVariants" || taskName.endsWith(":generateVariants")
+    val bare = taskBareName(taskName)
+    bare == "generateVariants" || bare == "runGenerateVariants"
 }
 val cleanVariantsRequested = requestedTasks.any { taskName ->
-    val bare = taskName.substringAfterLast(':')
+    val bare = taskBareName(taskName)
     bare == "cleanVariants" || bare == "runCleanVariants"
 }
 val rustOnlyBuild = requestedTasks.isNotEmpty() && requestedTasks.all { taskName ->
-    val bare = taskName.substringAfterLast(':')
+    val bare = taskBareName(taskName)
     bare == "buildRust" || bare.startsWith("buildRust_") || bare.startsWith("rustTargetAdd_")
 }
+val variantsRootNeeded = requestedTasks.any { taskNeedsVariantsRoot(it) }
 
 fun chronosVariantGenerationSkipRequested(): Boolean {
     val raw = System.getenv("CHRONOS_VARIANT_GENERATION") ?: return false
@@ -43,24 +87,30 @@ fun chronosVariantGenerationSkipRequested(): Boolean {
     return v == "skip" || v == "0" || v == "false" || v == "off"
 }
 
-if (!chronosVariantGenerationSkipRequested() && !cleanVariantsRequested) {
+fun runGenerateVariantsBootstrap() {
     val wrapperPath = if (OperatingSystem.current().isWindows) "gradlew.bat" else "gradlew"
     val wrapper = file(wrapperPath)
-    if (wrapper.exists()) {
-        val command = mutableListOf(wrapper.absolutePath, "generateVariants", "--quiet", "--no-daemon")
-        val process = ProcessBuilder(command)
-            .directory(rootDir)
-            .redirectErrorStream(true)
-            .apply {
-                environment()["CHRONOS_VARIANT_GENERATION"] = "skip"
-            }
-            .start()
-        val output = process.inputStream.bufferedReader().readText()
-        val exit = process.waitFor()
-        if (exit != 0) {
-            throw GradleException("Automatic variant generation failed during settings evaluation.\n$output")
-        }
+    if (!wrapper.exists()) {
+        return
     }
+    val command = mutableListOf(wrapper.absolutePath, "generateVariants", "--quiet", "--no-daemon")
+    val process = ProcessBuilder(command)
+        .directory(rootDir)
+        .redirectErrorStream(true)
+        .apply {
+            environment()["CHRONOS_VARIANT_GENERATION"] = "skip"
+        }
+        .start()
+    val output = process.inputStream.bufferedReader().readText()
+    val exit = process.waitFor()
+    if (exit != 0) {
+        throw GradleException("Variant generation failed during settings evaluation.\n$output")
+    }
+}
+
+val variantsRoot = file("variants")
+if (!chronosVariantGenerationSkipRequested() && !cleanVariantsRequested && variantsRootNeeded) {
+    runGenerateVariantsBootstrap()
 }
 
 val compileGroupsFile = file("gradle/chronos-compile-groups.json")
@@ -71,9 +121,13 @@ if (!compileGroupsFile.exists()) {
 fun File.directoriesSorted(): List<File> =
     listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList()
 
-val variantsRoot = file("variants")
 if (!variantsRoot.isDirectory) {
-    if (!bootstrapVariantGeneration && !rustOnlyBuild && !cleanVariantsRequested) {
+    val requiresVariants =
+        requestedTasks.isNotEmpty() &&
+            requestedTasks.any { taskRequiresExistingVariants(it) } &&
+            !rustOnlyBuild &&
+            !cleanVariantsRequested
+    if (requiresVariants && !bootstrapVariantGeneration) {
         throw GradleException(
             "Missing ${variantsRoot.path}. Run: ./gradlew generateVariants",
         )

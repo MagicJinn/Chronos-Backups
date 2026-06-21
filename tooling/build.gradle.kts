@@ -42,6 +42,7 @@ val runGenerateVariants by tasks.registering(JavaExec::class) {
     description = "Regenerates variants/<compileGroup> from JSON matrix files."
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.magicjinn.chronos.tooling.GenerateVariants")
+    mustRunAfter(rootProject.tasks.named("cleanVariants"))
 }
 
 val runCleanVariants by tasks.registering(JavaExec::class) {

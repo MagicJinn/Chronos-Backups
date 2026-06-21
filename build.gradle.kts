@@ -499,15 +499,17 @@ configure(packableSubprojects) {
 val generateVariants =
     tasks.register("generateVariants") {
         group = "chronos"
-        description = "Generates variants/<compileGroup> via Java tooling."
+        description = "Cleans and regenerates variants/<compileGroup> via Java tooling."
+        dependsOn(cleanVariants)
         dependsOn(":tooling:runGenerateVariants")
     }
 
-tasks.register("cleanVariants") {
-    group = "chronos"
-    description = "Force-deletes the variants/ folder via Java tooling, retries to handle locked files (e.g. on Windows)."
-    dependsOn(":tooling:runCleanVariants")
-}
+val cleanVariants =
+    tasks.register("cleanVariants") {
+        group = "chronos"
+        description = "Force-deletes the variants/ folder via Java tooling, retries to handle locked files (e.g. on Windows)."
+        dependsOn(":tooling:runCleanVariants")
+    }
 
 tasks.register("cleanUniminedCache") {
     group = "chronos"
@@ -649,7 +651,6 @@ val prepareTestServers =
     tasks.register("prepareTestServers") {
         group = "verification"
         description = "Builds rust-pruner (Docker Linux on Windows), stages natives, then buildAll."
-        dependsOn(generateVariants)
         dependsOn(buildRust)
         dependsOn(stageRustPrunerNative)
         dependsOn("buildAll")
