@@ -25,8 +25,8 @@ public class Core {
      */
     public static void OnLoaderStarted(LoaderEnvironment environment) {
         RunningDirectory = Paths.get(System.getProperty("user.dir"));
-        Backupper.InitializeBackupper();
         Config.InitializeConfig();
+        Backupper.InitializeBackupper();
     }
 
     public static void OnWorldStarted(BackupRuntimeContext context) {
