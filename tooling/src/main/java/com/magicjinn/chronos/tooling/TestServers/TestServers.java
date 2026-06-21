@@ -462,15 +462,18 @@ public final class TestServers {
         List<String> failureMarkers = strList(config.get("failureMarkers"));
         List<String> serverSetupFailureMarkers = strList(config.get("serverSetupFailureMarkers"));
         List<String> successMarkers = strList(config.get("successMarkers"));
+        List<String> worryMarkers = strList(config.get("worryMarkers"));
         String longShutdownMarker = str(config.get("longShutdownMarker"));
 
         List<String> failures = new ArrayList<>();
+        List<String> worries = new ArrayList<>();
         Set<Integer> usedPorts = new HashSet<>();
 
         int index = 0;
         for (DockerMinecraftServer server : servers) {
             // Log the index of the server being tested
             System.out.println("Testing server " + (++index) + " of " + servers.size());
+            List<String> serverWorries = new ArrayList<>();
             String failure = runDockerServerTest(
                     server,
                     usedPorts,
@@ -479,6 +482,8 @@ public final class TestServers {
                     failureMarkers,
                     serverSetupFailureMarkers,
                     successMarkers,
+                    worryMarkers,
+                    serverWorries,
                     longShutdownMarker,
                     false);
             if (failure != null) {
@@ -491,6 +496,7 @@ public final class TestServers {
                             "Failed to remove container before retry for " + server.containerName() + ": "
                                     + e.getMessage());
                 }
+                serverWorries.clear();
                 failure = runDockerServerTest(
                         server,
                         usedPorts,
@@ -499,6 +505,8 @@ public final class TestServers {
                         failureMarkers,
                         serverSetupFailureMarkers,
                         successMarkers,
+                        worryMarkers,
+                        serverWorries,
                         longShutdownMarker,
                         true);
             }
@@ -507,6 +515,9 @@ public final class TestServers {
             } else {
                 TestServersConsole.success("PASSED " + server);
             }
+            for (String worryLine : serverWorries) {
+                worries.add(server + ": " + worryLine);
+            }
         }
 
         if (!failures.isEmpty()) {
@@ -514,6 +525,14 @@ public final class TestServers {
             for (String failure : failures) {
                 TestServersConsole.failure("  - " + failure);
             }
+        }
+        if (!worries.isEmpty()) {
+            TestServersConsole.warn("Worry markers hit (" + worries.size() + "):");
+            for (String worry : worries) {
+                TestServersConsole.warn("  - " + worry);
+            }
+        }
+        if (!failures.isEmpty()) {
             System.exit(1);
         }
         TestServersConsole.success("All " + servers.size() + " docker server tests PASSED.");
@@ -531,12 +550,16 @@ public final class TestServers {
             List<String> failureMarkers,
             List<String> serverSetupFailureMarkers,
             List<String> successMarkers,
+            List<String> worryMarkers,
+            List<String> worryHitsOut,
             String longShutdownMarker,
             boolean finalAttempt)
             throws IOException {
         TestServersConsole.info("Testing " + server);
         startDockerContainer(server, usedPorts);
         boolean[] readySeen = new boolean[readyMarkers.size()];
+        Set<String> worrySeen = new HashSet<>();
+        worryHitsOut.clear();
         AtomicBoolean rconSent = new AtomicBoolean(false);
         AtomicBoolean stopSent = new AtomicBoolean(false);
         AtomicBoolean successSeen = new AtomicBoolean(false);
@@ -586,6 +609,13 @@ public final class TestServers {
                     successSeen.set(true);
                     TestServersConsole.success("SUCCESS marker hit: " + marker);
                     RconClient.stopServer(server);
+                }
+            }
+            for (String marker : worryMarkers) {
+                if (containsIgnoreCase(logLine, marker) && worrySeen.add(marker)) {
+                    String line = logLine.trim();
+                    TestServersConsole.warn(line);
+                    worryHitsOut.add(line);
                 }
             }
         });

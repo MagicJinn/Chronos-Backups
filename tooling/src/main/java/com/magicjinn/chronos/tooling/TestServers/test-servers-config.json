@@ -19,5 +19,8 @@
     "successMarkers": [
         "Speedtest finished"
     ],
+    "worryMarkers": [
+        "ticks behind"
+    ],
     "longShutdownMarker": "This might take a while..."
 }
