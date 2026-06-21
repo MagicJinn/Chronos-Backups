@@ -5,8 +5,8 @@ import java.util.logging.Logger;
 import com.magicjinn.chronos.core.config.Config;
 
 /**
- * Schedules backup work on the server thread and delegates to
- * {@link Backupper}.
+ * Schedules backup work on the server thread. Heavy copy/prune/zip work runs on
+ * a worker thread. {@link Backupper#tickBackupTracker()} monitors it each tick.
  */
 
 public final class Scheduler {
@@ -52,10 +52,16 @@ public final class Scheduler {
 
     public static void tickScheduler() {
         try {
+            Backupper.tickBackupTracker();
+            Backupper.tickSpeedtestSession();
+
             if (!Config.getScheduleBackups())
                 return;
 
             if (Backupper.isSpeedtestSessionActive())
+                return;
+
+            if (Backupper.isBackupRunActive())
                 return;
 
             long currentTimeSeconds = getCurrentTimeSeconds();
@@ -63,7 +69,7 @@ public final class Scheduler {
 
             if (currentTimeSeconds - secondsSinceLastBackup >= interval) {
                 secondsSinceLastBackup = currentTimeSeconds;
-                Backupper.runBackup(runtimeContext);
+                Backupper.tryBeginBackup(runtimeContext);
             }
         } catch (Exception e) {
             logError("Error scheduling backup: " + e.getMessage());
@@ -92,14 +98,14 @@ public final class Scheduler {
 
         secondsSinceLastBackup = getCurrentTimeSeconds();
         context.sendChat("Manual backup started.");
-        Backupper.runBackup(context);
+        Backupper.tryBeginBackup(context);
 
         return EnqueueResult.QUEUED;
     }
 
     /**
-     * Runs a speedtest on the current thread so only one backup/speedtest session
-     * runs at a time.
+     * Starts a speedtest session that runs on the server tick loop so only one
+     * backup/speedtest session runs at a time.
      */
     public static EnqueueResult tryEnqueueSpeedtest(int seconds) {
         BackupRuntimeContext context = runtimeContext;
@@ -116,7 +122,7 @@ public final class Scheduler {
         if (!Backupper.tryBeginSpeedtestSession())
             return EnqueueResult.ALREADY_RUNNING;
 
-        Backupper.runSpeedtestSession(context, seconds);
+        Backupper.beginSpeedtestSession(context, seconds);
 
         return EnqueueResult.QUEUED;
     }

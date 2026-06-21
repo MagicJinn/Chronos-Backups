@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
@@ -26,6 +27,10 @@ import com.magicjinn.chronos.core.config.Config;
 
 /**
  * Version-agnostic backup implementation.
+ * <p>
+ * Minecraft-specific work (world flush, save pause/resume, chat) runs on the
+ * server thread. Copy, prune, zip, and retention trimming run on a dedicated
+ * worker thread while {@link #tickBackupTracker()} monitors progress each tick.
  */
 public final class Backupper {
     private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
@@ -54,7 +59,8 @@ public final class Backupper {
     private static volatile boolean backupCancelRequested;
 
     /**
-     * Whether {@link #runBackup} is executing its main work (copy > prune > zip).
+     * Whether a backup run is in progress (from {@link #tryBeginBackup} until
+     * {@link #tickBackupTracker} finishes it).
      */
     private static final AtomicBoolean backupRunActive = new AtomicBoolean(false);
 
@@ -63,6 +69,9 @@ public final class Backupper {
      * {@link #backupRunActive}).
      */
     private static final AtomicBoolean speedtestSessionActive = new AtomicBoolean(false);
+
+    private static volatile InFlightBackup inFlightBackup;
+    private static volatile SpeedtestSession activeSpeedtest;
 
     static boolean isShutdownRequested() {
         return shutdownRequested || Thread.currentThread().isInterrupted();
@@ -100,13 +109,22 @@ public final class Backupper {
     public static boolean requestCancelInFlightBackup() {
         if (backupRunActive.get() || speedtestSessionActive.get()) {
             backupCancelRequested = true;
+            InFlightBackup run = inFlightBackup;
+            if (run != null) {
+                run.proceedAfterSavesRestored.countDown();
+                Thread worker = run.workerThread;
+                if (worker != null) {
+                    worker.interrupt();
+                }
+            }
             return true;
         }
         return false;
     }
 
     /**
-     * Claims the speedtest session before queueing work on {@link Scheduler}'s executor.
+     * Claims the speedtest session before queueing work on {@link Scheduler}'s
+     * executor.
      *
      * @return {@code false} when a backup or speedtest is already active
      */
@@ -118,13 +136,10 @@ public final class Backupper {
     }
 
     /**
-     * Runs backups for {@code s} seconds, or until
-     * {@link #requestCancelInFlightBackup()} (e.g.
-     * {@code /chronos cancel}) stops the session.
-     * <p>
-     * Call only from the backup scheduler after {@link #tryBeginSpeedtestSession()} succeeded.
+     * Starts a non-blocking speedtest session. Progress is driven by
+     * {@link #tickSpeedtestSession()} on the server thread.
      */
-    public static void runSpeedtestSession(BackupRuntimeContext context, int s) {
+    public static void beginSpeedtestSession(BackupRuntimeContext context, int seconds) {
         if (context == null) {
             LOG.warning("speedtest skipped: runtime context is unavailable.");
             speedtestSessionActive.set(false);
@@ -135,35 +150,73 @@ public final class Backupper {
             return;
         }
         backupCancelRequested = false;
-        long start = System.nanoTime();
-        long end = start + s * 1_000_000_000L;
-        int backups = 0;
-        boolean stoppedEarly = false;
-        try {
-            while (System.nanoTime() < end && !isShutdownRequested()) {
-                if (backupCancelRequested) {
-                    stoppedEarly = true;
-                    break;
-                }
-                if (runBackup(context))
-                    backups++;
-            }
-        } finally {
-            speedtestSessionActive.set(false);
-            backupCancelRequested = false;
+        SpeedtestSession session = new SpeedtestSession();
+        session.context = context;
+        session.startNanos = System.nanoTime();
+        session.endNanos = session.startNanos + seconds * 1_000_000_000L;
+        activeSpeedtest = session;
+    }
+
+    /**
+     * Advances an active speedtest session. Call from the server thread each tick.
+     */
+    public static void tickSpeedtestSession() {
+        SpeedtestSession session = activeSpeedtest;
+        if (session == null) {
+            return;
         }
 
-        long duration = System.nanoTime() - start;
+        if (backupCancelRequested || isShutdownRequested()) {
+            finishSpeedtestSession(session, true);
+            return;
+        }
+
+        if (session.waitingForBackup) {
+            if (isBackupRunActive()) {
+                return;
+            }
+            if (session.lastBackupSucceeded) {
+                session.backups++;
+            }
+            session.waitingForBackup = false;
+            session.lastBackupSucceeded = false;
+            if (session.expired || System.nanoTime() >= session.endNanos) {
+                finishSpeedtestSession(session, false);
+                return;
+            }
+        }
+
+        if (System.nanoTime() >= session.endNanos) {
+            if (isBackupRunActive()) {
+                session.expired = true;
+                return;
+            }
+            finishSpeedtestSession(session, false);
+            return;
+        }
+
+        if (!isBackupRunActive() && tryBeginBackup(session.context)) {
+            session.waitingForBackup = true;
+        }
+    }
+
+    private static void finishSpeedtestSession(SpeedtestSession session, boolean stoppedEarly) {
+        activeSpeedtest = null;
+        speedtestSessionActive.set(false);
+        backupCancelRequested = false;
+
+        long duration = System.nanoTime() - session.startNanos;
         String suffix = stoppedEarly ? " (stopped by /chronos cancel)" : "";
-        String averages = backups > 0
+        String averages = session.backups > 0
                 ? String.format(Locale.ROOT, ", average duration per backup: %.2f s",
-                        (duration / 1_000_000_000.0) / backups)
+                        (duration / 1_000_000_000.0) / session.backups)
                 : "";
-        String summary = "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(start) + ": " + backups
+        String summary = "Speedtest finished" + suffix + " in " + formatBackupDurationNanos(session.startNanos) + ": "
+                + session.backups
                 + " successful backup(s)"
                 + averages;
-        context.logInfo(summary);
-        context.sendChat(summary);
+        session.context.logInfo(summary);
+        session.context.sendChat(summary);
     }
 
     /**
@@ -175,6 +228,8 @@ public final class Backupper {
         backupCancelRequested = false;
         backupRunActive.set(false);
         speedtestSessionActive.set(false);
+        inFlightBackup = null;
+        activeSpeedtest = null;
     }
 
     public static void InitializeBackupper() {
@@ -199,11 +254,13 @@ public final class Backupper {
     }
 
     /**
-     * Runs a backup and returns true if the backup was successful
+     * Starts a backup on the current (server) thread: validates paths, flushes the
+     * world, pauses automatic saves, then hands copy/prune/zip work to a worker
+     * thread. Completion is handled by {@link #tickBackupTracker()}.
      *
-     * @return {@code true} when the snapshot was written successfully
+     * @return {@code true} when backup work was started
      */
-    public static boolean runBackup(BackupRuntimeContext context) {
+    public static boolean tryBeginBackup(BackupRuntimeContext context) {
         if (context == null) {
             LOG.warning("Backupper skipped: runtime context is unavailable.");
             return false;
@@ -219,8 +276,6 @@ public final class Backupper {
             return false;
         }
 
-        // Claim the run atomically so two queued tasks cannot both start (e.g. double
-        // /chronos backup).
         if (!backupRunActive.compareAndSet(false, true)) {
             String message = "Backup skipped: another backup is already running.";
             LOG.warning(message);
@@ -229,201 +284,321 @@ public final class Backupper {
         }
         if (backupCancelRequested) {
             context.logInfo("Chronos backup skipped: cancel in progress.");
-            backupRunActive.set(false);
-            if (!backupRunActive.get()) {
-                backupCancelRequested = false;
-            }
+            releaseBackupRunClaim();
             return false;
         }
-        try {
-            final CompressionMethod compressionMethod = Config.getCompressionMethod();
-            final String safeWorldDirName = sanitizeWorldBackupSubdir(context.getWorldName());
-            final Path worldBackupDir = chronosFolder.resolve(safeWorldDirName);
-            final String backupId = safeWorldDirName + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
 
-            final Path zipOutputPath;
-            final Path cacheSnapshotPath;
-            final Path folderOutputPath;
-            if (compressionMethod == CompressionMethod.ZIP) {
-                cacheSnapshotPath = cacheFolder.resolve(backupId);
-                zipOutputPath = worldBackupDir.resolve(backupId + ".zip");
-                folderOutputPath = null;
-            } else {
-                cacheSnapshotPath = null;
-                zipOutputPath = null;
-                folderOutputPath = worldBackupDir.resolve(backupId);
-            }
+        final CompressionMethod compressionMethod = Config.getCompressionMethod();
+        final String safeWorldDirName = sanitizeWorldBackupSubdir(context.getWorldName());
+        final Path worldBackupDir = chronosFolder.resolve(safeWorldDirName);
+        final String backupId = safeWorldDirName + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
+
+        final Path zipOutputPath;
+        final Path cacheSnapshotPath;
+        final Path folderOutputPath;
+        if (compressionMethod == CompressionMethod.ZIP) {
+            cacheSnapshotPath = cacheFolder.resolve(backupId);
+            zipOutputPath = worldBackupDir.resolve(backupId + ".zip");
+            folderOutputPath = null;
+        } else {
+            cacheSnapshotPath = null;
+            zipOutputPath = null;
+            folderOutputPath = worldBackupDir.resolve(backupId);
+        }
+
+        InFlightBackup run = new InFlightBackup();
+        run.context = context;
+        run.compressionMethod = compressionMethod;
+        run.worldBackupDir = worldBackupDir;
+        run.zipOutputPath = zipOutputPath;
+        run.cacheSnapshotPath = cacheSnapshotPath;
+        run.folderOutputPath = folderOutputPath;
+        run.worldPath = worldPath;
+        run.worldController = context.getWorldController();
+        run.serverHandle = context.getServerHandle();
+        run.backupStartNanos = System.nanoTime();
+
+        try {
+            Files.createDirectories(worldBackupDir);
+            Files.createDirectories(cacheFolder);
 
             context.logInfo("Chronos backup started for world " + context.getWorldName() + " -> " + worldPath);
             context.sendChat("Backup started for " + context.getWorldName());
 
-            final long backupStartNanos = System.nanoTime();
-            BackupWorldController worldController = context.getWorldController();
-            boolean attemptedSavingPause = false;
-            boolean backupFinishedSuccessfully = false;
-            boolean announceUserCancelInChat = false;
+            if (run.worldController != null) {
+                context.logInfo("Chronos backups: flushing world to disk...");
+                run.worldController.saveAllWorldData(context.getServerHandle());
+                context.logInfo("Chronos backups: pausing automatic saves...");
+                run.worldController.setWorldSavingDisabled(context.getServerHandle(), true);
+                run.attemptedSavingPause = true;
+            }
+
+            inFlightBackup = run;
+            Thread worker = new Thread(() -> runHeavyBackupWork(run), "Chronos-Backup-Worker");
+            run.workerThread = worker;
+            worker.start();
+            return true;
+        } catch (Throwable t) {
+            finalizeInFlightBackup(run, t);
+            return false;
+        }
+    }
+
+    /**
+     * Monitors the active backup worker from the server thread. Restores automatic
+     * saves after the cache copy finishes, then completes the run when the worker
+     * exits.
+     */
+    public static void tickBackupTracker() {
+        InFlightBackup run = inFlightBackup;
+        if (run == null) {
+            return;
+        }
+
+        if (run.copyComplete && run.attemptedSavingPause && !run.savesRestoredOnMainThread) {
+            run.context.logInfo("Chronos backups: restoring automatic saves...");
+            if (run.worldController != null) {
+                run.worldController.setWorldSavingDisabled(run.serverHandle, false);
+            }
+            run.attemptedSavingPause = false;
+            run.savesRestoredOnMainThread = true;
+            run.proceedAfterSavesRestored.countDown();
+        }
+
+        if (!run.workerFinished) {
+            return;
+        }
+
+        finalizeInFlightBackup(run, run.workerError);
+    }
+
+    private static void runHeavyBackupWork(InFlightBackup run) {
+        try {
+            Path worldRootAbs = run.worldPath.toAbsolutePath().normalize();
+
+            if (run.compressionMethod == CompressionMethod.ZIP) {
+                run.context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
+                assertCacheOutsideWorld(worldRootAbs, run.cacheSnapshotPath);
+                deleteDirectory(run.cacheSnapshotPath);
+                Files.createDirectories(run.cacheSnapshotPath);
+                int[] outCopied = new int[1];
+                RustPrunerBridge.copyWorldToCache(
+                        worldRootAbs,
+                        run.cacheSnapshotPath,
+                        Config.getCopyBlacklist(),
+                        Config.getPruneMaxWorkerThreads(),
+                        outCopied);
+                run.context.logInfo(
+                        "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
+            } else {
+                run.context.logInfo(
+                        "Chronos backups: copying world to backup folder...");
+                assertCacheOutsideWorld(worldRootAbs, run.folderOutputPath);
+                deleteDirectory(run.folderOutputPath);
+                Files.createDirectories(run.folderOutputPath);
+                int[] outCopied = new int[1];
+                RustPrunerBridge.copyWorldToCache(
+                        worldRootAbs,
+                        run.folderOutputPath,
+                        Config.getCopyBlacklist(),
+                        Config.getPruneMaxWorkerThreads(),
+                        outCopied);
+                run.context.logInfo(
+                        "Chronos backups: finished copying " + outCopied[0] + " files into backup folder.");
+            }
+
+            run.copyComplete = true;
+
             try {
-                Files.createDirectories(worldBackupDir);
-                Files.createDirectories(cacheFolder);
+                run.proceedAfterSavesRestored.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new InterruptedIOException("Backup worker interrupted waiting for save restore");
+            }
 
-                if (worldController != null) {
-                    context.logInfo("Chronos backups: flushing world to disk...");
-                    worldController.saveAllWorldData(context.getServerHandle());
-                    context.logInfo("Chronos backups: pausing automatic saves...");
-                    worldController.setWorldSavingDisabled(context.getServerHandle(), true);
-                    attemptedSavingPause = true;
-                }
+            if (shouldAbortBackupWork()) {
+                throw new InterruptedIOException("Backup aborted");
+            }
 
-                Path worldRootAbs = worldPath.toAbsolutePath().normalize();
-
-                if (compressionMethod == CompressionMethod.ZIP) {
-                    context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
-                    assertCacheOutsideWorld(worldRootAbs, cacheSnapshotPath);
-                    deleteDirectory(cacheSnapshotPath);
-                    Files.createDirectories(cacheSnapshotPath);
-                    int[] outCopied = new int[1];
-                    RustPrunerBridge.copyWorldToCache(
-                            worldRootAbs,
-                            cacheSnapshotPath,
-                            Config.getCopyBlacklist(),
-                            Config.getPruneMaxWorkerThreads(),
-                            outCopied);
-                    context.logInfo(
-                            "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
-                } else {
-                    context.logInfo(
-                            "Chronos backups: copying world to backup folder...");
-                    assertCacheOutsideWorld(worldRootAbs, folderOutputPath);
-                    deleteDirectory(folderOutputPath);
-                    Files.createDirectories(folderOutputPath);
-                    int[] outCopied = new int[1];
-                    RustPrunerBridge.copyWorldToCache(
-                            worldRootAbs,
-                            folderOutputPath,
-                            Config.getCopyBlacklist(),
-                            Config.getPruneMaxWorkerThreads(),
-                            outCopied);
-                    context.logInfo(
-                            "Chronos backups: finished copying " + outCopied[0] + " files into backup folder.");
-                }
-
-                if (attemptedSavingPause && worldController != null) {
-                    context.logInfo("Chronos backups: restoring automatic saves...");
-                    worldController.setWorldSavingDisabled(context.getServerHandle(), false);
-                    attemptedSavingPause = false;
-                }
-
-                if (compressionMethod == CompressionMethod.ZIP) {
-                    if (Config.getPruneChunksEnabled()) {
-                        context.logInfo(
-                                "Chronos backups: pruning snapshot and writing zip...");
-                        Files.deleteIfExists(zipOutputPath);
-                        RustPrunerBridge.pruneWorldToZip(
-                                cacheSnapshotPath,
-                                zipOutputPath,
-                                Config.getPruneTimeRequirementSeconds(),
-                                Config.getPruneMaxWorkerThreads());
-                    } else {
-                        context.logInfo("Chronos backups: snapshot pruning disabled by config.");
-                        context.logInfo("Chronos backups: writing zip archive...");
-                        zipSnapshot(cacheSnapshotPath, zipOutputPath);
-                    }
-                } else if (Config.getPruneChunksEnabled()) {
-                    context.logInfo("Chronos backups: pruning snapshot in backup folder...");
-                    RustPrunerBridge.pruneWorld(
-                            folderOutputPath,
+            if (run.compressionMethod == CompressionMethod.ZIP) {
+                if (Config.getPruneChunksEnabled()) {
+                    run.context.logInfo(
+                            "Chronos backups: pruning snapshot and writing zip...");
+                    Files.deleteIfExists(run.zipOutputPath);
+                    RustPrunerBridge.pruneWorldToZip(
+                            run.cacheSnapshotPath,
+                            run.zipOutputPath,
                             Config.getPruneTimeRequirementSeconds(),
                             Config.getPruneMaxWorkerThreads());
                 } else {
-                    context.logInfo("Chronos backups: snapshot pruning disabled by config.");
+                    run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
+                    run.context.logInfo("Chronos backups: writing zip archive...");
+                    zipSnapshot(run.cacheSnapshotPath, run.zipOutputPath);
                 }
+            } else if (Config.getPruneChunksEnabled()) {
+                run.context.logInfo("Chronos backups: pruning snapshot in backup folder...");
+                RustPrunerBridge.pruneWorld(
+                        run.folderOutputPath,
+                        Config.getPruneTimeRequirementSeconds(),
+                        Config.getPruneMaxWorkerThreads());
+            } else {
+                run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
+            }
 
-                backupFinishedSuccessfully = true;
-                final String duration = formatBackupDurationNanos(backupStartNanos);
-                if (compressionMethod == CompressionMethod.ZIP) {
-                    context.logInfo("Chronos backup completed in " + duration + ": " + zipOutputPath);
-                } else {
-                    context.logInfo("Chronos backup completed in " + duration + ": " + folderOutputPath);
+            run.backupFinishedSuccessfully = true;
+            trimOldBackupsAfterNewSuccess(run.worldBackupDir, Config.getMaxStoredBackups(), run.context);
+        } catch (InterruptedIOException e) {
+            if (shutdownRequested) {
+                run.context.logInfo("Chronos backup aborted (shutdown).");
+            } else {
+                run.context.logInfo("Chronos backup aborted (cancelled).");
+                run.announceUserCancelInChat = true;
+            }
+        } catch (Throwable t) {
+            run.workerError = t;
+        } finally {
+            run.workerFinished = true;
+            run.proceedAfterSavesRestored.countDown();
+        }
+    }
+
+    private static void finalizeInFlightBackup(InFlightBackup run, Throwable startupFailure) {
+        SpeedtestSession speedtest = activeSpeedtest;
+        if (speedtest != null && speedtest.waitingForBackup) {
+            speedtest.lastBackupSucceeded = run.backupFinishedSuccessfully;
+        }
+
+        boolean backupFinishedSuccessfully = run.backupFinishedSuccessfully;
+        boolean announceUserCancelInChat = run.announceUserCancelInChat;
+        try {
+            if (startupFailure != null && !run.workerFinished) {
+                String detail = startupFailure.getMessage();
+                if (detail == null || detail.isEmpty()) {
+                    detail = startupFailure.getClass().getName();
                 }
-                context.sendChat("Backup completed in " + duration + ".");
-                trimOldBackupsAfterNewSuccess(worldBackupDir, Config.getMaxStoredBackups(), context);
-            } catch (InterruptedIOException e) {
-                if (shutdownRequested) {
-                    context.logInfo("Chronos backup aborted (shutdown).");
-                } else {
-                    context.logInfo("Chronos backup aborted (cancelled).");
-                    announceUserCancelInChat = true;
-                }
-                Thread.currentThread().interrupt();
-            } catch (Throwable t) {
+                run.context.logError("Chronos backup failed: " + detail);
+                run.context.sendChat("Backup failed. Check server logs for details.");
+                startupFailure.printStackTrace();
+                return;
+            }
+
+            if (run.workerError != null) {
+                Throwable t = run.workerError;
                 String detail = t.getMessage();
                 if (detail == null || detail.isEmpty()) {
                     detail = t.getClass().getName();
                 }
-                context.logError("Chronos backup failed: " + detail);
-                context.sendChat("Backup failed. Check server logs for details.");
+                run.context.logError("Chronos backup failed: " + detail);
+                run.context.sendChat("Backup failed. Check server logs for details.");
                 t.printStackTrace();
-            } finally {
-                if (attemptedSavingPause && worldController != null) {
-                    worldController.setWorldSavingDisabled(context.getServerHandle(), false);
+                return;
+            }
+
+            if (backupFinishedSuccessfully) {
+                final String duration = formatBackupDurationNanos(run.backupStartNanos);
+                if (run.compressionMethod == CompressionMethod.ZIP) {
+                    run.context.logInfo("Chronos backup completed in " + duration + ": " + run.zipOutputPath);
+                } else {
+                    run.context.logInfo("Chronos backup completed in " + duration + ": " + run.folderOutputPath);
                 }
-                if (!backupFinishedSuccessfully) {
-                    if (zipOutputPath != null) {
-                        try {
-                            Files.deleteIfExists(zipOutputPath);
-                        } catch (IOException e) {
-                            context.logError(
-                                    "Chronos backups: could not remove incomplete zip "
-                                            + zipOutputPath
-                                            + ": "
-                                            + e.getMessage());
-                        }
-                    }
-                    if (folderOutputPath != null) {
-                        try {
-                            deleteDirectory(folderOutputPath);
-                        } catch (IOException e) {
-                            context.logError(
-                                    "Chronos backups: could not remove incomplete folder backup "
-                                            + folderOutputPath
-                                            + ": "
-                                            + e.getMessage());
-                        }
-                    }
-                }
-                boolean snapshotCacheRemoved = true;
-                if (cacheSnapshotPath != null) {
+                run.context.sendChat("Backup completed in " + duration + ".");
+            }
+        } finally {
+            if (run.attemptedSavingPause && run.worldController != null) {
+                run.worldController.setWorldSavingDisabled(run.serverHandle, false);
+            }
+            if (!backupFinishedSuccessfully) {
+                if (run.zipOutputPath != null) {
                     try {
-                        deleteDirectory(cacheSnapshotPath);
+                        Files.deleteIfExists(run.zipOutputPath);
                     } catch (IOException e) {
-                        snapshotCacheRemoved = false;
-                        context.logError(
-                                "Chronos backup cleanup failed for "
-                                        + cacheSnapshotPath
+                        run.context.logError(
+                                "Chronos backups: could not remove incomplete zip "
+                                        + run.zipOutputPath
                                         + ": "
                                         + e.getMessage());
                     }
                 }
-                if (announceUserCancelInChat) {
-                    if (snapshotCacheRemoved) {
-                        context.sendChat(
-                                "Backup cancelled. The run has fully stopped. Working snapshot files were cleared and"
-                                        + " any incomplete backup output was removed.");
-                    } else {
-                        context.sendChat(
-                                "Backup cancelled. The run has stopped, but cleaning up temporary snapshot files"
-                                        + " failed. Check the server log.");
+                if (run.folderOutputPath != null) {
+                    try {
+                        deleteDirectory(run.folderOutputPath);
+                    } catch (IOException e) {
+                        run.context.logError(
+                                "Chronos backups: could not remove incomplete folder backup "
+                                        + run.folderOutputPath
+                                        + ": "
+                                        + e.getMessage());
                     }
                 }
             }
-            return backupFinishedSuccessfully;
-        } finally {
-            backupCancelRequested = false;
-            backupRunActive.set(false);
+            boolean snapshotCacheRemoved = true;
+            if (run.cacheSnapshotPath != null) {
+                try {
+                    deleteDirectory(run.cacheSnapshotPath);
+                } catch (IOException e) {
+                    snapshotCacheRemoved = false;
+                    run.context.logError(
+                            "Chronos backup cleanup failed for "
+                                    + run.cacheSnapshotPath
+                                    + ": "
+                                    + e.getMessage());
+                }
+            }
+            if (announceUserCancelInChat) {
+                if (snapshotCacheRemoved) {
+                    run.context.sendChat(
+                            "Backup cancelled. The run has fully stopped. Working snapshot files were cleared and"
+                                    + " any incomplete backup output was removed.");
+                } else {
+                    run.context.sendChat(
+                            "Backup cancelled. The run has stopped, but cleaning up temporary snapshot files"
+                                    + " failed. Check the server log.");
+                }
+            }
+
+            inFlightBackup = null;
+            releaseBackupRunClaim();
         }
     }
 
+    private static void releaseBackupRunClaim() {
+        backupCancelRequested = false;
+        backupRunActive.set(false);
+    }
+
     private Backupper() {
+    }
+
+    private static final class InFlightBackup {
+        BackupRuntimeContext context;
+        CompressionMethod compressionMethod;
+        Path worldBackupDir;
+        Path zipOutputPath;
+        Path cacheSnapshotPath;
+        Path folderOutputPath;
+        Path worldPath;
+        BackupWorldController worldController;
+        Object serverHandle;
+        long backupStartNanos;
+        boolean attemptedSavingPause;
+        volatile boolean copyComplete;
+        volatile boolean savesRestoredOnMainThread;
+        final CountDownLatch proceedAfterSavesRestored = new CountDownLatch(1);
+        volatile boolean workerFinished;
+        volatile boolean backupFinishedSuccessfully;
+        volatile boolean announceUserCancelInChat;
+        volatile Throwable workerError;
+        Thread workerThread;
+    }
+
+    private static final class SpeedtestSession {
+        BackupRuntimeContext context;
+        long startNanos;
+        long endNanos;
+        int backups;
+        boolean waitingForBackup;
+        boolean lastBackupSucceeded;
+        boolean expired;
     }
 
     /**
@@ -536,9 +711,10 @@ public final class Backupper {
     }
 
     /**
-     * {@link Path#relativize} throws {@link IllegalArgumentException} when roots differ (common on
-     * Windows if the walk paths are not normalized the same way as the world root). Fall back to URI
-     * relativization used by other backup mods.
+     * {@link Path#relativize} throws {@link IllegalArgumentException} when roots
+     * differ (common on Windows if the walk paths are not normalized the same way
+     * as the world root). Fall back to URI relativization used by other backup
+     * mods.
      */
     private static Path relativizeToWorldRoot(Path worldRoot, Path fullPath) throws IOException {
         Path root = worldRoot.toAbsolutePath().normalize();
@@ -616,6 +792,15 @@ public final class Backupper {
 
     public static void ShutdownBackupper() {
         shutdownRequested = true;
+
+        InFlightBackup run = inFlightBackup;
+        if (run != null) {
+            run.proceedAfterSavesRestored.countDown();
+            Thread worker = run.workerThread;
+            if (worker != null) {
+                worker.interrupt();
+            }
+        }
 
         // Stop scheduled backup checks and cancel queued run-now tasks
         Scheduler.ShutdownScheduler();
