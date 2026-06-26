@@ -29,7 +29,7 @@ The required permission level defaults to **4**.
 
 ## Limitations
 
-Chronos prioritizes aged world data, chunks that do not yet count as "old enough" for pruning can be left out of a snapshot. If you enter a **new** chunk, change blocks or items, and a backup runs **before** that area is included, those changes may be missing from that backup (depending on configuration). That situation is seen as extremely rare and can only cause **loss** on restore, never duplication.
+Chronos prioritizes aged world data, chunks that do not yet count as "old enough" can be left out of a backup. If you enter a **new** chunk, change blocks or items, and a backup runs **before** that area is included, those changes may be missing from that backup (depending on configuration). That situation is seen as extremely rare and can only cause **loss** on restore, never duplication.
 
 ## Supported versions
 
