@@ -8,11 +8,11 @@
 
 <sup>The wonderful mod icon and banner were created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
 
-[//]: # (PAUSE MOD PAGE DESCRIPTION)
+[//]: # (END MOD PAGE DESCRIPTION)
 
 [![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
 
-[//]: # (RESUME MOD PAGE DESCRIPTION)
+[//]: # (BEGIN MOD PAGE DESCRIPTION)
 
 **Chronos Backups** is a multi-loader, multi-version Minecraft backup utility. Saves only the most important parts of your world, keeping backups smaller.
 

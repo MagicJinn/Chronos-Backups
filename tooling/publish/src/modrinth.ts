@@ -122,3 +122,29 @@ export async function createModrinthVersion(
     url: `https://modrinth.com/mod/${created.project_id}/version/${created.version_number}`,
   };
 }
+
+export async function updateModrinthProjectBody(
+  token: string,
+  projectId: string,
+  body: string,
+  dryRun = false,
+): Promise<void> {
+  if (dryRun) {
+    console.log(`[dry-run] Modrinth project body (${body.length} chars):`, body);
+    return;
+  }
+
+  const response = await fetch(`${MODRINTH_API}/project/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    headers: {
+      ...modrinthHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ body }),
+  });
+
+  if (!response.ok) {
+    const responseBody = await response.text();
+    throw new Error(`Modrinth project body update failed (${response.status}): ${responseBody}`);
+  }
+}

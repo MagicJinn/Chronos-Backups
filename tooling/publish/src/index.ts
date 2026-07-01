@@ -8,7 +8,8 @@ import {
   loadJarTargetIndex,
   lookupJarTarget,
 } from "./compile-groups-index.js";
-import { createModrinthVersion, resolveModrinthProjectId } from "./modrinth.js";
+import { getModPageDescription } from "./create-mod-page-description.js";
+import { createModrinthVersion, resolveModrinthProjectId, updateModrinthProjectBody } from "./modrinth.js";
 import { ModrinthGameVersionResolver } from "./modrinth-versions.js";
 import { artifactVersionNumber, parseJarFileName } from "./parse-jar.js";
 
@@ -202,6 +203,17 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
 
   if (failures > 0) {
     throw new Error(`${failures} jar(s) failed to publish`);
+  }
+
+  if (!config.skipModrinth && (config.modrinthToken || config.dryRun)) {
+    const modPageDescription = await getModPageDescription(config.repoRoot);
+    await updateModrinthProjectBody(
+      config.modrinthToken ?? "",
+      modrinthProjectId,
+      modPageDescription,
+      config.dryRun,
+    );
+    console.log(`\nModrinth project page updated (${modPageDescription.length} chars).`);
   }
 
   console.log(`\nDone. Published ${jarNames.length} jar(s).`);
