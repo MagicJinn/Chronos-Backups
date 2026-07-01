@@ -1,12 +1,18 @@
-# Chronos Backups
-
 [//]: # (This is supposed to be a comment. If you see this, you are either editing/reading the source Markdown file, or using a markdown viewer that does not support comments.)
+
+[//]: # (BEGIN MOD PAGE DESCRIPTION)
+
+# Chronos Backups
 
 [![Mod Banner](https://raw.githubusercontent.com/MagicJinn/Chronos-Backups/main/banner.png)](https://www.artstation.com/mylenakrijnen)
 
 <sup>The wonderful mod icon and banner were created by [Mylèna Yarah Krijnen](https://www.artstation.com/mylenakrijnen).</sup>
 
+[//]: # (PAUSE MOD PAGE DESCRIPTION)
+
 [![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
+
+[//]: # (RESUME MOD PAGE DESCRIPTION)
 
 **Chronos Backups** is a multi-loader, multi-version Minecraft backup utility. Saves only the most important parts of your world, keeping backups smaller.
 
@@ -87,6 +93,8 @@ This list may be out of date. To see the latest available configuration options 
 ## Nightly releases
 
 Github Actions automatically builds and uploads nightly releases to the [GitHub Releases](https://github.com/MagicJinn/Chronos-Backups/releases) page. These are not the same as stable releases found on Modrinth, CurseForge or Github Releases, and should not be relied upon or assumed to be stable.
+
+[//]: # (END MOD PAGE DESCRIPTION)
 
 ## Development
 
