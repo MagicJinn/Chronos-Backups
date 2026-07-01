@@ -62,9 +62,7 @@ fun taskRequiresExistingVariants(taskName: String): Boolean {
     return taskNeedsVariantsRoot(taskName) ||
         taskTargetsVariantProject(taskName) ||
         bare == "generateVariants" ||
-        bare == "runGenerateVariants" ||
-        bare == "smokeTest" ||
-        bare == "runSmokeTest"
+        bare == "runGenerateVariants"
 }
 
 val bootstrapVariantGeneration = requestedTasks.any { taskName ->
