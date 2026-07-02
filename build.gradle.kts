@@ -527,12 +527,6 @@ tasks.register("cleanUniminedCache") {
     }
 }
 
-tasks.register("smokeTest") {
-    group = "verification"
-    description = "Runs dedicated server smoke tests via Java tooling."
-    dependsOn(":tooling:runSmokeTest")
-}
-
 fun collectedJarPrefix(variantProjectName: String): String {
     val lineMatch = Regex("""^(fabric|forge|neoforge)-line-(.+)$""").matchEntire(variantProjectName)
     if (lineMatch != null) {

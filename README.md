@@ -162,7 +162,6 @@ All commands should be run from the repository root. The Gradle project provides
 - `testServers`: Builds jars (with Docker-compatible natives) and runs Docker-based server integration tests.
 - `generateVariants`: Regenerates `variants/` from `gradle/chronos-compile-groups.json` (should be run automatically when appropriate).
 - `cleanVariants`: Clears the `variants/` folder. Useful when encountering issues with stale/locked variant directories.
-- `smokeTest`: (DEPRECATED) Automated dedicated-server smoke runs. Spins up a server for each variant and runs specific tests to ensure the mod is working correctly.
 - `:fabric-line-…:build` / `:neoforge-line-…:build`: Build a specific variant's jar.
 - `:fabric-line-…:runClient` / `:neoforge-line-…:runServer`: Run a specific variant's server or client.
 

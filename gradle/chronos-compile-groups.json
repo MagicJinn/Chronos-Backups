@@ -23,13 +23,6 @@
       "forgeModsToml": "forge-mods.toml.template"
     }
   },
-  "smokeTestServers": {
-    "skipSmoke": [
-      "forge-line-1_17",
-      "forge-line-1_18",
-      "forge-line-1_19"
-    ]
-  },
   "groups": [{
       "id": "minecraft_1_21_0_to_1_21_10",
       "description": "NeoForge and Fabric unified jars for Minecraft 1.21.0-1.21.10 (pre-PermissionSet command source API).",
