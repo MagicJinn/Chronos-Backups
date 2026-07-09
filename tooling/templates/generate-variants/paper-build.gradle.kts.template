@@ -1,0 +1,73 @@
+plugins {
+    java
+}
+
+group = rootProject.findProperty("chronos.mod.group") as String
+version = rootProject.findProperty("chronos.mod.version") as String
+
+base { archivesName.set("{{archivesName}}") }
+
+repositories {
+    mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
+}
+
+dependencies {
+    compileOnly("{{paperApiDependency}}")
+    compileOnly("org.apache.logging.log4j:log4j-api:2.17.2")
+    val nightConfigVer = rootProject.findProperty("chronos.nightconfig.version") ?: "3.6.7"
+    implementation("com.electronwill.night-config:core:$nightConfigVer")
+    implementation("com.electronwill.night-config:toml:$nightConfigVer")
+}
+
+{{paperCompileClasspathJvmAttrsKts}}
+
+sourceSets.named("main") {
+    java.srcDirs(
+        rootProject.file("core/src/main/java"),
+        rootProject.file("shell-shared/src/main/java"),
+        rootProject.file("shell-paper/src/main/java"),
+    )
+}
+
+tasks.processResources {
+    inputs.property("version", project.version)
+    inputs.property("mod_id", rootProject.findProperty("chronos.mod.id") as String)
+    inputs.property("mod_description", rootProject.findProperty("chronos.mod.description") as String)
+    inputs.property("mod_author", rootProject.findProperty("chronos.mod.author") as String)
+    filesMatching("plugin.yml") {
+        expand(
+            "version" to project.version,
+            "mod_id" to (rootProject.findProperty("chronos.mod.id") as String),
+            "mod_description" to (rootProject.findProperty("chronos.mod.description") as String),
+            "mod_author" to (rootProject.findProperty("chronos.mod.author") as String),
+        )
+    }
+}
+
+java {
+    withSourcesJar()
+    toolchain { languageVersion.set(JavaLanguageVersion.of({{javaToolchainMajor}})) }
+    sourceCompatibility = org.gradle.api.JavaVersion.toVersion({{javaDependencyResolutionMajor}})
+    targetCompatibility = org.gradle.api.JavaVersion.toVersion({{javaDependencyResolutionMajor}})
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    {{paperJavaCompileOptionsKts}}
+}
+
+tasks.named<Jar>("jar") {
+    from({
+        configurations.runtimeClasspath.get()
+            .filter { dep ->
+                val name = dep.name
+                !name.contains("paper", ignoreCase = true)
+                        && !name.contains("spigot", ignoreCase = true)
+                        && !name.contains("bukkit", ignoreCase = true)
+            }
+            .map { dep -> if (dep.isDirectory) dep else zipTree(dep) }
+    })
+    duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
+}

@@ -142,8 +142,11 @@ public final class ChronosJavaMatrix {
         if (prefix != null) {
             return new ToolchainAndRelease(prefix.toolchainMajor(), prefix.compileRelease());
         }
-        String major = isYearMinorMc(mc) ? gradleToolchainYearlyJavaMajor : gradleToolchainDefaultJavaMajor;
-        return new ToolchainAndRelease(major, major);
+        if (!mc.startsWith("1.")) {
+            String major = isYearMinorMc(mc) ? gradleToolchainYearlyJavaMajor : gradleToolchainDefaultJavaMajor;
+            return new ToolchainAndRelease(major, major);
+        }
+        return new ToolchainAndRelease(gradleToolchainMajor(mc), compileRelease(mc));
     }
 
     public record ToolchainAndRelease(String toolchainMajor, String compileRelease) {

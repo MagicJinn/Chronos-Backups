@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-interface UnifiedBlock {
+interface ConfigBlock {
   archiveVersionTag?: string;
   loaderKey?: string;
   supportedVersions?: string[];
@@ -23,30 +23,30 @@ export interface JarTargetEntry {
   gameVersions: string[];
 }
 
-const UNIFIED_BLOCK_SUFFIX = "Unified";
+const CONFIG_BLOCK_SUFFIX = "Config";
 
-function isUnifiedBlock(value: unknown): value is UnifiedBlock {
+function isConfigBlock(value: unknown): value is ConfigBlock {
   return typeof value === "object" && value !== null;
 }
 
-function loaderFromBlock(blockKey: string, block: UnifiedBlock): string {
+function loaderFromBlock(blockKey: string, block: ConfigBlock): string {
   if (block.loaderKey?.trim()) {
     return block.loaderKey.trim().toLowerCase();
   }
-  if (!blockKey.endsWith(UNIFIED_BLOCK_SUFFIX)) {
-    throw new Error(`Unified block key must end with "${UNIFIED_BLOCK_SUFFIX}": ${blockKey}`);
+  if (!blockKey.endsWith(CONFIG_BLOCK_SUFFIX)) {
+    throw new Error(`Config block key must end with "${CONFIG_BLOCK_SUFFIX}": ${blockKey}`);
   }
-  const derived = blockKey.slice(0, -UNIFIED_BLOCK_SUFFIX.length);
+  const derived = blockKey.slice(0, -CONFIG_BLOCK_SUFFIX.length);
   if (!derived) {
     throw new Error(`Cannot derive loader from block key: ${blockKey}`);
   }
   return derived.toLowerCase();
 }
 
-function unifiedBlocksInGroup(group: CompileGroup): Array<{ blockKey: string; block: UnifiedBlock }> {
-  const blocks: Array<{ blockKey: string; block: UnifiedBlock }> = [];
+function configBlocksInGroup(group: CompileGroup): Array<{ blockKey: string; block: ConfigBlock }> {
+  const blocks: Array<{ blockKey: string; block: ConfigBlock }> = [];
   for (const [key, value] of Object.entries(group)) {
-    if (!key.endsWith(UNIFIED_BLOCK_SUFFIX) || !isUnifiedBlock(value)) {
+    if (!key.endsWith(CONFIG_BLOCK_SUFFIX) || !isConfigBlock(value)) {
       continue;
     }
     blocks.push({ blockKey: key, block: value });
@@ -61,7 +61,7 @@ export function buildJarTargetIndex(groups: CompileGroup[]): Map<string, JarTarg
     const groupVersions = group.supportedVersions;
     const fallbackTag = group.jarTargetLabel;
 
-    for (const { blockKey, block } of unifiedBlocksInGroup(group)) {
+    for (const { blockKey, block } of configBlocksInGroup(group)) {
       const archiveTag = block.archiveVersionTag ?? fallbackTag;
       if (!archiveTag) {
         continue;

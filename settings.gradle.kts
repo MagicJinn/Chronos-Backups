@@ -9,6 +9,7 @@ pluginManagement {
         maven("https://maven.minecraftforge.net/")
         maven("https://maven.neoforged.net/releases")
         maven("https://maven.wagyourtail.xyz/releases")
+        maven("https://repo.papermc.io/repository/maven-public/")
         gradlePluginPortal()
     }
 }
@@ -54,7 +55,9 @@ fun taskTargetsVariantProject(taskName: String): Boolean {
         projectName.startsWith("forge-") ||
         projectName.startsWith("forge-line-") ||
         projectName.startsWith("neoforge-") ||
-        projectName.startsWith("neoforge-line-")
+        projectName.startsWith("neoforge-line-") ||
+        projectName.startsWith("paper-") ||
+        projectName.startsWith("paper-line-")
 }
 
 fun taskRequiresExistingVariants(taskName: String): Boolean {
@@ -135,7 +138,7 @@ if (!variantsRoot.isDirectory) {
     for (groupDir in variantsRoot.directoriesSorted()) {
         for (projectDir in groupDir.directoriesSorted()) {
             val name = projectDir.name
-            if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-")) {
+            if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-") || name.startsWith("paper-") || name.startsWith("paper-line-")) {
                 include(":$name")
                 project(":$name").projectDir = projectDir
                 if (name.startsWith("forge-line-") || name.startsWith("forge-")) {

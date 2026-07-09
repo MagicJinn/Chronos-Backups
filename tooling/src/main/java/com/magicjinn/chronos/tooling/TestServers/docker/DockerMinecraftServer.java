@@ -47,6 +47,8 @@ public class DockerMinecraftServer {
      * installer is not reachable via the standard Maven path (e.g. 1.10.0).
      */
     private final String forgeInstallerUrl;
+    /** Optional. Passed as {@code PAPER_CHANNEL} for Paper servers (e.g. {@code experimental}). */
+    private final String paperChannel;
 
     public DockerMinecraftServer(
             String loaderKey,
@@ -54,7 +56,7 @@ public class DockerMinecraftServer {
             int gamePort,
             int rconPort,
             Path modJarPath) {
-        this(loaderKey, version, version, modJarPath, null, null, null, null, null);
+        this(loaderKey, version, version, modJarPath, null, null, null, null, null, null);
         this.gamePort = gamePort;
         this.rconPort = rconPort;
     }
@@ -67,7 +69,7 @@ public class DockerMinecraftServer {
             Path modJarPath,
             String fabricLoaderVersion,
             String modrinthProjects) {
-        this(loaderKey, version, version, modJarPath, fabricLoaderVersion, modrinthProjects, null, null, null);
+        this(loaderKey, version, version, modJarPath, fabricLoaderVersion, modrinthProjects, null, null, null, null);
         this.gamePort = gamePort;
         this.rconPort = rconPort;
     }
@@ -81,7 +83,8 @@ public class DockerMinecraftServer {
             String fabricLoaderVersion,
             String modrinthProjects,
             String forgeVersion) {
-        this(loaderKey, version, version, modJarPath, fabricLoaderVersion, modrinthProjects, forgeVersion, null, null);
+        this(loaderKey, version, version, modJarPath, fabricLoaderVersion, modrinthProjects, forgeVersion, null, null,
+                null);
         this.gamePort = gamePort;
         this.rconPort = rconPort;
     }
@@ -96,7 +99,7 @@ public class DockerMinecraftServer {
             String forgeVersion,
             String forgeInstallerUrl) {
         this(loaderKey, version, dockerVersion, modJarPath, fabricLoaderVersion, modrinthProjects, forgeVersion,
-                forgeInstallerUrl, null);
+                forgeInstallerUrl, null, null);
     }
 
     public DockerMinecraftServer(
@@ -109,6 +112,21 @@ public class DockerMinecraftServer {
             String forgeVersion,
             String forgeInstallerUrl,
             String neoForgeVersion) {
+        this(loaderKey, version, dockerVersion, modJarPath, fabricLoaderVersion, modrinthProjects, forgeVersion,
+                forgeInstallerUrl, neoForgeVersion, null);
+    }
+
+    public DockerMinecraftServer(
+            String loaderKey,
+            String version,
+            String dockerVersion,
+            Path modJarPath,
+            String fabricLoaderVersion,
+            String modrinthProjects,
+            String forgeVersion,
+            String forgeInstallerUrl,
+            String neoForgeVersion,
+            String paperChannel) {
         this.loaderKey = loaderKey;
         this.version = version;
         this.dockerVersion = dockerVersion;
@@ -118,6 +136,7 @@ public class DockerMinecraftServer {
         this.forgeVersion = forgeVersion;
         this.forgeInstallerUrl = forgeInstallerUrl;
         this.neoForgeVersion = neoForgeVersion;
+        this.paperChannel = paperChannel;
     }
 
     /** Binds host ports immediately before {@link #createDockerContainer()}. */
@@ -184,6 +203,7 @@ public class DockerMinecraftServer {
                 yield detail.isEmpty() ? optionalDetail("FORGE_VERSION", forgeVersion) : detail;
             }
             case "NEOFORGE" -> optionalDetail("NEOFORGE_VERSION", neoForgeVersion);
+            case "PAPER" -> optionalDetail("PAPER_CHANNEL", paperChannel);
             default -> "";
         };
         return loaderKey + '-' + version + ports + " (mod jar: " + modJarPath.getFileName() + ')' + env;
@@ -219,7 +239,9 @@ public class DockerMinecraftServer {
         String image = DockerServerImage.imageFor(getVersion());
         System.out.println("Starting " + containerName + " with image " + image);
 
-        String modJarMount = modJarPath + ":/data/mods/chronosbackups.jar";
+        String modJarMount = modJarPath + ":/data/"
+                + ("PAPER".equalsIgnoreCase(loaderKey) ? "plugins" : "mods")
+                + "/chronosbackups.jar";
         List<String> command = new ArrayList<>();
         command.add("docker");
         command.add("run");
@@ -259,6 +281,9 @@ public class DockerMinecraftServer {
         } else if ("NEOFORGE".equalsIgnoreCase(loaderKey) && neoForgeVersion != null && !neoForgeVersion.isBlank()) {
             command.add("-e");
             command.add("NEOFORGE_VERSION=" + neoForgeVersion);
+        } else if ("PAPER".equalsIgnoreCase(loaderKey) && paperChannel != null && !paperChannel.isBlank()) {
+            command.add("-e");
+            command.add("PAPER_CHANNEL=" + paperChannel);
         }
         command.add("-e");
         command.add("ENABLE_RCON=TRUE");
@@ -360,6 +385,9 @@ public class DockerMinecraftServer {
         }
         int minor = minecraftMinorVersion(version);
         if ("FABRIC".equalsIgnoreCase(loaderKey)) {
+            return stripZeroPatch(version);
+        }
+        if ("PAPER".equalsIgnoreCase(loaderKey)) {
             return stripZeroPatch(version);
         }
         if ("FORGE".equalsIgnoreCase(loaderKey) && minor <= 12) {

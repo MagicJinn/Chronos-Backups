@@ -424,8 +424,6 @@ val jarTargetLabelByLineSlug: Map<String, String> = run {
     out.toMap()
 }
 
-// Loader-specific archive suffix for collectAllJars: `fabricUnified` / `neoForgeUnified` /
-// `forgeUnified`.`archiveVersionTag` in chronos-compile-groups.json (matches variant base.archivesName).
 @Suppress("UNCHECKED_CAST")
 val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
     val f = layout.projectDirectory.file("gradle/chronos-compile-groups.json").asFile
@@ -445,12 +443,14 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
         val primary = pfx.map { it.toString() }.minByOrNull { it.length } ?: continue
         val slug = primary.replace(".", "_")
         listOf(
-            Triple("fabric", "fabricUnified", slug),
-            Triple("neoforge", "neoForgeUnified", slug),
-            Triple("neoforge", "neoForgeEarlyUnified", slug + "_early"),
-            Triple("forge", "forgeUnified", slug),
-        ).forEach { (loader, unifiedKey, tagSlug) ->
-            (gm[unifiedKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
+            // TODO softcode these
+            Triple("fabric", "fabricConfig", slug),
+            Triple("neoforge", "neoForgeConfig", slug),
+            Triple("neoforge", "neoForgeEarlyConfig", slug + "_early"),
+            Triple("forge", "forgeConfig", slug),
+            Triple("paper", "paperConfig", slug),
+        ).forEach { (loader, configKey, tagSlug) ->
+            (gm[configKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
                 putTag(loader, tagSlug, it)
             }
         }
@@ -528,13 +528,13 @@ tasks.register("cleanUniminedCache") {
 }
 
 fun collectedJarPrefix(variantProjectName: String): String {
-    val lineMatch = Regex("""^(fabric|forge|neoforge)-line-(.+)$""").matchEntire(variantProjectName)
+    val lineMatch = Regex("""^(fabric|forge|neoforge|paper)-line-(.+)$""").matchEntire(variantProjectName) // TODO softcode these
     if (lineMatch != null) {
         val loader = lineMatch.groupValues[1]
         val slug = lineMatch.groupValues[2]
         return "$loader-${variantSlugToVersionLabel(loader, slug)}"
     }
-    val bareMatch = Regex("""^(fabric|forge|neoforge)-(.+)$""").matchEntire(variantProjectName)
+    val bareMatch = Regex("""^(fabric|forge|neoforge|paper)-(.+)$""").matchEntire(variantProjectName) // TODO softcode these
     if (bareMatch != null) {
         val loader = bareMatch.groupValues[1]
         val slug = bareMatch.groupValues[2]

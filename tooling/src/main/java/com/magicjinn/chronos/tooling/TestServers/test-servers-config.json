@@ -5,7 +5,7 @@
         "Backupper is ready and on standby...",
         "RCON running on"
     ],
-    "testCommand": "/chronos speedtest 4",
+    "testCommand": "chronos speedtest 4",
     "failureMarkers": [
         "Chronos backup failed",
         "FAILED TO BIND TO PORT",

@@ -119,7 +119,7 @@ public final class TestServers {
                 return group;
             }
             // Otherwise, check each loader's supportedVersions
-            for (Map<String, Object> loaderObj : unifiedLoaderConfigs(group)) {
+            for (Map<String, Object> loaderObj : loaderConfigs(group)) {
                 if (strList(loaderObj.get("supportedVersions")).contains(version)) {
                     return group;
                 }
@@ -140,15 +140,15 @@ public final class TestServers {
      * resolves a compatible release for that game version.
      */
     static String resolveFabricModrinthProjects(String minecraftVersion, Map<String, Object> group) {
-        Map<String, Object> fabricUnified = castMap(group.get("fabricUnified"));
-        if (fabricUnified == null) {
+        Map<String, Object> fabricConfig = castMap(group.get("fabricConfig"));
+        if (fabricConfig == null) {
             return "fabric-api";
         }
-        String fabricApi = str(fabricUnified.get("fabricApi"));
+        String fabricApi = str(fabricConfig.get("fabricApi"));
         if (fabricApi.isBlank()) {
             return "fabric-api";
         }
-        String referenceMc = str(fabricUnified.get("referenceMinecraft"));
+        String referenceMc = str(fabricConfig.get("referenceMinecraft"));
         if (!referenceMc.isBlank() && !minecraftVersion.equals(referenceMc)) {
             return "fabric-api";
         }
@@ -156,23 +156,23 @@ public final class TestServers {
     }
 
     static String resolveFabricLoaderVersion(String minecraftVersion, Map<String, Object> group) {
-        Map<String, Object> fabricUnified = castMap(group.get("fabricUnified"));
-        if (fabricUnified == null) {
+        Map<String, Object> fabricConfig = castMap(group.get("fabricConfig"));
+        if (fabricConfig == null) {
             return "";
         }
-        String referenceMc = str(fabricUnified.get("referenceMinecraft"));
+        String referenceMc = str(fabricConfig.get("referenceMinecraft"));
         if (!referenceMc.isBlank() && !referenceMc.equals(minecraftVersion)) {
             return "";
         }
-        return str(fabricUnified.get("fabricLoader"));
+        return str(fabricConfig.get("fabricLoader"));
     }
 
     /**
      * Resolves {@code NEOFORGE_VERSION} for NeoForge test servers.
      */
     @SuppressWarnings("unchecked")
-    static String resolveNeoForgeVersionOverride(String minecraftVersion, Map<String, Object> unified) {
-        Object raw = unified.get("neoForgeVersionOverrides");
+    static String resolveNeoForgeVersionOverride(String minecraftVersion, Map<String, Object> loaderConfig) {
+        Object raw = loaderConfig.get("neoForgeVersionOverrides");
         if (!(raw instanceof Map<?, ?>)) {
             return null;
         }
@@ -185,13 +185,13 @@ public final class TestServers {
      * {@code latest} (explicit overrides, or the reference NeoForge build for the
      * reference Minecraft patch).
      */
-    static String resolveNeoForgeVersion(String minecraftVersion, String dockerVersion, Map<String, Object> unified) {
-        String override = resolveNeoForgeVersionOverride(minecraftVersion, unified);
+    static String resolveNeoForgeVersion(String minecraftVersion, String dockerVersion, Map<String, Object> loaderConfig) {
+        String override = resolveNeoForgeVersionOverride(minecraftVersion, loaderConfig);
         if (override != null && !override.isBlank()) {
             return override;
         }
-        String referenceMc = str(unified.get("referenceMinecraft"));
-        String referenceNeo = str(unified.get("neoForge"));
+        String referenceMc = str(loaderConfig.get("referenceMinecraft"));
+        String referenceNeo = str(loaderConfig.get("neoForge"));
         if (referenceNeo.isBlank() || referenceMc.isBlank()) {
             return null;
         }
@@ -202,11 +202,33 @@ public final class TestServers {
     }
 
     /**
+     * Resolves {@code PAPER_CHANNEL} for Paper test servers when only experimental
+     * builds exist for a patch.
+     */
+    @SuppressWarnings("unchecked")
+    static String resolvePaperChannelOverride(String minecraftVersion, Map<String, Object> loaderConfig) {
+        Object raw = loaderConfig.get("paperChannelOverrides");
+        if (!(raw instanceof Map<?, ?>)) {
+            return null;
+        }
+        Map<String, String> overrides = (Map<String, String>) raw;
+        return overrides.get(minecraftVersion);
+    }
+
+    static String resolvePaperChannel(String minecraftVersion, Map<String, Object> loaderConfig) {
+        String override = resolvePaperChannelOverride(minecraftVersion, loaderConfig);
+        if (override != null && !override.isBlank()) {
+            return override;
+        }
+        return null;
+    }
+
+    /**
      * Resolves {@code FORGE_VERSION} for Forge test servers.
      */
     @SuppressWarnings("unchecked")
-    static String resolveForgeVersionOverride(String minecraftVersion, Map<String, Object> unified) {
-        Object raw = unified.get("forgeVersionOverrides");
+    static String resolveForgeVersionOverride(String minecraftVersion, Map<String, Object> loaderConfig) {
+        Object raw = loaderConfig.get("forgeVersionOverrides");
         if (!(raw instanceof Map<?, ?>)) {
             return null;
         }
@@ -241,13 +263,13 @@ public final class TestServers {
      * Leave unset so the image resolves the correct installer for
      * {@code dockerVersion}.
      */
-    static String resolveForgeVersion(String minecraftVersion, String dockerVersion, Map<String, Object> unified) {
-        String override = resolveForgeVersionOverride(minecraftVersion, unified);
+    static String resolveForgeVersion(String minecraftVersion, String dockerVersion, Map<String, Object> loaderConfig) {
+        String override = resolveForgeVersionOverride(minecraftVersion, loaderConfig);
         if (override != null && !override.isBlank()) {
             return normalizeForgeVersionForDocker(override);
         }
-        String referenceMc = str(unified.get("referenceMinecraft"));
-        String referenceForge = str(unified.get("forge"));
+        String referenceMc = str(loaderConfig.get("referenceMinecraft"));
+        String referenceForge = str(loaderConfig.get("forge"));
         if (referenceForge.isBlank() || referenceMc.isBlank()) {
             return null;
         }
@@ -262,12 +284,12 @@ public final class TestServers {
      * mc-image-helper (e.g. Fabric loader meta uses {@code 1.16}, not
      * {@code 1.16.0}. Many Forge lines never published {@code x.y.0} installers).
      */
-    static String resolveDockerMinecraftVersion(String version, String loaderKey, Map<String, Object> unified) {
+    static String resolveDockerMinecraftVersion(String version, String loaderKey, Map<String, Object> loaderConfig) {
         String normalized = DockerMinecraftServer.dockerMinecraftVersion(version, loaderKey);
         if ("FORGE".equalsIgnoreCase(loaderKey) && endsWithZeroPatch(version)) {
             int minor = minecraftMinorVersion(version);
             if (minor >= 13) {
-                String referenceMc = str(unified.get("referenceMinecraft"));
+                String referenceMc = str(loaderConfig.get("referenceMinecraft"));
                 if (!referenceMc.isBlank()) {
                     return referenceMc;
                 }
@@ -298,8 +320,8 @@ public final class TestServers {
      * is not reachable via the standard Maven path (e.g. 1.10.0).
      */
     @SuppressWarnings("unchecked")
-    static String resolveForgeInstallerUrlOverride(String minecraftVersion, Map<String, Object> unified) {
-        Object raw = unified.get("forgeInstallerUrlOverrides");
+    static String resolveForgeInstallerUrlOverride(String minecraftVersion, Map<String, Object> loaderConfig) {
+        Object raw = loaderConfig.get("forgeInstallerUrlOverrides");
         if (!(raw instanceof Map<?, ?>)) {
             return null;
         }
@@ -321,9 +343,9 @@ public final class TestServers {
         }
     }
 
-    private static Path findJarForUnified(Map<String, Object> unified, String loaderKey, Map<String, Object> group)
+    private static Path findJarForConfig(Map<String, Object> loaderConfig, String loaderKey, Map<String, Object> group)
             throws IOException {
-        String suffix = str(unified.get("archiveVersionTag"));
+        String suffix = str(loaderConfig.get("archiveVersionTag"));
         if (suffix.isBlank()) {
             suffix = str(group.get("jarTargetLabel"));
         }
@@ -335,7 +357,7 @@ public final class TestServers {
         }
         if (suffix.isBlank()) {
             throw new IllegalStateException(
-                    "archiveVersionTag (or group jarTargetLabel) is required for unified " + loaderKey
+                    "archiveVersionTag (or group jarTargetLabel) is required for " + loaderKey + " config"
                             + " in group " + group.get("id"));
         }
         String loaderLower = loaderKey.toLowerCase(Locale.ROOT);
@@ -381,40 +403,43 @@ public final class TestServers {
         for (Map<String, Object> group : groups) {
             if (!shouldBuildGroup(group))
                 continue;
-            boolean allLoadersSupportAllVersions = group.containsKey("supportedVersions");
-            for (Map<String, Object> unified : unifiedLoaderConfigs(group)) {
-                String loaderKey = str(unified.get("loaderKey"));
-                List<String> versions = allLoadersSupportAllVersions
-                        ? strList(group.get("supportedVersions"))
-                        : strList(unified.get("supportedVersions"));
+            for (Map<String, Object> loaderConfig : loaderConfigs(group)) {
+                String loaderKey = str(loaderConfig.get("loaderKey"));
+                List<String> loaderVersions = strList(loaderConfig.get("supportedVersions"));
+                List<String> versions = !loaderVersions.isEmpty()
+                        ? loaderVersions
+                        : strList(group.get("supportedVersions"));
 
                 for (String version : versions) {
                     if (!normalizedOnly.isEmpty()
                             && !normalizedOnly.contains(normalizeTargetKey(loaderKey + "-" + version))) {
                         continue;
                     }
-                    Path modJar = findJarForUnified(unified, loaderKey, group);
-                    String dockerVersion = resolveDockerMinecraftVersion(version, loaderKey, unified);
+                    Path modJar = findJarForConfig(loaderConfig, loaderKey, group);
+                    String dockerVersion = resolveDockerMinecraftVersion(version, loaderKey, loaderConfig);
                     String fabricLoader = null;
                     String modrinthProjects = null;
                     String forgeVersion = null;
                     String forgeInstallerUrl = null;
                     String neoForgeVersion = null;
+                    String paperChannel = null;
 
                     if ("FABRIC".equalsIgnoreCase(loaderKey)) {
                         fabricLoader = resolveFabricLoaderVersion(version, group);
                         modrinthProjects = resolveFabricModrinthProjects(version, group);
                     } else if ("FORGE".equalsIgnoreCase(loaderKey)) {
-                        forgeInstallerUrl = resolveForgeInstallerUrlOverride(version, unified);
+                        forgeInstallerUrl = resolveForgeInstallerUrlOverride(version, loaderConfig);
                         if (forgeInstallerUrl == null) {
-                            forgeVersion = resolveForgeVersion(version, dockerVersion, unified);
+                            forgeVersion = resolveForgeVersion(version, dockerVersion, loaderConfig);
                         }
                     } else if ("NEOFORGE".equalsIgnoreCase(loaderKey)) {
-                        neoForgeVersion = resolveNeoForgeVersion(version, dockerVersion, unified);
+                        neoForgeVersion = resolveNeoForgeVersion(version, dockerVersion, loaderConfig);
+                    } else if ("PAPER".equalsIgnoreCase(loaderKey)) {
+                        paperChannel = resolvePaperChannel(version, loaderConfig);
                     }
                     servers.add(new DockerMinecraftServer(
                             loaderKey, version, dockerVersion, modJar, fabricLoader,
-                            modrinthProjects, forgeVersion, forgeInstallerUrl, neoForgeVersion));
+                            modrinthProjects, forgeVersion, forgeInstallerUrl, neoForgeVersion, paperChannel));
                 }
             }
         }
@@ -555,8 +580,8 @@ public final class TestServers {
             String longShutdownMarker,
             boolean finalAttempt)
             throws IOException {
-        TestServersConsole.info("Testing " + server);
         startDockerContainer(server, usedPorts);
+        TestServersConsole.info("Testing " + server);
         boolean[] readySeen = new boolean[readyMarkers.size()];
         Set<String> worrySeen = new HashSet<>();
         worryHitsOut.clear();
@@ -640,7 +665,7 @@ public final class TestServers {
     }
 
     private static void startDockerContainer(DockerMinecraftServer server, Set<Integer> usedPorts) throws IOException {
-        server.assignPorts(usedPorts);
+        assignServerPorts(server, usedPorts);
         try {
             server.createDockerContainer();
         } catch (IOException firstFailure) {
@@ -650,7 +675,7 @@ public final class TestServers {
             TestServersConsole.retry(
                     "Docker port bind failed for " + server.containerName() + "; retrying with new ports...");
             server.releasePorts(usedPorts);
-            server.assignPorts(usedPorts);
+            assignServerPorts(server, usedPorts);
             try {
                 server.createDockerContainer();
             } catch (IOException secondFailure) {
@@ -661,10 +686,16 @@ public final class TestServers {
                         + "; removing stale chronos containers and retrying once more...");
                 server.releasePorts(usedPorts);
                 removeStaleChronosContainers();
-                server.assignPorts(usedPorts);
+                assignServerPorts(server, usedPorts);
                 server.createDockerContainer();
             }
         }
+    }
+
+    private static void assignServerPorts(DockerMinecraftServer server, Set<Integer> usedPorts) throws IOException {
+        server.assignPorts(usedPorts);
+        TestServersConsole.info("Ports assigned for " + server.containerName()
+                + " (game port: " + server.getGamePort() + ", RCON port: " + server.getRconPort() + ')');
     }
 
     private static boolean isDockerPortBindFailure(IOException e) {
@@ -697,18 +728,18 @@ public final class TestServers {
         }
     }
 
-    private static List<Map<String, Object>> unifiedLoaderConfigs(Map<String, Object> group) {
+    private static List<Map<String, Object>> loaderConfigs(Map<String, Object> group) {
         List<Map<String, Object>> configs = new ArrayList<>();
         for (Map.Entry<String, Object> entry : group.entrySet()) {
-            if (!entry.getKey().toLowerCase(Locale.ROOT).contains("unified")) {
+            if (!entry.getKey().toLowerCase(Locale.ROOT).contains("config")) {
                 continue;
             }
             if (!(entry.getValue() instanceof Map<?, ?>)) {
                 continue;
             }
-            Map<String, Object> unified = castMap(entry.getValue());
-            if (unified.containsKey("loaderKey")) {
-                configs.add(unified);
+            Map<String, Object> loaderConfig = castMap(entry.getValue());
+            if (loaderConfig.containsKey("loaderKey")) {
+                configs.add(loaderConfig);
             }
         }
         return configs;

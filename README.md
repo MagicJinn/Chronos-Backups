@@ -18,7 +18,7 @@
 
 ## Features
 
-- Multi-version, multi-loader architecture (Fabric, NeoForge, Forge).
+- Multi-version, multi-loader architecture (Fabric, NeoForge, Forge, Paper).
 - Scheduled and manual backups via an in-game `/chronos` command with a configurable permission level.
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
@@ -41,37 +41,47 @@ Chronos prioritizes aged world data, chunks that do not yet count as "old enough
 
 All currently supported versions are listed below. If a specific subversion does not have a modloader associated with it (eg 1.7.3-1.7.9), it may still appear as supported if the major version is supported.
 
-| Minecraft    | Support       | Loader(s)                 | Backup | Config       | Notes                                                                                                                       |
-| ------------ | ------------- | ------------------------- | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `26.2.x`     | ✅ Supported   | Fabric + NeoForge         | ✅      | 🟠 File-only | -                                                                                                                           |
-| `26.1.x`     | ✅ Supported   | Fabric + NeoForge         | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.21.x`     | ✅ Supported   | Fabric + NeoForge         | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge | ✅      | 🟠 File-only | Forge 1.20.0-1.20.1. Fabric 1.20.x. NeoForge 1.20.2-1.20.6.                                                                 |
-| `1.19.x`     | ✅ Supported   | Fabric + Forge            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.18.x`     | ✅ Supported   | Fabric + Forge            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.17.x`     | ✅ Supported   | Fabric + Forge            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.16.x`     | ✅ Supported   | Fabric + Forge            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.15.x`     | ✅ Supported   | Fabric + Forge            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.14.x`     | ✅ Supported   | Fabric + Forge            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.13.x`     | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^2]                                                                                                                        |
-| `1.12.x`     | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^2]                                                                                                                        |
-| `1.11.x`     | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^2]                                                                                                                        |
-| `1.10.x`     | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^2]                                                                                                                        |
-| `1.9.x`      | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^2]                                                                                                                        |
-| `1.8.x`      | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^2]                                                                                                                        |
-| `1.7.x`      | ✅ Supported   | Forge                     | ✅      | 🟠 File-only | [^1], [^2]                                                                                                                  |
-| `1.6.x`      | ❌ Unsupported | Forge                     | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.5.x`      | ❌ Unsupported | Forge                     | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.4.x`      | ❌ Unsupported | Forge                     | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.3.x`      | ❌ Unsupported | Forge                     | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.2.x`      | ❌ Unsupported | Forge                     | ❌      | 🔴 None      | -                                                                                                                           |
-| Beta & Alpha | ❌ Unsupported | Babric                    | ❌      | 🔴 None      | Beta & Alpha versions may be supported in the future, but the flagship Chronos feature (world pruning) will be unavailable. |
+### Paper
+
+Chronos also ships as a **Paper plugin** (Bukkit API). Drop the `-paper.jar` from [releases](https://github.com/MagicJinn/Chronos-Backups/releases) into your server's `plugins/` folder. Configuration, commands, and backup behavior match the modded loaders. Paper builds are unified per Minecraft line (for example one jar for all of `1.20.x`), the same as Fabric or Forge variants.
+
+Paper does not cover every patch within a line. Some Minecraft versions never received a Paper build, and a few legacy Paper versions cannot bootstrap because Mojang removed the corresponding vanilla server jars from their old download URLs. See the notes column and footnotes below.
+
+| Minecraft    | Support       | Loader(s)                         | Backup | Config       | Notes                                                                                                                       |
+|--------------|---------------|-----------------------------------|--------|--------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `26.2.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | -                                                                                                                           |
+| `26.1.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | Paper: 26.1.1+ only. [^3]                                                                                                   |
+| `1.21.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | Paper: all listed patches except 1.21.2. [^3]                                                                               |
+| `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge + Paper | ✅      | 🟠 File-only | Forge: 1.20.0–1.20.1 only. Fabric: 1.20.x. NeoForge: 1.20.2–1.20.6. Paper: all patches except 1.20.3. [^3]                  |
+| `1.19.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | -                                                                                                                           |
+| `1.18.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | -                                                                                                                           |
+| `1.17.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | Forge: 1.17.1 only.                                                                                                         |
+| `1.16.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | Paper: 1.16.1+ only. [^3]                                                                                                   |
+| `1.15.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | -                                                                                                                           |
+| `1.14.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | Forge: 1.14.2–1.14.4 only.                                                                                                  |
+| `1.13.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.13.2 only. [^2]                                                                                                    |
+| `1.12.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: all 1.12.x patches. Paper: 1.12.2 only. [^2], [^4]                                                                   |
+| `1.11.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.11.0, 1.11.2 only. Paper: 1.11.2 only. [^2]                                                                        |
+| `1.10.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.10.0, 1.10.2 only. Paper: 1.10.2 only. [^2]                                                                        |
+| `1.9.x`      | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.9.0, 1.9.4 only. Paper: 1.9.4 only. [^2]                                                                           |
+| `1.8.x`      | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.8.0, 1.8.8, 1.8.9 only. Paper: 1.8.8 only. [^2]                                                                    |
+| `1.7.x`      | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.7.10 only. Paper: 1.7.10 only. [^1], [^2]                                                                          |
+| `1.6.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
+| `1.5.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
+| `1.4.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
+| `1.3.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
+| `1.2.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                                                                                                           |
+| Beta & Alpha | ❌ Unsupported | Babric                            | ❌      | 🔴 None      | Beta & Alpha versions may be supported in the future, but the flagship Chronos feature (world pruning) will be unavailable. |
 
 [//]: # (If a note occurs more than once, move it to a footnote as shown below. If a note appears once, but the version has multiple notes, move it to a footnote as well. If a note appears once and the version has no other notes, leave it in the notes section.)
 
 [^1]: Forge 1.7.2 does not build yet ([Unimined#184](https://github.com/unimined/Unimined/issues/184)).
 
 [^2]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
+
+[^3]: Paper builds are not published for every patch. Currently excluded: `1.16.0`, `1.20.3`, `1.21.2`, `26.1.0`.
+
+[^4]: Paper `1.12.0` and `1.12.1` are excluded because Mojang removed the vanilla server jars from their old S3 download URLs. Paperclip fails during bootstrap with `FileNotFoundException` when fetching `minecraft_server.1.12.jar` / `minecraft_server.1.12.1.jar`. Use Paper `1.12.2` (Forge still supports all 1.12.x patches).
 
 ## Configuration
 
