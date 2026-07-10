@@ -41,12 +41,6 @@ Chronos prioritizes aged world data, chunks that do not yet count as "old enough
 
 All currently supported versions are listed below. If a specific subversion does not have a modloader associated with it (eg 1.7.3-1.7.9), it may still appear as supported if the major version is supported.
 
-### Paper
-
-Chronos also ships as a **Paper plugin** (Bukkit API). Drop the `-paper.jar` from [releases](https://github.com/MagicJinn/Chronos-Backups/releases) into your server's `plugins/` folder. Configuration, commands, and backup behavior match the modded loaders. Paper builds are unified per Minecraft line (for example one jar for all of `1.20.x`), the same as Fabric or Forge variants.
-
-Paper does not cover every patch within a line. Some Minecraft versions never received a Paper build, and a few legacy Paper versions cannot bootstrap because Mojang removed the corresponding vanilla server jars from their old download URLs. See the notes column and footnotes below.
-
 | Minecraft    | Support       | Loader(s)                         | Backup | Config       | Notes                                                                                                                       |
 |--------------|---------------|-----------------------------------|--------|--------------|-----------------------------------------------------------------------------------------------------------------------------|
 | `26.2.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | -                                                                                                                           |
