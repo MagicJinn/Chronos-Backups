@@ -21,7 +21,10 @@ import com.magicjinn.chronos.tooling.TestServers.TestServers;
 import com.magicjinn.chronos.tooling.TestServers.rcon.RconClient;
 
 public class DockerMinecraftServer {
-    private static final long CONTAINER_EXIT_GRACE_MS = 180_000;
+    /** Max idle time after the last log line before forcing container stop. */
+    private static final long IDLE_TIMEOUT_MS = 60_000;
+    /** Idle timeout while a long-running install/shutdown step is in progress. */
+    private static final long LONG_IDLE_TIMEOUT_MS = IDLE_TIMEOUT_MS * 5;
 
     private final String loaderKey;
     private final String version;
@@ -330,39 +333,34 @@ public class DockerMinecraftServer {
      */
     public void followLogsUntilExit(String longShutdownMarker, Consumer<String> logCallback) throws IOException {
         String containerName = containerName();
-        AtomicLong exitGraceMs = new AtomicLong(CONTAINER_EXIT_GRACE_MS);
+        AtomicLong lastLogMs = new AtomicLong(System.currentTimeMillis());
+        AtomicLong idleTimeoutMs = new AtomicLong(IDLE_TIMEOUT_MS);
         try (Closeable _ = DockerContainerLogs.followContainer(containerName, line -> {
-            // If the long shutdown marker is present, some process (like installing a
-            // loader) is executing, thus we should wait longer.
+            lastLogMs.set(System.currentTimeMillis());
+            // Long install/shutdown steps may go quiet for a while; allow a longer idle window.
             if (!longShutdownMarker.isBlank() && line.contains(longShutdownMarker)) {
-                exitGraceMs.compareAndSet(CONTAINER_EXIT_GRACE_MS, CONTAINER_EXIT_GRACE_MS * 10);
+                idleTimeoutMs.set(LONG_IDLE_TIMEOUT_MS);
             }
             logCallback.accept(line);
         })) {
-            waitForContainerExit(containerName, exitGraceMs);
+            waitForContainerExit(containerName, lastLogMs, idleTimeoutMs);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while following logs for " + containerName, e);
         }
     }
 
-    private static void waitForContainerExit(String containerName, AtomicLong exitGraceMs)
+    private static void waitForContainerExit(String containerName, AtomicLong lastLogMs, AtomicLong idleTimeoutMs)
             throws IOException, InterruptedException {
-        long graceStart = System.currentTimeMillis();
-        long lastGraceMs = exitGraceMs.get();
-        long graceEnd = graceStart + lastGraceMs;
-        while (System.currentTimeMillis() < graceEnd && isContainerRunning(containerName)) {
-            long currentGraceMs = exitGraceMs.get();
-            if (currentGraceMs != lastGraceMs) {
-                graceEnd = graceStart + currentGraceMs;
-                lastGraceMs = currentGraceMs;
+        while (isContainerRunning(containerName)) {
+            long idleMs = System.currentTimeMillis() - lastLogMs.get();
+            if (idleMs >= idleTimeoutMs.get()) {
+                System.err.println("Container " + containerName + " idle for " + (idleMs / 1000)
+                        + "s (limit " + (idleTimeoutMs.get() / 1000) + "s); forcing docker stop");
+                forceStopContainer(containerName);
+                break;
             }
             Thread.sleep(500);
-        }
-        if (isContainerRunning(containerName)) {
-            System.err.println("Container " + containerName
-                    + " still running after " + (exitGraceMs.get() / 1000) + "s; forcing docker stop");
-            forceStopContainer(containerName);
         }
         ProcessBuilder pb = new ProcessBuilder("docker", "wait", containerName)
                 .redirectErrorStream(true);

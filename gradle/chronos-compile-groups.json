@@ -729,6 +729,7 @@
         "referenceMinecraft": "1.20.6",
         "archiveVersionTag": "1.17-1.20.x",
         "apiVersion": "1.17",
+        "compileReleaseOverride": "16",
         "paperChannelOverrides": {
           "1.20.5": "experimental"
         },

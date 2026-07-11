@@ -14,7 +14,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,6 +30,8 @@ public final class TestServers {
      * can accept plugin commands.
      */
     private static final long RCON_SEND_DELAY_MS = 2_000;
+    private static final int RCON_SEND_MAX_ATTEMPTS = 5;
+    private static final long RCON_SEND_RETRY_MS = 3_000;
 
     private static final Gson GSON = new Gson();
     public static final Path ROOT = locateRepoRoot();
@@ -420,7 +421,7 @@ public final class TestServers {
             }
             try (DirectoryStream<Path> again = Files.newDirectoryStream(buildLibs, pattern)) {
                 long matches = 0;
-                for (Path ignored : again) {
+                for (Path _ : again) {
                     matches++;
                 }
                 if (matches > 1) {
@@ -652,22 +653,8 @@ public final class TestServers {
             }
             if (allReadyMarkersSeen(readySeen) && rconSent.compareAndSet(false, true)) {
                 TestServersConsole.info("All ready markers seen. Sending RCON: " + testCommand);
-                Thread rconThread = new Thread(() -> {
-                    try {
-                        Thread.sleep(RCON_SEND_DELAY_MS);
-                        String response = RconClient.send(server.getRconPort(), testCommand);
-                        if (!response.isBlank()) {
-                            TestServersConsole.info("RCON response: " + response.trim());
-                        }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    } catch (IOException e) {
-                        if (!RconClient.isBenignShutdownIoMessage(e.getMessage())) {
-                            TestServersConsole.warn("Failed to send RCON command to " + server.getRconPort() + ": "
-                                    + e.getMessage());
-                        }
-                    }
-                }, "rcon-cmd-" + server.containerName());
+                Thread rconThread = new Thread(() -> sendRconTestCommand(server, testCommand, finalAttempt),
+                        "rcon-cmd-" + server.containerName());
                 rconThread.setDaemon(true);
                 rconThread.start();
             }
@@ -710,6 +697,39 @@ public final class TestServers {
             return "no success marker before container exit";
         }
         return null;
+    }
+
+    private static void sendRconTestCommand(DockerMinecraftServer server, String testCommand, boolean finalAttempt) {
+        try {
+            Thread.sleep(RCON_SEND_DELAY_MS);
+            for (int attempt = 1; attempt <= RCON_SEND_MAX_ATTEMPTS; attempt++) {
+                try {
+                    String response = RconClient.send(server.getRconPort(), testCommand);
+                    if (attempt > 1) {
+                        TestServersConsole.info("RCON delivered on attempt " + attempt);
+                    }
+                    if (!response.isBlank()) {
+                        TestServersConsole.info("RCON response: " + response.trim());
+                    }
+                    return;
+                } catch (IOException e) {
+                    if (RconClient.isBenignShutdownIoMessage(e.getMessage())) {
+                        return;
+                    }
+                    if (attempt < RCON_SEND_MAX_ATTEMPTS) {
+                        logAttemptIssue(finalAttempt,
+                                "RCON attempt " + attempt + " failed for " + server.containerName() + ": "
+                                        + e.getMessage());
+                        Thread.sleep(RCON_SEND_RETRY_MS);
+                    } else {
+                        TestServersConsole.warn("Failed to send RCON command to " + server.getRconPort()
+                                + " after " + RCON_SEND_MAX_ATTEMPTS + " attempts: " + e.getMessage());
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void logAttemptIssue(boolean finalAttempt, String message) {

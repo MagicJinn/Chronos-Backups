@@ -2,6 +2,7 @@ name: ${mod_id}
 version: '${version}'
 main: com.magicjinn.chronos.shell.paper.ChronosPaperPlugin
 {{pluginYmlApiVersionLine}}
+folia-supported: true
 description: ${mod_description}
 author: ${mod_author}
 commands:

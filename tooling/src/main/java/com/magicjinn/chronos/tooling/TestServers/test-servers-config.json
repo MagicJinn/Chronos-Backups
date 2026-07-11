@@ -14,7 +14,7 @@
     ],
     "serverSetupFailureMarkers": [
         "Failed to install",
-        "Server failed",
+        "Server setup failed",
         "Unsupported API version",
         "failed to download"
     ],

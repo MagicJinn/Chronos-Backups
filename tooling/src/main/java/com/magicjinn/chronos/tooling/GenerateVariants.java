@@ -224,17 +224,21 @@ public final class GenerateVariants {
 
         String archivesName = "chronos-backups-plugin-" + archiveSuffix(loaderConfig, mc);
         ChronosJavaMatrix.ToolchainAndRelease paperJava = JAVA_MATRIX.toolchainAndRelease(mc);
+        String compileRelease = str(loaderConfig.get("compileReleaseOverride"));
+        if (compileRelease.isBlank()) {
+            compileRelease = paperJava.compileRelease();
+        }
         Map<String, String> paperValues = new HashMap<>();
         paperValues.put("archivesName", archivesName);
         paperValues.put("paperApiDependency", paperApiDependency);
         paperValues.put("javaToolchainMajor", paperJava.toolchainMajor());
-        paperValues.put("javaDependencyResolutionMajor", paperJava.compileRelease());
+        paperValues.put("javaDependencyResolutionMajor", compileRelease);
         paperValues.put("paperJavaCompileOptionsKts",
-                paperJava.toolchainMajor().equals(paperJava.compileRelease())
-                        ? "options.release.set(" + paperJava.compileRelease() + ")"
-                        : "options.compilerArgs.addAll(listOf(\"--release\", \"" + paperJava.compileRelease() + "\"))");
+                paperJava.toolchainMajor().equals(compileRelease)
+                        ? "options.release.set(" + compileRelease + ")"
+                        : "options.compilerArgs.addAll(listOf(\"--release\", \"" + compileRelease + "\"))");
         paperValues.put("paperCompileClasspathJvmAttrsKts",
-                paperCompileClasspathJvmAttrsKts(paperJava.toolchainMajor(), paperJava.compileRelease()));
+                paperCompileClasspathJvmAttrsKts(paperJava.toolchainMajor(), compileRelease));
         write(dir.resolve("build.gradle.kts"), renderTemplate("paperBuildGradleKts", paperValues));
 
         Path resources = dir.resolve("src/main/resources");

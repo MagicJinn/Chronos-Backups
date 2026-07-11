@@ -270,10 +270,23 @@ public final class Backupper {
             return false;
         }
 
-        Path worldPath = context.getWorldSaveRoot();
+        SaveRootDiscovery.BackupScope scope;
+        try {
+            scope = SaveRootDiscovery.resolve(context);
+        } catch (IOException e) {
+            context.logError("Backupper skipped: " + e.getMessage());
+            return false;
+        }
+        Path worldPath = scope.copyRoot();
         if (!Files.isDirectory(worldPath)) {
             context.logError("Backupper skipped: world path does not exist -> " + worldPath);
             return false;
+        }
+        if (scope.discoveredByScan()) {
+            context.logInfo(
+                    "Chronos backups: discovered "
+                            + scope.pruneRoots().size()
+                            + " save root(s) under run directory (primary save root had no level.dat).");
         }
 
         if (!backupRunActive.compareAndSet(false, true)) {
@@ -314,6 +327,7 @@ public final class Backupper {
         run.cacheSnapshotPath = cacheSnapshotPath;
         run.folderOutputPath = folderOutputPath;
         run.worldPath = worldPath;
+        run.pruneRoots = scope.pruneRoots();
         run.worldController = context.getWorldController();
         run.serverHandle = context.getServerHandle();
         run.backupStartNanos = System.nanoTime();
@@ -372,6 +386,16 @@ public final class Backupper {
         finalizeInFlightBackup(run, run.workerError);
     }
 
+    private static void pruneSnapshotSaveRoots(InFlightBackup run, Path snapshotRoot) throws IOException {
+        int pruneSeconds = Config.getPruneTimeRequirementSeconds();
+        int pruneThreads = Config.getPruneMaxWorkerThreads();
+        for (Path sourceRoot : run.pruneRoots) {
+            Path snapshotSaveRoot = SaveRootDiscovery.snapshotPathForSourceRoot(
+                    run.worldPath, sourceRoot, snapshotRoot);
+            RustPrunerBridge.pruneWorld(snapshotSaveRoot, pruneSeconds, pruneThreads);
+        }
+    }
+
     private static void runHeavyBackupWork(InFlightBackup run) {
         try {
             Path worldRootAbs = run.worldPath.toAbsolutePath().normalize();
@@ -420,16 +444,28 @@ public final class Backupper {
                 throw new InterruptedIOException("Backup aborted");
             }
 
+            Path snapshotRoot = run.compressionMethod == CompressionMethod.ZIP
+                    ? run.cacheSnapshotPath
+                    : run.folderOutputPath;
             if (run.compressionMethod == CompressionMethod.ZIP) {
                 if (Config.getPruneChunksEnabled()) {
                     run.context.logInfo(
                             "Chronos backups: pruning snapshot and writing zip...");
                     Files.deleteIfExists(run.zipOutputPath);
-                    RustPrunerBridge.pruneWorldToZip(
-                            run.cacheSnapshotPath,
-                            run.zipOutputPath,
-                            Config.getPruneTimeRequirementSeconds(),
-                            Config.getPruneMaxWorkerThreads());
+                    boolean singleSaveRoot = run.pruneRoots.size() == 1
+                            && SaveRootDiscovery.snapshotPathForSourceRoot(
+                                            run.worldPath, run.pruneRoots.get(0), snapshotRoot)
+                                    .equals(snapshotRoot);
+                    if (singleSaveRoot) {
+                        RustPrunerBridge.pruneWorldToZip(
+                                snapshotRoot,
+                                run.zipOutputPath,
+                                Config.getPruneTimeRequirementSeconds(),
+                                Config.getPruneMaxWorkerThreads());
+                    } else {
+                        pruneSnapshotSaveRoots(run, snapshotRoot);
+                        zipSnapshot(snapshotRoot, run.zipOutputPath);
+                    }
                 } else {
                     run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
                     run.context.logInfo("Chronos backups: writing zip archive...");
@@ -437,10 +473,7 @@ public final class Backupper {
                 }
             } else if (Config.getPruneChunksEnabled()) {
                 run.context.logInfo("Chronos backups: pruning snapshot in backup folder...");
-                RustPrunerBridge.pruneWorld(
-                        run.folderOutputPath,
-                        Config.getPruneTimeRequirementSeconds(),
-                        Config.getPruneMaxWorkerThreads());
+                pruneSnapshotSaveRoots(run, snapshotRoot);
             } else {
                 run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
             }
@@ -577,6 +610,7 @@ public final class Backupper {
         Path cacheSnapshotPath;
         Path folderOutputPath;
         Path worldPath;
+        List<Path> pruneRoots = List.of();
         BackupWorldController worldController;
         Object serverHandle;
         long backupStartNanos;
