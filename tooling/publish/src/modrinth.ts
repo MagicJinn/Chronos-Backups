@@ -1,18 +1,12 @@
 import { openAsBlob } from "node:fs";
+import type { PublishPlatformConfig } from "./publish-config.js";
 import { modrinthDependenciesForLoaders } from "./publish-dependencies.js";
 
 const MODRINTH_API = "https://api.modrinth.com/v2";
 const MODRINTH_V3_API = "https://api.modrinth.com/v3";
-const USER_AGENT = "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)";
 
 /** Modrinth project ids are 8-character base62 strings (no hyphens). */
 const MODRINTH_PROJECT_ID_PATTERN = /^[0-9A-Za-z]{8}$/;
-
-/**
- * Server-side only, including singleplayer integrated servers.
- * Maps to Modrinth UI: "Server-side only" + "Works in singleplayer too".
- */
-export const CHRONOS_MODRINTH_ENVIRONMENT = "server_only" as const;
 
 export interface ModrinthVersionRequest {
   projectId: string;
@@ -21,6 +15,9 @@ export interface ModrinthVersionRequest {
   changelog: string;
   loaders: string[];
   gameVersions: string[];
+  environment: PublishPlatformConfig["modrinth"]["environment"];
+  dependencies: PublishPlatformConfig["dependencies"];
+  userAgent: string;
   filePath: string;
   fileName: string;
   dryRun: boolean;
@@ -37,8 +34,8 @@ function normalizeModrinthToken(token: string): string {
   return value;
 }
 
-function modrinthHeaders(token?: string): Record<string, string> {
-  const headers: Record<string, string> = { "User-Agent": USER_AGENT };
+function modrinthHeaders(userAgent: string, token?: string): Record<string, string> {
+  const headers: Record<string, string> = { "User-Agent": userAgent };
   if (token) {
     const normalized = normalizeModrinthToken(token);
     if (normalized) {
@@ -51,6 +48,7 @@ function modrinthHeaders(token?: string): Record<string, string> {
 /** Version create expects a base62 project id, not a slug. */
 export async function resolveModrinthProjectId(
   slugOrId: string,
+  userAgent: string,
   token?: string,
   dryRun = false,
 ): Promise<string> {
@@ -63,7 +61,7 @@ export async function resolveModrinthProjectId(
   }
 
   const response = await fetch(`${MODRINTH_API}/project/${encodeURIComponent(slugOrId)}`, {
-    headers: modrinthHeaders(token),
+    headers: modrinthHeaders(userAgent, token),
   });
 
   if (!response.ok) {
@@ -89,9 +87,9 @@ export async function createModrinthVersion(
     version_type: "release",
     loaders: request.loaders,
     game_versions: request.gameVersions,
-    environment: CHRONOS_MODRINTH_ENVIRONMENT,
+    environment: request.environment,
     featured: false,
-    dependencies: modrinthDependenciesForLoaders(request.loaders),
+    dependencies: modrinthDependenciesForLoaders(request.loaders, request.dependencies),
     file_parts: [filePart],
     primary_file: filePart,
   };
@@ -107,7 +105,7 @@ export async function createModrinthVersion(
 
   const response = await fetch(`${MODRINTH_V3_API}/version`, {
     method: "POST",
-    headers: modrinthHeaders(token),
+    headers: modrinthHeaders(request.userAgent, token),
     body: form,
   });
 
@@ -127,6 +125,7 @@ export async function updateModrinthProjectBody(
   token: string,
   projectId: string,
   body: string,
+  userAgent: string,
   dryRun = false,
 ): Promise<void> {
   if (dryRun) {
@@ -137,7 +136,7 @@ export async function updateModrinthProjectBody(
   const response = await fetch(`${MODRINTH_API}/project/${encodeURIComponent(projectId)}`, {
     method: "PATCH",
     headers: {
-      ...modrinthHeaders(token),
+      ...modrinthHeaders(userAgent, token),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ body }),

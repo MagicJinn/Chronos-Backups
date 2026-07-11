@@ -1,5 +1,6 @@
 package com.magicjinn.chronos.tooling.TestServers;
 
+import com.magicjinn.chronos.tooling.CompileGroupLoaders;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.magicjinn.chronos.tooling.TestServers.docker.DockerMinecraftServer;
@@ -25,6 +26,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipFile;
 
 public final class TestServers {
+    /**
+     * Brief pause after ready markers so Paper 1.13.x (and possibly others) RCON
+     * can accept plugin commands.
+     */
+    private static final long RCON_SEND_DELAY_MS = 2_000;
+
     private static final Gson GSON = new Gson();
     public static final Path ROOT = locateRepoRoot();
     /** The path to the chronos-compile-groups file from the repository root. */
@@ -289,13 +296,49 @@ public final class TestServers {
         if ("FORGE".equalsIgnoreCase(loaderKey) && endsWithZeroPatch(version)) {
             int minor = minecraftMinorVersion(version);
             if (minor >= 13) {
-                String referenceMc = str(loaderConfig.get("referenceMinecraft"));
-                if (!referenceMc.isBlank()) {
-                    return referenceMc;
+                String sameLine = resolveForgeDockerVersionOnMinorLine(version, loaderConfig);
+                if (sameLine != null) {
+                    return sameLine;
                 }
             }
         }
         return normalized;
+    }
+
+    /**
+     * Forge often lacks {@code x.y.0} installers. Pick the newest supported patch
+     * on
+     * the same minor line (e.g. {@code 1.15.0} -> {@code 1.15.2}), not the compile
+     * group's {@code referenceMinecraft} when that points at a different line.
+     */
+    private static String resolveForgeDockerVersionOnMinorLine(String version, Map<String, Object> loaderConfig) {
+        String minorLine = minecraftMinorLinePrefix(version);
+        String best = null;
+        for (String candidate : strList(loaderConfig.get("supportedVersions"))) {
+            if (!isSameMinorLine(candidate, minorLine)) {
+                continue;
+            }
+            if (best == null || compareVersions(candidate, best) > 0) {
+                best = candidate;
+            }
+        }
+        if (best != null) {
+            return best;
+        }
+        String referenceMc = str(loaderConfig.get("referenceMinecraft"));
+        if (!referenceMc.isBlank() && isSameMinorLine(referenceMc, minorLine)) {
+            return referenceMc;
+        }
+        return null;
+    }
+
+    private static String minecraftMinorLinePrefix(String version) {
+        int lastDot = version.lastIndexOf('.');
+        return lastDot <= 0 ? version : version.substring(0, lastDot);
+    }
+
+    private static boolean isSameMinorLine(String version, String minorLine) {
+        return version.equals(minorLine) || version.startsWith(minorLine + ".");
     }
 
     private static boolean endsWithZeroPatch(String version) {
@@ -399,47 +442,57 @@ public final class TestServers {
                 ? Set.of()
                 : only.stream().map(TestServers::normalizeTargetKey).collect(java.util.stream.Collectors.toSet());
         TreeSet<DockerMinecraftServer> servers = new TreeSet<>(SERVER_ORDER);
+        BukkitPluginLoaderAvailability pluginAvailability = BukkitPluginLoaderAvailability.load(ROOT);
 
         for (Map<String, Object> group : groups) {
             if (!shouldBuildGroup(group))
                 continue;
             for (Map<String, Object> loaderConfig : loaderConfigs(group)) {
-                String loaderKey = str(loaderConfig.get("loaderKey"));
                 List<String> loaderVersions = strList(loaderConfig.get("supportedVersions"));
                 List<String> versions = !loaderVersions.isEmpty()
                         ? loaderVersions
                         : strList(group.get("supportedVersions"));
 
                 for (String version : versions) {
-                    if (!normalizedOnly.isEmpty()
-                            && !normalizedOnly.contains(normalizeTargetKey(loaderKey + "-" + version))) {
-                        continue;
-                    }
-                    Path modJar = findJarForConfig(loaderConfig, loaderKey, group);
-                    String dockerVersion = resolveDockerMinecraftVersion(version, loaderKey, loaderConfig);
-                    String fabricLoader = null;
-                    String modrinthProjects = null;
-                    String forgeVersion = null;
-                    String forgeInstallerUrl = null;
-                    String neoForgeVersion = null;
-                    String paperChannel = null;
-
-                    if ("FABRIC".equalsIgnoreCase(loaderKey)) {
-                        fabricLoader = resolveFabricLoaderVersion(version, group);
-                        modrinthProjects = resolveFabricModrinthProjects(version, group);
-                    } else if ("FORGE".equalsIgnoreCase(loaderKey)) {
-                        forgeInstallerUrl = resolveForgeInstallerUrlOverride(version, loaderConfig);
-                        if (forgeInstallerUrl == null) {
-                            forgeVersion = resolveForgeVersion(version, dockerVersion, loaderConfig);
+                    Path modJar = null;
+                    for (String loaderKey : CompileGroupLoaders.resolveLoaderKeys(loaderConfig)) {
+                        if (!normalizedOnly.isEmpty()
+                                && !normalizedOnly.contains(normalizeTargetKey(loaderKey + "-" + version))) {
+                            continue;
                         }
-                    } else if ("NEOFORGE".equalsIgnoreCase(loaderKey)) {
-                        neoForgeVersion = resolveNeoForgeVersion(version, dockerVersion, loaderConfig);
-                    } else if ("PAPER".equalsIgnoreCase(loaderKey)) {
-                        paperChannel = resolvePaperChannel(version, loaderConfig);
+                        if (BukkitPluginLoaderAvailability.isBukkitFamilyLoader(loaderKey)
+                                && !pluginAvailability.supports(loaderKey, version)) {
+                            continue;
+                        }
+                        if (modJar == null) {
+                            String jarLoaderKey = CompileGroupLoaders.resolveJarLoaderKey(loaderConfig, loaderKey);
+                            modJar = findJarForConfig(loaderConfig, jarLoaderKey, group);
+                        }
+                        String dockerVersion = resolveDockerMinecraftVersion(version, loaderKey, loaderConfig);
+                        String fabricLoader = null;
+                        String modrinthProjects = null;
+                        String forgeVersion = null;
+                        String forgeInstallerUrl = null;
+                        String neoForgeVersion = null;
+                        String paperChannel = null;
+
+                        if ("FABRIC".equalsIgnoreCase(loaderKey)) {
+                            fabricLoader = resolveFabricLoaderVersion(version, group);
+                            modrinthProjects = resolveFabricModrinthProjects(version, group);
+                        } else if ("FORGE".equalsIgnoreCase(loaderKey)) {
+                            forgeInstallerUrl = resolveForgeInstallerUrlOverride(version, loaderConfig);
+                            if (forgeInstallerUrl == null) {
+                                forgeVersion = resolveForgeVersion(version, dockerVersion, loaderConfig);
+                            }
+                        } else if ("NEOFORGE".equalsIgnoreCase(loaderKey)) {
+                            neoForgeVersion = resolveNeoForgeVersion(version, dockerVersion, loaderConfig);
+                        } else if ("PAPER".equalsIgnoreCase(loaderKey) || "FOLIA".equalsIgnoreCase(loaderKey)) {
+                            paperChannel = resolvePaperChannel(version, loaderConfig);
+                        }
+                        servers.add(new DockerMinecraftServer(
+                                loaderKey, version, dockerVersion, modJar, fabricLoader,
+                                modrinthProjects, forgeVersion, forgeInstallerUrl, neoForgeVersion, paperChannel));
                     }
-                    servers.add(new DockerMinecraftServer(
-                            loaderKey, version, dockerVersion, modJar, fabricLoader,
-                            modrinthProjects, forgeVersion, forgeInstallerUrl, neoForgeVersion, paperChannel));
                 }
             }
         }
@@ -601,10 +654,13 @@ public final class TestServers {
                 TestServersConsole.info("All ready markers seen. Sending RCON: " + testCommand);
                 Thread rconThread = new Thread(() -> {
                     try {
+                        Thread.sleep(RCON_SEND_DELAY_MS);
                         String response = RconClient.send(server.getRconPort(), testCommand);
                         if (!response.isBlank()) {
                             TestServersConsole.info("RCON response: " + response.trim());
                         }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                     } catch (IOException e) {
                         if (!RconClient.isBenignShutdownIoMessage(e.getMessage())) {
                             TestServersConsole.warn("Failed to send RCON command to " + server.getRconPort() + ": "
@@ -738,7 +794,7 @@ public final class TestServers {
                 continue;
             }
             Map<String, Object> loaderConfig = castMap(entry.getValue());
-            if (loaderConfig.containsKey("loaderKey")) {
+            if (CompileGroupLoaders.definesLoaderConfig(loaderConfig)) {
                 configs.add(loaderConfig);
             }
         }

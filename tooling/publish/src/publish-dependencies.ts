@@ -1,6 +1,4 @@
-/** Modrinth v3 version create requires base62 ids in dependencies (fabric-api is rejected because of the -). */
-export const FABRIC_API_MODRINTH_PROJECT_ID = "P7dR8mSH";
-export const FABRIC_API_CURSEFORGE_SLUG = "fabric-api";
+import type { LoaderDependencyConfig, PublishPlatformConfig } from "./publish-config.js";
 
 export interface ModrinthVersionDependency {
   project_id: string;
@@ -16,18 +14,38 @@ export interface CurseForgeUploadRelations {
   projects: CurseForgeProjectRelation[];
 }
 
-export function modrinthDependenciesForLoaders(loaders: string[]): ModrinthVersionDependency[] {
-  if (loaders.includes("fabric")) {
-    return [{ project_id: FABRIC_API_MODRINTH_PROJECT_ID, dependency_type: "required" }];
+export function modrinthDependenciesForLoaders(
+  loaders: string[],
+  dependencies: PublishPlatformConfig["dependencies"],
+): ModrinthVersionDependency[] {
+  const out: ModrinthVersionDependency[] = [];
+  for (const loader of loaders) {
+    const modrinthProjectId = dependencies[loader.toLowerCase()]?.modrinthProjectId;
+    if (modrinthProjectId) {
+      out.push({ project_id: modrinthProjectId, dependency_type: "required" });
+    }
   }
-  return [];
+  return out;
 }
 
-export function curseforgeRelationsForLoader(loader: string): CurseForgeUploadRelations | undefined {
-  if (loader === "fabric") {
-    return {
-      projects: [{ slug: FABRIC_API_CURSEFORGE_SLUG, type: "requiredDependency" }],
-    };
+export function curseforgeRelationsForLoader(
+  loader: string,
+  dependencies: PublishPlatformConfig["dependencies"],
+): CurseForgeUploadRelations | undefined {
+  const curseforgeSlug = dependencies[loader.toLowerCase()]?.curseforgeSlug;
+  if (!curseforgeSlug) {
+    return undefined;
   }
-  return undefined;
+  return {
+    projects: [{ slug: curseforgeSlug, type: "requiredDependency" }],
+  };
+}
+
+export function dependencyConfigForTests(): PublishPlatformConfig["dependencies"] {
+  return {
+    fabric: {
+      modrinthProjectId: "P7dR8mSH",
+      curseforgeSlug: "fabric-api",
+    } satisfies LoaderDependencyConfig,
+  };
 }

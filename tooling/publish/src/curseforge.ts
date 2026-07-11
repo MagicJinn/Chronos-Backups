@@ -1,5 +1,6 @@
 import { openAsBlob } from "node:fs";
 import { resolveSupportedGameVersions } from "./game-versions.js";
+import type { PublishPlatformConfig } from "./publish-config.js";
 import { curseforgeRelationsForLoader } from "./publish-dependencies.js";
 
 const CURSEFORGE_API = "https://minecraft.curseforge.com/api";
@@ -26,6 +27,8 @@ export interface CurseForgeVersionRequest {
   changelog: string;
   loader: string;
   gameVersions: string[];
+  dependencies: PublishPlatformConfig["dependencies"];
+  userAgent: string;
   filePath: string;
   fileName: string;
   dryRun: boolean;
@@ -97,7 +100,10 @@ export class CurseForgeVersionResolver {
   private readonly environmentCandidatesByName = new Map<string, VersionCandidate[]>();
   private loaded = false;
 
-  constructor(private readonly token: string) {}
+  constructor(
+    private readonly token: string,
+    private readonly userAgent: string,
+  ) {}
 
   async load(): Promise<void> {
     if (this.loaded) {
@@ -107,7 +113,7 @@ export class CurseForgeVersionResolver {
     const response = await fetch(`${CURSEFORGE_API}/game/versions`, {
       headers: {
         "X-Api-Token": this.token,
-        "User-Agent": "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)",
+        "User-Agent": this.userAgent,
       },
     });
 
@@ -238,6 +244,7 @@ export class CurseForgeVersionResolver {
 
 async function postCurseForgeUpload(
   token: string,
+  userAgent: string,
   projectId: string,
   fileName: string,
   filePath: string,
@@ -251,7 +258,7 @@ async function postCurseForgeUpload(
     method: "POST",
     headers: {
       "X-Api-Token": token,
-      "User-Agent": "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)",
+      "User-Agent": userAgent,
     },
     body: form,
   });
@@ -269,7 +276,7 @@ export async function uploadCurseForgeFile(
   resolver: CurseForgeVersionResolver,
   request: CurseForgeVersionRequest,
 ): Promise<{ id: number }> {
-  const relations = curseforgeRelationsForLoader(request.loader);
+  const relations = curseforgeRelationsForLoader(request.loader, request.dependencies);
 
   if (request.dryRun) {
     const metadata = {
@@ -304,6 +311,7 @@ export async function uploadCurseForgeFile(
     try {
       const id = await postCurseForgeUpload(
         token,
+        request.userAgent,
         request.projectId,
         request.fileName,
         request.filePath,

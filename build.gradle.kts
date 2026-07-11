@@ -448,7 +448,7 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
             Triple("neoforge", "neoForgeConfig", slug),
             Triple("neoforge", "neoForgeEarlyConfig", slug + "_early"),
             Triple("forge", "forgeConfig", slug),
-            Triple("paper", "paperConfig", slug),
+            Triple("plugin", "pluginConfig", slug),
         ).forEach { (loader, configKey, tagSlug) ->
             (gm[configKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
                 putTag(loader, tagSlug, it)
@@ -514,29 +514,45 @@ val cleanVariants =
 tasks.register("cleanUniminedCache") {
     group = "chronos"
     description =
-        "Deletes the global Unimined metadata cache (~/.gradle/unimined). " +
-            "Use when Forge variant configure fails with Gson MalformedJsonException (corrupt download)."
+        "Deletes global (~/.gradle/unimined) and per-variant (.gradle/unimined) Unimined caches. " +
+            "Use when Forge remapJar fails with Error reading file ... srg2mcp.jar, or configure fails with Gson MalformedJsonException."
     doLast {
-        val cache = File(System.getProperty("user.home"), ".gradle/unimined")
-        if (cache.exists()) {
-            cache.deleteRecursively()
-            logger.lifecycle("Deleted Unimined cache: ${cache.absolutePath}")
+        val global = File(System.getProperty("user.home"), ".gradle/unimined")
+        if (global.exists()) {
+            global.deleteRecursively()
+            logger.lifecycle("Deleted Unimined global cache: ${global.absolutePath}")
         } else {
-            logger.lifecycle("Unimined cache not present: ${cache.absolutePath}")
+            logger.lifecycle("Unimined global cache not present: ${global.absolutePath}")
+        }
+        val variantsRoot = layout.projectDirectory.dir("variants").asFile
+        if (variantsRoot.isDirectory) {
+            variantsRoot.listFiles()?.filter { it.isDirectory }?.forEach { group ->
+                group.listFiles()?.filter { it.isDirectory }?.forEach { project ->
+                    val local = File(project, ".gradle/unimined")
+                    if (local.exists()) {
+                        local.deleteRecursively()
+                        logger.lifecycle("Deleted Unimined local cache: ${local.absolutePath}")
+                    }
+                }
+            }
         }
     }
 }
 
+// TODO find a way to handle this better
+fun normalizeCollectedLoader(loader: String): String =
+    if (loader == "paper") "plugin" else loader
+
 fun collectedJarPrefix(variantProjectName: String): String {
     val lineMatch = Regex("""^(fabric|forge|neoforge|paper)-line-(.+)$""").matchEntire(variantProjectName) // TODO softcode these
     if (lineMatch != null) {
-        val loader = lineMatch.groupValues[1]
+        val loader = normalizeCollectedLoader(lineMatch.groupValues[1])
         val slug = lineMatch.groupValues[2]
         return "$loader-${variantSlugToVersionLabel(loader, slug)}"
     }
     val bareMatch = Regex("""^(fabric|forge|neoforge|paper)-(.+)$""").matchEntire(variantProjectName) // TODO softcode these
     if (bareMatch != null) {
-        val loader = bareMatch.groupValues[1]
+        val loader = normalizeCollectedLoader(bareMatch.groupValues[1])
         val slug = bareMatch.groupValues[2]
         return "$loader-${variantSlugToVersionLabel(loader, slug)}"
     }

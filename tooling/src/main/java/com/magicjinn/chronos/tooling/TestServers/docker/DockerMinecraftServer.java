@@ -2,17 +2,21 @@ package com.magicjinn.chronos.tooling.TestServers.docker;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
+import com.magicjinn.chronos.tooling.TestServers.BukkitPluginLoaderAvailability;
 import com.magicjinn.chronos.tooling.TestServers.TestServers;
 import com.magicjinn.chronos.tooling.TestServers.rcon.RconClient;
 
@@ -203,7 +207,8 @@ public class DockerMinecraftServer {
                 yield detail.isEmpty() ? optionalDetail("FORGE_VERSION", forgeVersion) : detail;
             }
             case "NEOFORGE" -> optionalDetail("NEOFORGE_VERSION", neoForgeVersion);
-            case "PAPER" -> optionalDetail("PAPER_CHANNEL", paperChannel);
+            case "PAPER", "FOLIA" -> optionalDetail("PAPER_CHANNEL", paperChannel);
+            case "PURPUR", "SPIGOT", "BUKKIT" -> "";
             default -> "";
         };
         return loaderKey + '-' + version + ports + " (mod jar: " + modJarPath.getFileName() + ')' + env;
@@ -234,13 +239,14 @@ public class DockerMinecraftServer {
         }
         Path dataDir = dataDir();
         Files.createDirectories(dataDir);
+        resetSavedWorlds(dataDir);
         String containerName = containerName();
         removeDockerContainer();
         String image = DockerServerImage.imageFor(getVersion());
         System.out.println("Starting " + containerName + " with image " + image);
 
         String modJarMount = modJarPath + ":/data/"
-                + ("PAPER".equalsIgnoreCase(loaderKey) ? "plugins" : "mods")
+                + (BukkitPluginLoaderAvailability.isBukkitFamilyLoader(loaderKey) ? "plugins" : "mods")
                 + "/chronosbackups.jar";
         List<String> command = new ArrayList<>();
         command.add("docker");
@@ -272,18 +278,27 @@ public class DockerMinecraftServer {
                 command.add("-e");
                 command.add("MODRINTH_PROJECTS=" + modrinthProjects);
             }
-        } else if ("FORGE".equalsIgnoreCase(loaderKey) && forgeInstallerUrl != null && !forgeInstallerUrl.isBlank()) {
+        } else if ("FORGE".equalsIgnoreCase(loaderKey)) {
             command.add("-e");
-            command.add("FORGE_INSTALLER_URL=" + forgeInstallerUrl);
-        } else if ("FORGE".equalsIgnoreCase(loaderKey) && forgeVersion != null && !forgeVersion.isBlank()) {
-            command.add("-e");
-            command.add("FORGE_VERSION=" + forgeVersion);
+            command.add("JVM_DD_OPTS=fml.queryResult=confirm");
+            if (forgeInstallerUrl != null && !forgeInstallerUrl.isBlank()) {
+                command.add("-e");
+                command.add("FORGE_INSTALLER_URL=" + forgeInstallerUrl);
+            } else if (forgeVersion != null && !forgeVersion.isBlank()) {
+                command.add("-e");
+                command.add("FORGE_VERSION=" + forgeVersion);
+            }
         } else if ("NEOFORGE".equalsIgnoreCase(loaderKey) && neoForgeVersion != null && !neoForgeVersion.isBlank()) {
             command.add("-e");
             command.add("NEOFORGE_VERSION=" + neoForgeVersion);
-        } else if ("PAPER".equalsIgnoreCase(loaderKey) && paperChannel != null && !paperChannel.isBlank()) {
+        } else if ("PAPER".equalsIgnoreCase(loaderKey) || "FOLIA".equalsIgnoreCase(loaderKey)) {
+            if (paperChannel != null && !paperChannel.isBlank()) {
+                command.add("-e");
+                command.add("PAPER_CHANNEL=" + paperChannel);
+            }
+        } else if ("PURPUR".equalsIgnoreCase(loaderKey)) {
             command.add("-e");
-            command.add("PAPER_CHANNEL=" + paperChannel);
+            command.add("PURPUR_BUILD=latest");
         }
         command.add("-e");
         command.add("ENABLE_RCON=TRUE");
@@ -387,7 +402,7 @@ public class DockerMinecraftServer {
         if ("FABRIC".equalsIgnoreCase(loaderKey)) {
             return stripZeroPatch(version);
         }
-        if ("PAPER".equalsIgnoreCase(loaderKey)) {
+        if (BukkitPluginLoaderAvailability.isBukkitFamilyLoader(loaderKey)) {
             return stripZeroPatch(version);
         }
         if ("FORGE".equalsIgnoreCase(loaderKey) && minor <= 12) {
@@ -434,6 +449,30 @@ public class DockerMinecraftServer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while removing container " + name, e);
+        }
+    }
+
+    /** Drops saved dimensions so a prior run cannot leave a world from another MC/Forge line. */
+    static void resetSavedWorlds(Path dataDir) throws IOException {
+        for (String name : List.of("world", "world_nether", "world_the_end", "DIM-1", "DIM1", "backups")) {
+            deleteRecursively(dataDir.resolve(name));
+        }
+    }
+
+    private static void deleteRecursively(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return;
+        }
+        try (Stream<Path> walk = Files.walk(path)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
     }
 }

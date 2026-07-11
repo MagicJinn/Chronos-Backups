@@ -42,6 +42,12 @@ test("parseJarFileName prefers neoforge over forge suffix", () => {
   assert.equal(parsed.loader, "neoforge");
 });
 
+test("parseJarFileName handles plugin loader suffix", () => {
+  const loaders = new Set(["fabric", "forge", "neoforge", "plugin"]);
+  const parsed = parseJarFileName(jarName("1.21.x", "2.3.4", "plugin"), MOD_ID, loaders);
+  assert.equal(parsed.loader, "plugin");
+});
+
 test("artifactVersionNumber is Modrinth-safe for dashed mc targets", () => {
   const mcTarget = "1.21.0-1.21.10";
   const modVersion = "2.3.4";

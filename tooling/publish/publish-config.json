@@ -1,0 +1,19 @@
+{
+  "modId": "chronosbackups",
+  "modrinth": {
+    "project": "chronos-backups",
+    "environment": "server_only"
+  },
+  "curseforge": {
+    "modsProjectId": "1535678",
+    "pluginsProjectId": "1603416"
+  },
+  "pluginLoaders": ["plugin"],
+  "userAgent": "Chronos-Backups-Publish/1.0 (github.com/MagicJinn/Chronos-Backups)",
+  "dependencies": {
+    "fabric": {
+      "modrinthProjectId": "P7dR8mSH",
+      "curseforgeSlug": "fabric-api"
+    }
+  }
+}

@@ -44,6 +44,4 @@ jobs:
           RELEASE_BODY: ${{ github.event.release.body }}
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
-          MODRINTH_PROJECT: chronos-backups
-          CURSEFORGE_PROJECT_ID: "1535678"
         run: npm start

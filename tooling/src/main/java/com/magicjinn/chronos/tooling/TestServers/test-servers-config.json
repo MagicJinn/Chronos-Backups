@@ -14,7 +14,9 @@
     ],
     "serverSetupFailureMarkers": [
         "Failed to install",
-        "Server failed"
+        "Server failed",
+        "Unsupported API version",
+        "failed to download"
     ],
     "successMarkers": [
         "Speedtest finished"

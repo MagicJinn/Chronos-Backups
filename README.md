@@ -18,7 +18,7 @@
 
 ## Features
 
-- Multi-version, multi-loader architecture (Fabric, NeoForge, Forge, Paper).
+- Multi-version, multi-loader architecture (Fabric, NeoForge, Forge, Bukkit, Spigot, Paper, Purpur and Folia).
 - Scheduled and manual backups via an in-game `/chronos` command with a configurable permission level.
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
@@ -39,27 +39,26 @@ Chronos prioritizes aged world data, chunks that do not yet count as "old enough
 
 ## Supported versions
 
-All currently supported versions are listed below. If a specific subversion does not have a modloader associated with it (eg 1.7.3-1.7.9), it may still appear as supported if the major version is supported.
+All currently supported versions are listed below.
 
 | Minecraft    | Support       | Loader(s)                         | Backup | Config       | Notes                                                                                                                       |
 |--------------|---------------|-----------------------------------|--------|--------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `26.2.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | -                                                                                                                           |
-| `26.1.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | Paper: 26.1.1+ only. [^3]                                                                                                   |
-| `1.21.x`     | ✅ Supported   | Fabric + NeoForge + Paper         | ✅      | 🟠 File-only | Paper: all listed patches except 1.21.2. [^3]                                                                               |
-| `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge + Paper | ✅      | 🟠 File-only | Forge: 1.20.0–1.20.1 only. Fabric: 1.20.x. NeoForge: 1.20.2–1.20.6. Paper: all patches except 1.20.3. [^3]                  |
-| `1.19.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.18.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.17.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | Forge: 1.17.1 only.                                                                                                         |
-| `1.16.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | Paper: 1.16.1+ only. [^3]                                                                                                   |
-| `1.15.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.14.x`     | ✅ Supported   | Fabric + Forge + Paper            | ✅      | 🟠 File-only | Forge: 1.14.2–1.14.4 only.                                                                                                  |
-| `1.13.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.13.2 only. [^2]                                                                                                    |
-| `1.12.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: all 1.12.x patches. Paper: 1.12.2 only. [^2], [^4]                                                                   |
-| `1.11.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.11.0, 1.11.2 only. Paper: 1.11.2 only. [^2]                                                                        |
-| `1.10.x`     | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.10.0, 1.10.2 only. Paper: 1.10.2 only. [^2]                                                                        |
-| `1.9.x`      | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.9.0, 1.9.4 only. Paper: 1.9.4 only. [^2]                                                                           |
-| `1.8.x`      | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.8.0, 1.8.8, 1.8.9 only. Paper: 1.8.8 only. [^2]                                                                    |
-| `1.7.x`      | ✅ Supported   | Forge + Paper                     | ✅      | 🟠 File-only | Forge: 1.7.10 only. Paper: 1.7.10 only. [^1], [^2]                                                                          |
+| `26.x`       | ✅ Supported   | Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Paper plugin: 26.1.1+ only. Folia: 26.1.2 only. ,                                                                                            |
+| `1.21.x`     | ✅ Supported   | Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Fabric/NeoForge: pre-1.21.11 vs 1.21.11+ split. Paper plugin: one jar for all 1.21.x. Folia: subset of patches.                                  |
+| `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Forge: 1.20.0–1.20.1 only. Fabric: 1.20.x. NeoForge: 1.20.2–1.20.6. Paper plugin: all patches except 1.20.3. Folia: subset of patches. ,         |
+| `1.19.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Folia: 1.19.4 only.                                                                                                                           |
+| `1.18.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper and Purpur | ✅      | 🟠 File-only | -                                                                                                                           |
+| `1.17.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper and Purpur | ✅      | 🟠 File-only | Forge: 1.17.1 only.                                                                                                         |
+| `1.16.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Paper plugin: 1.16.1+ only.                                                                                             |
+| `1.15.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Fabric + Forge: unified `1.14-1.15.x` jar.                                                                                  |
+| `1.14.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Fabric + Forge: unified `1.14-1.15.x` jar. Forge: 1.14.2–1.14.4 only.                                                     |
+| `1.13.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.13.2 only. [^2]                                                                                                    |
+| `1.12.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: all 1.12.x patches. Paper plugin: 1.12.2 only. [^2], [^3]                                                            |
+| `1.11.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.11.0, 1.11.2 only. Paper plugin: 1.11.2 only. [^2]                                                                 |
+| `1.10.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.10.0, 1.10.2 only. Paper plugin: 1.10.2 only. [^2]                                                               |
+| `1.9.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.9.0, 1.9.4 only. Paper plugin: 1.9.4 only. [^2]                                                                  |
+| `1.8.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.8.0, 1.8.8, 1.8.9 only. Paper plugin: 1.8.8 only. [^2]                                                             |
+| `1.7.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.7.10 only. Paper plugin: 1.7.10 only. [^1], [^2]                                                                 |
 | `1.6.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
 | `1.5.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
 | `1.4.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
@@ -73,9 +72,7 @@ All currently supported versions are listed below. If a specific subversion does
 
 [^2]: Might also be supported on Fabric through [Legacy Fabric](https://legacyfabric.net/) in the future.
 
-[^3]: Paper builds are not published for every patch. Currently excluded: `1.16.0`, `1.20.3`, `1.21.2`, `26.1.0`.
-
-[^4]: Paper `1.12.0` and `1.12.1` are excluded because Mojang removed the vanilla server jars from their old S3 download URLs. Paperclip fails during bootstrap with `FileNotFoundException` when fetching `minecraft_server.1.12.jar` / `minecraft_server.1.12.1.jar`. Use Paper `1.12.2` (Forge still supports all 1.12.x patches).
+[^3]: Paper `1.12.0` and `1.12.1` are excluded because Mojang removed the vanilla server jars from their old S3 download URLs. Paperclip fails during bootstrap with `FileNotFoundException` when fetching `minecraft_server.1.12.jar` / `minecraft_server.1.12.1.jar`. Use Paper `1.12.2` (Forge still supports all 1.12.x patches).
 
 ## Configuration
 

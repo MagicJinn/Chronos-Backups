@@ -3,7 +3,9 @@ import path from "node:path";
 
 interface ConfigBlock {
   archiveVersionTag?: string;
+  jarLoaderKey?: string;
   loaderKey?: string;
+  loaderKeys?: string[];
   supportedVersions?: string[];
 }
 
@@ -23,32 +25,50 @@ export interface JarTargetEntry {
   gameVersions: string[];
 }
 
+// Loader configurations are all formatted as `{loader}Config` for easy discoverability
 const CONFIG_BLOCK_SUFFIX = "Config";
 
 function isConfigBlock(value: unknown): value is ConfigBlock {
   return typeof value === "object" && value !== null;
 }
 
-function loaderFromBlock(blockKey: string, block: ConfigBlock): string {
-  if (block.loaderKey?.trim()) {
-    return block.loaderKey.trim().toLowerCase();
+function resolveLoaderKeys(block: ConfigBlock): string[] {
+  const fromArray = block.loaderKeys?.map((key) => key.trim()).filter(Boolean);
+  if (fromArray?.length) {
+    return fromArray;
   }
-  if (!blockKey.endsWith(CONFIG_BLOCK_SUFFIX)) {
+  const single = block.loaderKey?.trim();
+  return single ? [single] : [];
+}
+
+function loaderFromBlock(blockKey: string, block: ConfigBlock): string[] {
+  const explicit = resolveLoaderKeys(block);
+  if (explicit.length)
+    return explicit.map((key) => key.toLowerCase());
+
+  if (!blockKey.endsWith(CONFIG_BLOCK_SUFFIX))
     throw new Error(`Config block key must end with "${CONFIG_BLOCK_SUFFIX}": ${blockKey}`);
-  }
+
   const derived = blockKey.slice(0, -CONFIG_BLOCK_SUFFIX.length);
-  if (!derived) {
+  if (!derived)
     throw new Error(`Cannot derive loader from block key: ${blockKey}`);
-  }
-  return derived.toLowerCase();
+
+  return [derived.toLowerCase()];
+}
+
+function indexLoadersForBlock(blockKey: string, block: ConfigBlock): string[] {
+  if (blockKey === "pluginConfig")
+    return [(block.jarLoaderKey ?? "PLUGIN").trim().toLowerCase()];
+
+  return loaderFromBlock(blockKey, block);
 }
 
 function configBlocksInGroup(group: CompileGroup): Array<{ blockKey: string; block: ConfigBlock }> {
   const blocks: Array<{ blockKey: string; block: ConfigBlock }> = [];
   for (const [key, value] of Object.entries(group)) {
-    if (!key.endsWith(CONFIG_BLOCK_SUFFIX) || !isConfigBlock(value)) {
+    if (!key.endsWith(CONFIG_BLOCK_SUFFIX) || !isConfigBlock(value))
       continue;
-    }
+
     blocks.push({ blockKey: key, block: value });
   }
   return blocks;
@@ -74,17 +94,19 @@ export function buildJarTargetIndex(groups: CompileGroup[]): Map<string, JarTarg
         );
       }
 
-      const loader = loaderFromBlock(blockKey, block);
-      const mapKey = `${archiveTag}\0${loader}`;
-      if (index.has(mapKey)) {
-        throw new Error(`Duplicate jar target index entry: ${archiveTag} + ${loader}`);
-      }
+      const loaders = indexLoadersForBlock(blockKey, block);
+      for (const loader of loaders) {
+        const mapKey = `${archiveTag}\0${loader}`;
+        if (index.has(mapKey)) {
+          throw new Error(`Duplicate jar target index entry: ${archiveTag} + ${loader}`);
+        }
 
-      index.set(mapKey, {
-        archiveTag,
-        loader,
-        gameVersions: [...gameVersions],
-      });
+        index.set(mapKey, {
+          archiveTag,
+          loader,
+          gameVersions: [...gameVersions],
+        });
+      }
     }
   }
 

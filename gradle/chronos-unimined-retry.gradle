@@ -5,7 +5,7 @@ import org.gradle.internal.os.OperatingSystem
 
 /**
  * Re-runs the same Gradle invocation when Unimined/Mojang metadata flakes during
- * configuration (common when many forge-line projects configure in parallel).
+ * configuration, or when Unimined mapping caches are corrupt during remapJar.
  */
 
 ext.deepMessages = { Throwable failure ->
@@ -22,10 +22,28 @@ ext.deepMessages = { Throwable failure ->
 
 ext.isUniminedFlakyFailure = { Throwable failure ->
     def text = deepMessages(failure)
-    return text.containsIgnoreCase('Failed to get metadata')
+    if (text.containsIgnoreCase('Failed to get metadata')
         || text.containsIgnoreCase('no version found for')
         || text.containsIgnoreCase('minecraft config never applied')
-        || text.containsIgnoreCase('MalformedJsonException')
+        || text.containsIgnoreCase('MalformedJsonException')) {
+        return true
+    }
+    def mentionsUniminedCache = text.contains('.gradle/unimined')
+        || text.contains('.gradle\\unimined')
+        || text.containsIgnoreCase('srg2mcp.jar')
+    if (mentionsUniminedCache) {
+        if (text.containsIgnoreCase('Error reading file')
+            || text.containsIgnoreCase('ZipException')
+            || text.containsIgnoreCase('EOFException')
+            || text.containsIgnoreCase('invalid CEN header')
+            || text.containsIgnoreCase('Not a valid zip file')
+            || text.containsIgnoreCase('Unexpected end of ZLIB')
+            || text.containsIgnoreCase('Failed to remap')) {
+            return true
+        }
+    }
+    return text.containsIgnoreCase(':remapJar')
+        && (text.containsIgnoreCase('unimined') || text.containsIgnoreCase('srg2mcp'))
 }
 
 ext.readChronosRetryMax = {
@@ -75,12 +93,30 @@ ext.clearUniminedGlobalCache = {
     }
 }
 
+ext.clearUniminedLocalCaches = {
+    def variantsRoot = new File(rootDir, 'variants')
+    if (!variantsRoot.isDirectory()) {
+        return
+    }
+    variantsRoot.eachDir { groupDir ->
+        groupDir.eachDir { projectDir ->
+            def local = new File(projectDir, '.gradle/unimined')
+            if (local.exists()) {
+                local.deleteDir()
+                println "[Chronos] Cleared Unimined local cache: ${local.absolutePath}"
+            }
+        }
+    }
+}
+
+ext.clearUniminedCaches = {
+    clearUniminedGlobalCache()
+    clearUniminedLocalCaches()
+}
+
 ext.buildGradleRetryArgs = { StartParameter startParameter ->
     def cmd = []
-    if (!startParameter.useDaemon) {
-        cmd << '--no-daemon'
-    }
-    if (!startParameter.buildCacheEnabled) {
+    if (!startParameter.isBuildCacheEnabled()) {
         cmd << '--no-build-cache'
     }
     if (startParameter.showStacktrace == ShowStacktrace.ALWAYS) {
@@ -88,10 +124,10 @@ ext.buildGradleRetryArgs = { StartParameter startParameter ->
     } else if (startParameter.showStacktrace == ShowStacktrace.ALWAYS_FULL) {
         cmd << '--full-stacktrace'
     }
-    if (startParameter.offline) {
+    if (startParameter.isOffline()) {
         cmd << '--offline'
     }
-    if (startParameter.refreshDependencies) {
+    if (startParameter.isRefreshDependencies()) {
         cmd << '--refresh-dependencies'
     }
     startParameter.projectProperties.each { key, value ->
@@ -116,7 +152,7 @@ gradle.buildFinished { BuildResult result ->
     def attempt = chronosRetryAttempt()
     def maxAttempts = readChronosRetryMax()
     if (attempt >= maxAttempts - 1) {
-        println "[Chronos] Unimined/metadata failure persists after ${attempt + 1} attempt(s). " +
+        println "[Chronos] Unimined failure persists after ${attempt + 1} attempt(s). " +
             'Try: ./gradlew cleanUniminedCache then rebuild, or set chronos.gradle.retry.max higher.'
         return
     }
@@ -124,10 +160,10 @@ gradle.buildFinished { BuildResult result ->
     def nextAttempt = attempt + 1
     def delayMs = retryBackoffMs(attempt)
     def firstLine = failure.message?.readLines()?.find { it } ?: ''
-    println "[Chronos] Flaky Unimined/Mojang metadata (${attempt + 1}/${maxAttempts}): ${firstLine}"
-    println "[Chronos] Retrying the same Gradle command in ${delayMs}ms..."
+    println "[Chronos] Flaky Unimined build (${attempt + 1}/${maxAttempts}): ${firstLine}"
+    println "[Chronos] Clearing Unimined caches and retrying the same Gradle command in ${delayMs}ms..."
     Thread.sleep(delayMs)
-    clearUniminedGlobalCache()
+    clearUniminedCaches()
 
     def wrapper = new File(rootDir, OperatingSystem.current().isWindows() ? 'gradlew.bat' : 'gradlew')
     if (!wrapper.isFile()) {

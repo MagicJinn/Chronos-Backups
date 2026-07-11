@@ -96,8 +96,8 @@ public final class GenerateVariants {
                 validPaths.add(dir);
                 generated++;
             }
-            if (g.containsKey("paperConfig")) {
-                Map<String, Object> pu = castMap(g.get("paperConfig"));
+            if (g.containsKey("pluginConfig")) {
+                Map<String, Object> pu = castMap(g.get("pluginConfig"));
                 String line = primaryLinePrefix(g);
                 String projectName = "paper-line-" + line.replace(".", "_");
                 Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
@@ -222,7 +222,7 @@ public final class GenerateVariants {
                 paperApiDependency=%s
                 """.formatted(compileGroup, mc, paperApiDependency));
 
-        String archivesName = "chronos-backups-paper-" + archiveSuffix(loaderConfig, mc);
+        String archivesName = "chronos-backups-plugin-" + archiveSuffix(loaderConfig, mc);
         ChronosJavaMatrix.ToolchainAndRelease paperJava = JAVA_MATRIX.toolchainAndRelease(mc);
         Map<String, String> paperValues = new HashMap<>();
         paperValues.put("archivesName", archivesName);

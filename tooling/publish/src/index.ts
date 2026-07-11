@@ -12,15 +12,19 @@ import { getModPageDescription } from "./create-mod-page-description.js";
 import { createModrinthVersion, resolveModrinthProjectId, updateModrinthProjectBody } from "./modrinth.js";
 import { ModrinthGameVersionResolver } from "./modrinth-versions.js";
 import { artifactVersionNumber, parseJarFileName } from "./parse-jar.js";
+import {
+  curseforgeProjectIdForLoader,
+  defaultPublishConfigPath,
+  loadPublishPlatformConfig,
+  type PublishPlatformConfig,
+} from "./publish-config.js";
 
 export interface PublishConfig {
   jarsDir: string;
   repoRoot: string;
   title: string;
   changelog: string;
-  modId: string;
-  modrinthProjectId: string;
-  curseforgeProjectId: string;
+  platform: PublishPlatformConfig;
   modrinthToken?: string;
   curseforgeToken?: string;
   dryRun: boolean;
@@ -41,9 +45,31 @@ function optionalEnv(name: string): string | undefined {
   return value || undefined;
 }
 
-export function loadConfigFromEnv(): PublishConfig {
+function applyEnvOverrides(platform: PublishPlatformConfig): PublishPlatformConfig {
+  const modId = process.env.CHRONOS_MOD_ID?.trim();
+  const modrinthProject = process.env.MODRINTH_PROJECT?.trim();
+  const curseforgeModsProjectId =
+    process.env.CURSEFORGE_PROJECT_ID?.trim() || process.env.CURSEFORGE_ID?.trim();
+  const curseforgePluginsProjectId = process.env.CURSEFORGE_PLUGINS_PROJECT_ID?.trim();
+
+  return {
+    ...platform,
+    modId: modId || platform.modId,
+    modrinth: {
+      ...platform.modrinth,
+      project: modrinthProject || platform.modrinth.project,
+    },
+    curseforge: {
+      modsProjectId: curseforgeModsProjectId || platform.curseforge.modsProjectId,
+      pluginsProjectId: curseforgePluginsProjectId || platform.curseforge.pluginsProjectId,
+    },
+  };
+}
+
+export async function loadConfigFromEnv(): Promise<PublishConfig> {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const defaultRepoRoot = path.resolve(scriptDir, "..", "..", "..");
+  const configPath = process.env.CHRONOS_PUBLISH_CONFIG?.trim() || defaultPublishConfigPath(scriptDir);
 
   const repoRoot = path.resolve(process.env.CHRONOS_REPO_ROOT?.trim() || defaultRepoRoot);
   const jarsDir = path.resolve(process.env.CHRONOS_JARS_DIR?.trim() || path.join(repoRoot, "release-jars"));
@@ -71,22 +97,14 @@ export function loadConfigFromEnv(): PublishConfig {
     );
   }
 
-  const curseforgeProjectId =
-    process.env.CURSEFORGE_PROJECT_ID?.trim() ||
-    process.env.CURSEFORGE_ID?.trim() ||
-    (dryRun ? "0" : undefined);
-  if (!curseforgeProjectId) {
-    throw new Error("Missing CURSEFORGE_PROJECT_ID (or CURSEFORGE_ID)");
-  }
+  const platform = applyEnvOverrides(await loadPublishPlatformConfig(configPath));
 
   return {
     jarsDir,
     repoRoot,
     title,
     changelog,
-    modId: process.env.CHRONOS_MOD_ID?.trim() || "chronosbackups",
-    modrinthProjectId: process.env.MODRINTH_PROJECT?.trim() || "chronos-backups",
-    curseforgeProjectId,
+    platform,
     modrinthToken,
     curseforgeToken,
     dryRun,
@@ -108,9 +126,10 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
   const index = await loadJarTargetIndex(compileGroupsPath);
   const knownLoaders = knownLoadersFromIndex(index);
   const modrinthProjectId = config.skipModrinth
-    ? config.modrinthProjectId
+    ? config.platform.modrinth.project
     : await resolveModrinthProjectId(
-        config.modrinthProjectId,
+        config.platform.modrinth.project,
+        config.platform.userAgent,
         config.modrinthToken,
         config.dryRun,
       );
@@ -119,7 +138,9 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
     await modrinthVersionResolver.load();
   }
   const curseforgeResolver =
-    config.skipCurseforge || config.dryRun ? null : new CurseForgeVersionResolver(config.curseforgeToken ?? "");
+    config.skipCurseforge || config.dryRun
+      ? null
+      : new CurseForgeVersionResolver(config.curseforgeToken ?? "", config.platform.userAgent);
   if (curseforgeResolver) {
     await curseforgeResolver.load();
   }
@@ -139,10 +160,11 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
 
   for (const fileName of jarNames) {
     try {
-      const parsed = parseJarFileName(fileName, config.modId, knownLoaders);
+      const parsed = parseJarFileName(fileName, config.platform.modId, knownLoaders);
       const target = lookupJarTarget(index, parsed.mcTarget, parsed.loader);
       const filePath = path.join(config.jarsDir, fileName);
       const versionNumber = artifactVersionNumber(parsed);
+      const curseforgeProjectId = curseforgeProjectIdForLoader(config.platform, parsed.loader);
       const modrinthGameVersions =
         config.dryRun || !modrinthVersionResolver
           ? target.gameVersions
@@ -162,7 +184,8 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
         `\n> ${fileName}\n  loader=${parsed.loader} mc=${parsed.mcTarget} mod=${parsed.modVersion} ` +
           `versions=[${target.gameVersions.join(", ")}]` +
           (modrinthVersionsDiffer ? ` modrinth=[${modrinthGameVersions.join(", ")}]` : "") +
-          (curseforgeVersionsDiffer ? ` curseforge=[${curseforgeGameVersions.join(", ")}]` : ""),
+          (curseforgeVersionsDiffer ? ` curseforge=[${curseforgeGameVersions.join(", ")}]` : "") +
+          ` curseforgeProject=${curseforgeProjectId}`,
       );
 
       if (!config.skipModrinth && (config.modrinthToken || config.dryRun)) {
@@ -173,6 +196,9 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           changelog: config.changelog,
           loaders: [parsed.loader],
           gameVersions: modrinthGameVersions,
+          environment: config.platform.modrinth.environment,
+          dependencies: config.platform.dependencies,
+          userAgent: config.platform.userAgent,
           filePath,
           fileName,
           dryRun: config.dryRun,
@@ -181,13 +207,16 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       }
 
       if (!config.skipCurseforge && (config.curseforgeToken || config.dryRun)) {
-        const cfResolver = curseforgeResolver ?? new CurseForgeVersionResolver("");
+        const cfResolver =
+          curseforgeResolver ?? new CurseForgeVersionResolver("", config.platform.userAgent);
         const result = await uploadCurseForgeFile(config.curseforgeToken ?? "", cfResolver, {
-          projectId: config.curseforgeProjectId,
+          projectId: curseforgeProjectId,
           displayName: fileName,
           changelog: config.changelog,
           loader: parsed.loader,
           gameVersions: curseforgeGameVersions,
+          dependencies: config.platform.dependencies,
+          userAgent: config.platform.userAgent,
           filePath,
           fileName,
           dryRun: config.dryRun,
@@ -211,6 +240,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       config.modrinthToken ?? "",
       modrinthProjectId,
       modPageDescription,
+      config.platform.userAgent,
       config.dryRun,
     );
     console.log(`\nModrinth project page updated (${modPageDescription.length} chars).`);
@@ -220,7 +250,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const config = loadConfigFromEnv();
+  const config = await loadConfigFromEnv();
   await publishRelease(config);
 }
 
