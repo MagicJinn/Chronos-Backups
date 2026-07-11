@@ -115,7 +115,8 @@ ext.clearUniminedCaches = {
 }
 
 ext.buildGradleRetryArgs = { StartParameter startParameter ->
-    def cmd = []
+    // ProcessBuilder requires java.lang.String elements; Groovy GStrings are not accepted.
+    def cmd = [] as List<String>
     if (!startParameter.isBuildCacheEnabled()) {
         cmd << '--no-build-cache'
     }
@@ -131,12 +132,14 @@ ext.buildGradleRetryArgs = { StartParameter startParameter ->
         cmd << '--refresh-dependencies'
     }
     startParameter.projectProperties.each { key, value ->
-        cmd << "-P${key}=${value}"
+        cmd << "-P${key}=${value}".toString()
     }
     startParameter.systemPropertiesArgs.each { key, value ->
-        cmd << "-D${key}=${value}"
+        cmd << "-D${key}=${value}".toString()
     }
-    cmd.addAll(startParameter.taskNames)
+    startParameter.taskNames.each { task ->
+        cmd << task.toString()
+    }
     return cmd
 }
 
@@ -171,7 +174,8 @@ gradle.buildFinished { BuildResult result ->
         return
     }
 
-    def command = [wrapper.absolutePath]
+    def command = [] as List<String>
+    command << wrapper.absolutePath
     command.addAll(buildGradleRetryArgs(gradle.startParameter))
 
     def pb = new ProcessBuilder(command)
