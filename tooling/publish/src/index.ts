@@ -11,6 +11,7 @@ import {
 import { getModPageDescription } from "./create-mod-page-description.js";
 import { createModrinthVersion, resolveModrinthProjectId, updateModrinthProjectBody } from "./modrinth.js";
 import { ModrinthGameVersionResolver } from "./modrinth-versions.js";
+import { ModrinthLoaderResolver } from "./modrinth-loaders.js";
 import { artifactVersionNumber, parseJarFileName } from "./parse-jar.js";
 import {
   curseforgeProjectIdForLoader,
@@ -137,6 +138,10 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
   if (modrinthVersionResolver && !config.dryRun) {
     await modrinthVersionResolver.load();
   }
+  const modrinthLoaderResolver = config.skipModrinth ? null : new ModrinthLoaderResolver(config.platform.userAgent);
+  if (modrinthLoaderResolver) {
+    await modrinthLoaderResolver.load();
+  }
   const curseforgeResolver =
     config.skipCurseforge || config.dryRun
       ? null
@@ -199,7 +204,10 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           changelog: config.changelog,
           loaders: target.publishLoaders,
           gameVersions: modrinthGameVersions,
-          environment: config.platform.modrinth.environment,
+          environment: modrinthLoaderResolver?.environmentForLoaders(
+            target.publishLoaders,
+            config.platform.modrinth.environment,
+          ),
           dependencies: config.platform.dependencies,
           userAgent: config.platform.userAgent,
           filePath,

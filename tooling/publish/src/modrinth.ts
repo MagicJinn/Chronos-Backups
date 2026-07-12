@@ -15,7 +15,7 @@ export interface ModrinthVersionRequest {
   changelog: string;
   loaders: string[];
   gameVersions: string[];
-  environment: PublishPlatformConfig["modrinth"]["environment"];
+  environment?: PublishPlatformConfig["modrinth"]["environment"];
   dependencies: PublishPlatformConfig["dependencies"];
   userAgent: string;
   filePath: string;
@@ -87,7 +87,7 @@ export async function createModrinthVersion(
     version_type: "release",
     loaders: request.loaders,
     game_versions: request.gameVersions,
-    environment: request.environment,
+    ...(request.environment ? { environment: request.environment } : {}),
     featured: false,
     dependencies: modrinthDependenciesForLoaders(request.loaders, request.dependencies),
     file_parts: [filePart],
