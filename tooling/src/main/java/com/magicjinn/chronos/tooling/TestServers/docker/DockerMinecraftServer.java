@@ -203,17 +203,12 @@ public class DockerMinecraftServer {
         String ports = gamePort > 0 && rconPort > 0
                 ? " (game port: " + gamePort + ", RCON port: " + rconPort + ')'
                 : "";
-        String env = switch (loaderKey.toUpperCase(Locale.ROOT)) {
-            case "FABRIC" -> optionalDetail("MODRINTH_PROJECTS", modrinthProjects);
-            case "FORGE" -> {
-                String detail = optionalDetail("FORGE_INSTALLER_URL", forgeInstallerUrl);
-                yield detail.isEmpty() ? optionalDetail("FORGE_VERSION", forgeVersion) : detail;
-            }
-            case "NEOFORGE" -> optionalDetail("NEOFORGE_VERSION", neoForgeVersion);
-            case "PAPER", "FOLIA" -> optionalDetail("PAPER_CHANNEL", paperChannel);
-            case "PURPUR", "SPIGOT", "BUKKIT" -> "";
-            default -> "";
-        };
+        String forgeDetail = optionalDetail("FORGE_INSTALLER_URL", forgeInstallerUrl);
+        String env = optionalDetail("FABRIC_LOADER_VERSION", fabricLoaderVersion)
+                + optionalDetail("MODRINTH_PROJECTS", modrinthProjects)
+                + (forgeDetail.isEmpty() ? optionalDetail("FORGE_VERSION", forgeVersion) : forgeDetail)
+                + optionalDetail("NEOFORGE_VERSION", neoForgeVersion)
+                + optionalDetail("PAPER_CHANNEL", paperChannel);
         return loaderKey + '-' + version + ports + " (mod jar: " + modJarPath.getFileName() + ')' + env;
     }
 
