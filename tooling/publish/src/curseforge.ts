@@ -27,6 +27,7 @@ export interface CurseForgeVersionRequest {
   changelog: string;
   loaders: string[];
   gameVersions: string[];
+  isPlugin: boolean;
   dependencies: PublishPlatformConfig["dependencies"];
   userAgent: string;
   filePath: string;
@@ -34,8 +35,18 @@ export interface CurseForgeVersionRequest {
   dryRun: boolean;
 }
 
+/** CurseForge Bukkit plugin files use Minecraft version ids from this game version type. */
+const CURSEFORGE_BUKKIT_GAME_VERSION_TYPE_ID = 1;
+
 function preferVersionCandidates(candidates: VersionCandidate[]): VersionCandidate[] {
   return [...candidates].sort((a, b) => b.gameVersionTypeID - a.gameVersionTypeID);
+}
+
+function preferPluginVersionCandidates(candidates: VersionCandidate[]): VersionCandidate[] {
+  const bukkitCandidates = candidates.filter(
+    (candidate) => candidate.gameVersionTypeID === CURSEFORGE_BUKKIT_GAME_VERSION_TYPE_ID,
+  );
+  return bukkitCandidates.length > 0 ? bukkitCandidates : preferVersionCandidates(candidates);
 }
 
 function addCandidate(map: Map<string, VersionCandidate[]>, key: string, candidate: VersionCandidate): void {
@@ -148,7 +159,11 @@ export class CurseForgeVersionResolver {
     );
   }
 
-  resolveGameVersionIdCombinations(names: string[], loaders: string[]): number[][] {
+  resolveGameVersionIdCombinations(names: string[], loaders: string[], isPlugin = false): number[][] {
+    if (isPlugin) {
+      return this.resolvePluginGameVersionIdCombinations(names);
+    }
+
     if (loaders.length > 1) {
       return this.resolveMultiLoaderGameVersionIdCombinations(names, loaders);
     }
@@ -314,6 +329,60 @@ export class CurseForgeVersionResolver {
     return combinations;
   }
 
+  private resolvePluginGameVersionIdCombinations(names: string[]): number[][] {
+    const mcLists = names.map((name) => {
+      const candidates = this.mcVersionCandidatesByName.get(name);
+      if (!candidates?.length) {
+        throw new Error(
+          `CurseForge has no game version id for: ${name}. ` +
+            "Add supportedVersions in chronos-compile-groups.json or wait for CurseForge to list the version.",
+        );
+      }
+      return preferPluginVersionCandidates(candidates);
+    });
+
+    const primaryMcId = (list: VersionCandidate[]): number => {
+      const primary = list[0];
+      if (primary === undefined) {
+        throw new Error("CurseForge resolved an empty game version candidate list.");
+      }
+      return primary.id;
+    };
+
+    const combinations: number[][] = [];
+    const seen = new Set<string>();
+
+    const addCombination = (mcIds: number[]): void => {
+      const key = mcIds.join(",");
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      combinations.push([...mcIds]);
+    };
+
+    addCombination(mcLists.map((list) => primaryMcId(list)));
+
+    for (let mcIndex = 0; mcIndex < mcLists.length; mcIndex++) {
+      const alternatives = mcLists[mcIndex];
+      if (alternatives === undefined) {
+        continue;
+      }
+      for (let altIndex = 1; altIndex < alternatives.length; altIndex++) {
+        const alternative = alternatives[altIndex];
+        if (alternative === undefined) {
+          continue;
+        }
+        const mcIds = mcLists.map((list, index) =>
+          index === mcIndex ? alternative.id : primaryMcId(list),
+        );
+        addCombination(mcIds);
+      }
+    }
+
+    return combinations;
+  }
+
   private resolveServerEnvironmentId(): number {
     if (!this.loaded) {
       throw new Error("CurseForgeVersionResolver.load() must be called first");
@@ -373,9 +442,9 @@ export async function uploadCurseForgeFile(
       changelogType: "markdown",
       displayName: request.displayName,
       releaseType: "release",
-      loaders: request.loaders,
+      ...(request.isPlugin ? {} : { loaders: request.loaders }),
       gameVersions: request.gameVersions,
-      environment: "Server",
+      ...(request.isPlugin ? {} : { environment: "Server" }),
       ...(relations ? { relations } : {}),
     };
     console.log(`[dry-run] CurseForge ${request.fileName}:`, JSON.stringify(metadata, null, 2));
@@ -384,7 +453,11 @@ export async function uploadCurseForgeFile(
 
   await resolver.load();
 
-  const combinations = resolver.resolveGameVersionIdCombinations(request.gameVersions, request.loaders);
+  const combinations = resolver.resolveGameVersionIdCombinations(
+    request.gameVersions,
+    request.loaders,
+    request.isPlugin,
+  );
   let lastError: Error | undefined;
 
   for (const gameVersionIds of combinations) {

@@ -226,6 +226,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           changelog: config.changelog,
           loaders: target.publishLoaders,
           gameVersions: curseforgeGameVersions,
+          isPlugin: config.platform.pluginLoaders.includes(parsed.loader),
           dependencies: config.platform.dependencies,
           userAgent: config.platform.userAgent,
           filePath,
