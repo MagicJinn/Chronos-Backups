@@ -7,6 +7,8 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -30,7 +32,7 @@ public final class SaveRootDiscovery {
 
     // List of directories to skip during discovery. Common directories that are not
     // save roots.
-    private static final Set<String> SKIP_DIR_NAMES = Set.of(
+    private static final Set<String> SKIP_DIR_NAMES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "plugins",
             "logs",
             "libraries",
@@ -41,7 +43,7 @@ public final class SaveRootDiscovery {
             "defaultconfigs",
             "journeymap",
             ".cache",
-            ".git");
+            ".git")));
 
     private SaveRootDiscovery() {
     }
@@ -65,13 +67,34 @@ public final class SaveRootDiscovery {
      *                         was expected.
      */
 
-    public record BackupScope(Path copyRoot, List<Path> pruneRoots, boolean discoveredByScan) {
+    public static final class BackupScope {
+        private final Path copyRoot;
+        private final List<Path> pruneRoots;
+        private final boolean discoveredByScan;
+
+        public BackupScope(Path copyRoot, List<Path> pruneRoots, boolean discoveredByScan) {
+            this.copyRoot = copyRoot;
+            this.pruneRoots = pruneRoots;
+            this.discoveredByScan = discoveredByScan;
+        }
+
+        public Path copyRoot() {
+            return copyRoot;
+        }
+
+        public List<Path> pruneRoots() {
+            return pruneRoots;
+        }
+
+        public boolean discoveredByScan() {
+            return discoveredByScan;
+        }
     }
 
     public static BackupScope resolve(BackupRuntimeContext context) throws IOException {
         Path primary = context.getWorldSaveRoot().toAbsolutePath().normalize();
         if (hasLevelDat(primary)) {
-            return new BackupScope(primary, List.of(primary), false);
+            return new BackupScope(primary, Collections.singletonList(primary), false);
         }
 
         Path container = context.getRunDirectory().toAbsolutePath().normalize();
@@ -83,10 +106,10 @@ public final class SaveRootDiscovery {
 
         if (discovered.size() == 1) {
             Path only = discovered.get(0);
-            return new BackupScope(only, List.of(only), true);
+            return new BackupScope(only, Collections.singletonList(only), true);
         }
 
-        return new BackupScope(container, List.copyOf(discovered), true);
+        return new BackupScope(container, Collections.unmodifiableList(new ArrayList<>(discovered)), true);
     }
 
     /** Maps a live-server save root to its path inside a snapshot directory. */
@@ -108,7 +131,7 @@ public final class SaveRootDiscovery {
 
     static List<Path> discoverSaveRoots(Path container) throws IOException {
         if (!Files.isDirectory(container)) {
-            return List.of();
+            return Collections.emptyList();
         }
         Set<String> skipNames = skipDirNames();
         List<Path> found = new ArrayList<>();
@@ -120,7 +143,7 @@ public final class SaveRootDiscovery {
     private static Set<String> skipDirNames() {
         Set<String> skip = new HashSet<>(SKIP_DIR_NAMES);
         String backupFolder = Config.getBackupFolderName();
-        if (backupFolder != null && !backupFolder.isBlank()) {
+        if (backupFolder != null && !backupFolder.trim().isEmpty()) {
             skip.add(backupFolder.toLowerCase(Locale.ROOT));
         }
         return skip;

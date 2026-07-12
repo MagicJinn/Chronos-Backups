@@ -13,6 +13,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -610,7 +611,7 @@ public final class Backupper {
         Path cacheSnapshotPath;
         Path folderOutputPath;
         Path worldPath;
-        List<Path> pruneRoots = List.of();
+        List<Path> pruneRoots = Collections.emptyList();
         BackupWorldController worldController;
         Object serverHandle;
         long backupStartNanos;
