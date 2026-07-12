@@ -713,9 +713,10 @@ public final class TestServers {
                 }
             }
             if (allReadyMarkersSeen(readySeen) && rconSent.compareAndSet(false, true)) {
-                TestServersConsole.info("All ready markers seen. Sending RCON: " + testCommand);
-                Thread rconThread = new Thread(() -> sendRconTestCommand(server, testCommand, finalAttempt),
-                        "rcon-cmd-" + server.containerName());
+                TestServersConsole.info(
+                        "All ready markers seen. Sending via console (or RCON as fallback): " + testCommand);
+                Thread rconThread = new Thread(() -> sendTestCommand(server, testCommand, finalAttempt),
+                        "test-cmd-" + server.containerName());
                 rconThread.setDaemon(true);
                 rconThread.start();
             }
@@ -760,17 +761,19 @@ public final class TestServers {
         return null;
     }
 
-    private static void sendRconTestCommand(DockerMinecraftServer server, String testCommand, boolean finalAttempt) {
+    private static void sendTestCommand(DockerMinecraftServer server, String testCommand, boolean finalAttempt) {
         try {
             Thread.sleep(RCON_SEND_DELAY_MS);
             for (int attempt = 1; attempt <= RCON_SEND_MAX_ATTEMPTS; attempt++) {
                 try {
-                    String response = RconClient.send(server.getRconPort(), testCommand);
+                    RconClient.TestCommandResult result = RconClient.sendTestCommand(server, testCommand);
                     if (attempt > 1) {
-                        TestServersConsole.info("RCON delivered on attempt " + attempt);
+                        TestServersConsole.info(result.delivery() + " delivered on attempt " + attempt);
+                    } else if (!"console".equals(result.delivery())) {
+                        TestServersConsole.info("Delivered via " + result.delivery());
                     }
-                    if (!response.isBlank()) {
-                        TestServersConsole.info("RCON response: " + response.trim());
+                    if (!result.response().isBlank()) {
+                        TestServersConsole.info(result.delivery() + " response: " + result.response().trim());
                     }
                     return;
                 } catch (IOException e) {
@@ -779,11 +782,11 @@ public final class TestServers {
                     }
                     if (attempt < RCON_SEND_MAX_ATTEMPTS) {
                         logAttemptIssue(finalAttempt,
-                                "RCON attempt " + attempt + " failed for " + server.containerName() + ": "
+                                "Command attempt " + attempt + " failed for " + server.containerName() + ": "
                                         + e.getMessage());
                         Thread.sleep(RCON_SEND_RETRY_MS);
                     } else {
-                        TestServersConsole.warn("Failed to send RCON command to " + server.getRconPort()
+                        TestServersConsole.warn("Failed to send test command to " + server.containerName()
                                 + " after " + RCON_SEND_MAX_ATTEMPTS + " attempts: " + e.getMessage());
                     }
                 }

@@ -73,6 +73,7 @@ public final class Backupper {
 
     private static volatile InFlightBackup inFlightBackup;
     private static volatile SpeedtestSession activeSpeedtest;
+    private static volatile PendingBackupBegin pendingBackupBegin;
 
     static boolean isShutdownRequested() {
         return shutdownRequested || Thread.currentThread().isInterrupted();
@@ -94,6 +95,10 @@ public final class Backupper {
         return backupRunActive.get();
     }
 
+    static boolean hasPendingBackupBegin() {
+        return pendingBackupBegin != null;
+    }
+
     /**
      * Whether a speedtest session is currently active.
      */
@@ -110,6 +115,7 @@ public final class Backupper {
     public static boolean requestCancelInFlightBackup() {
         if (backupRunActive.get() || speedtestSessionActive.get()) {
             backupCancelRequested = true;
+            pendingBackupBegin = null;
             InFlightBackup run = inFlightBackup;
             if (run != null) {
                 run.proceedAfterSavesRestored.countDown();
@@ -231,6 +237,7 @@ public final class Backupper {
         speedtestSessionActive.set(false);
         inFlightBackup = null;
         activeSpeedtest = null;
+        pendingBackupBegin = null;
     }
 
     public static void InitializeBackupper() {
@@ -271,36 +278,122 @@ public final class Backupper {
             return false;
         }
 
-        SaveRootDiscovery.BackupScope scope;
-        try {
-            scope = SaveRootDiscovery.resolve(context);
-        } catch (IOException e) {
-            context.logError("Backupper skipped: " + e.getMessage());
-            return false;
-        }
-        Path worldPath = scope.copyRoot();
-        if (!Files.isDirectory(worldPath)) {
-            context.logError("Backupper skipped: world path does not exist -> " + worldPath);
-            return false;
-        }
-        if (scope.discoveredByScan()) {
-            context.logInfo(
-                    "Chronos backups: discovered "
-                            + scope.pruneRoots().size()
-                            + " save root(s) under run directory (primary save root had no level.dat).");
+        PendingBackupBegin pending = pendingBackupBegin;
+        if (pending != null) {
+            if (pending.context != context) {
+                pendingBackupBegin = null;
+                pending = null;
+            } else {
+                return pending.tick();
+            }
         }
 
-        if (!backupRunActive.compareAndSet(false, true)) {
-            String message = "Backup skipped: another backup is already running.";
-            LOG.warning(message);
-            context.sendChat(message);
-            return false;
+        pending = new PendingBackupBegin(context);
+        pendingBackupBegin = pending;
+        return pending.tick();
+    }
+
+    private static void clearPendingBackupBegin() {
+        pendingBackupBegin = null;
+    }
+
+    private static final class PendingBackupBegin {
+        private enum Phase {
+            FLUSH,
+            RESOLVE,
+            PAUSE,
+            START
         }
-        if (backupCancelRequested) {
-            context.logInfo("Chronos backup skipped: cancel in progress.");
-            releaseBackupRunClaim();
-            return false;
+
+        private final BackupRuntimeContext context;
+        private Phase phase = Phase.FLUSH;
+        private boolean flushLogged;
+        private boolean pauseLogged;
+        private SaveRootDiscovery.BackupScope scope;
+
+        private PendingBackupBegin(BackupRuntimeContext context) {
+            this.context = context;
         }
+
+        private boolean tick() {
+            BackupWorldController worldController = context.getWorldController();
+            Object serverHandle = context.getServerHandle();
+
+            while (true) {
+                switch (phase) {
+                    case FLUSH:
+                        if (worldController != null && !worldController.prepareWorldFlush(serverHandle)) {
+                            if (!flushLogged) {
+                                context.logInfo("Chronos backups: flushing world to disk...");
+                                flushLogged = true;
+                            }
+                            return false;
+                        }
+                        phase = Phase.RESOLVE;
+                        break;
+                    case RESOLVE:
+                        try {
+                            scope = SaveRootDiscovery.resolve(context);
+                        } catch (IOException e) {
+                            context.logError("Backupper skipped: " + e.getMessage());
+                            clearPendingBackupBegin();
+                            return false;
+                        }
+                        Path worldPath = scope.copyRoot();
+                        if (!Files.isDirectory(worldPath)) {
+                            context.logError("Backupper skipped: world path does not exist -> " + worldPath);
+                            clearPendingBackupBegin();
+                            return false;
+                        }
+                        if (scope.discoveredByScan()) {
+                            context.logInfo(
+                                    "Chronos backups: discovered "
+                                            + scope.pruneRoots().size()
+                                            + " save root(s) under run directory (primary save root had no level.dat).");
+                        }
+                        phase = Phase.PAUSE;
+                        break;
+                    case PAUSE:
+                        if (worldController != null) {
+                            if (!pauseLogged) {
+                                context.logInfo("Chronos backups: pausing automatic saves...");
+                                pauseLogged = true;
+                            }
+                            if (!worldController.preparePauseSaves(serverHandle, true)) {
+                                return false;
+                            }
+                        }
+                        phase = Phase.START;
+                        break;
+                    case START:
+                        if (!backupRunActive.compareAndSet(false, true)) {
+                            String message = "Backup skipped: another backup is already running.";
+                            LOG.warning(message);
+                            context.sendChat(message);
+                            clearPendingBackupBegin();
+                            return false;
+                        }
+                        if (backupCancelRequested) {
+                            context.logInfo("Chronos backup skipped: cancel in progress.");
+                            releaseBackupRunClaim();
+                            clearPendingBackupBegin();
+                            return false;
+                        }
+                        clearPendingBackupBegin();
+                        return startBackupWorker(context, scope, worldController, serverHandle);
+                    default:
+                        throw new IllegalStateException("Unknown backup prep phase: " + phase);
+                }
+            }
+        }
+    }
+
+    private static boolean startBackupWorker(
+            BackupRuntimeContext context,
+            SaveRootDiscovery.BackupScope scope,
+            BackupWorldController worldController,
+            Object serverHandle) {
+        Path worldPath = scope.copyRoot();
 
         final CompressionMethod compressionMethod = Config.getCompressionMethod();
         final String safeWorldDirName = sanitizeWorldBackupSubdir(context.getWorldName());
@@ -329,8 +422,8 @@ public final class Backupper {
         run.folderOutputPath = folderOutputPath;
         run.worldPath = worldPath;
         run.pruneRoots = scope.pruneRoots();
-        run.worldController = context.getWorldController();
-        run.serverHandle = context.getServerHandle();
+        run.worldController = worldController;
+        run.serverHandle = serverHandle;
         run.backupStartNanos = System.nanoTime();
 
         try {
@@ -341,10 +434,6 @@ public final class Backupper {
             context.sendChat("Backup started for " + context.getWorldName());
 
             if (run.worldController != null) {
-                context.logInfo("Chronos backups: flushing world to disk...");
-                run.worldController.saveAllWorldData(context.getServerHandle());
-                context.logInfo("Chronos backups: pausing automatic saves...");
-                run.worldController.setWorldSavingDisabled(context.getServerHandle(), true);
                 run.attemptedSavingPause = true;
             }
 
@@ -372,8 +461,9 @@ public final class Backupper {
 
         if (run.copyComplete && run.attemptedSavingPause && !run.savesRestoredOnMainThread) {
             run.context.logInfo("Chronos backups: restoring automatic saves...");
-            if (run.worldController != null) {
-                run.worldController.setWorldSavingDisabled(run.serverHandle, false);
+            if (run.worldController != null
+                    && !run.worldController.preparePauseSaves(run.serverHandle, false)) {
+                return;
             }
             run.attemptedSavingPause = false;
             run.savesRestoredOnMainThread = true;

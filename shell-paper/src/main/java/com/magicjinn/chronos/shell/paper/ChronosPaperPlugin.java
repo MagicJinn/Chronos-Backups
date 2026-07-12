@@ -23,8 +23,8 @@ public final class ChronosPaperPlugin extends JavaPlugin implements CommandExecu
         PaperRuntime.bind(this);
         Core.OnLoaderStarted(Core.LoaderEnvironment.DEDICATED_SERVER);
         commands.register();
-        getServer().getScheduler().runTask(this, this::onServerReady);
-        getServer().getScheduler().runTaskTimer(this, () -> HookBridge.serverTick(), 1L, 1L);
+        PaperSchedulers.runGlobal(this, this::onServerReady);
+        PaperSchedulers.runGlobalTimer(this, HookBridge::serverTick, 1L, 1L);
     }
 
     @Override

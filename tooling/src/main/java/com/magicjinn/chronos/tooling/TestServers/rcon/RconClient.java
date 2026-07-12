@@ -25,10 +25,58 @@ public final class RconClient {
     }
 
     public static void stopServer(DockerMinecraftServer server) {
-        Thread stopper = new Thread(() -> stopServerBlocking(server.getRconPort()),
-                "rcon-stop-" + server.containerName());
+        Thread stopper =
+                new Thread(() -> stopServerBlocking(server), "server-stop-" + server.containerName());
         stopper.setDaemon(true);
         stopper.start();
+    }
+
+    public record TestCommandResult(String response, String delivery) {}
+
+    /** Tries console delivery first, then RCON when the container console path fails. */
+    public static TestCommandResult sendTestCommand(DockerMinecraftServer server, String command)
+            throws IOException {
+        IOException consoleFailure = null;
+        try {
+            server.sendConsoleCommand(command);
+            return new TestCommandResult("", "console");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(e);
+        } catch (IOException e) {
+            consoleFailure = e;
+        }
+
+        if (!server.supportsRconCommandFallback()) {
+            throw new IOException("Console delivery failed: " + consoleFailure.getMessage(), consoleFailure);
+        }
+
+        try {
+            String response = send(server.getRconPort(), command);
+            if (looksLikeRconDispatchFailure(response)) {
+                throw new IOException("RCON reported dispatch failure: " + response.trim());
+            }
+            return new TestCommandResult(response, "RCON (console fallback)");
+        } catch (IOException rconFailure) {
+            throw new IOException(
+                    "Console delivery failed: " + consoleFailure.getMessage()
+                            + "; RCON fallback failed: " + rconFailure.getMessage(),
+                    rconFailure);
+        }
+    }
+
+    public static void stopServerBlocking(DockerMinecraftServer server) {
+        try {
+            server.sendConsoleCommand("stop");
+            return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            if (!isBenignShutdownIoMessage(e.getMessage())) {
+                System.err.println("Console stop failed, trying RCON: " + e.getMessage());
+            }
+        }
+        stopServerBlocking(server.getRconPort());
     }
 
     public static void stopServerBlocking(int rconPort) {
@@ -180,6 +228,10 @@ public final class RconClient {
             o += r;
         }
         return b;
+    }
+
+    private static boolean looksLikeRconDispatchFailure(String response) {
+        return response != null && response.trim().startsWith("Error executing:");
     }
 
     public static boolean isBenignShutdownIoMessage(String message) {

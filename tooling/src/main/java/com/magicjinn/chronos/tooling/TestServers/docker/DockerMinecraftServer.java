@@ -225,6 +225,60 @@ public class DockerMinecraftServer {
     }
 
     /**
+     * Sends a command to the server console via itzg's {@code mc-send-to-console}.
+     * Requires {@code CREATE_CONSOLE_IN_PIPE=TRUE} on the container.
+     */
+    public void sendConsoleCommand(String command) throws IOException, InterruptedException {
+        String container = containerName();
+        List<String> parts = splitCommandParts(command);
+        IOException lastFailure = null;
+        for (String[] execPrefix :
+                new String[][] {{"docker", "exec", "-u0", container}, {"docker", "exec", "--user", "1000", container}}) {
+            try {
+                runMcSendToConsole(execPrefix, parts);
+                return;
+            } catch (IOException e) {
+                lastFailure = e;
+            }
+        }
+        if (lastFailure != null) {
+            throw lastFailure;
+        }
+        throw new IOException("mc-send-to-console failed for " + container);
+    }
+
+    private static List<String> splitCommandParts(String command) {
+        List<String> parts = new ArrayList<>();
+        for (String part : command.trim().split("\\s+")) {
+            if (!part.isEmpty()) {
+                parts.add(part);
+            }
+        }
+        return parts;
+    }
+
+    private static void runMcSendToConsole(String[] execPrefix, List<String> commandParts)
+            throws IOException, InterruptedException {
+        List<String> exec = new ArrayList<>(List.of(execPrefix));
+        exec.add("mc-send-to-console");
+        exec.addAll(commandParts);
+        ProcessBuilder pb = new ProcessBuilder(exec).redirectErrorStream(true);
+        Process process = pb.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        int exit = process.waitFor();
+        if (exit != 0) {
+            throw new IOException(
+                    "mc-send-to-console failed (exit " + exit + "): " + output.trim());
+        }
+    }
+
+    /** Folia RCON dispatch is broken upstream. Only console delivery is reliable there. */
+    public boolean supportsRconCommandFallback() {
+        // TODO: Softcode this
+        return !"FOLIA".equalsIgnoreCase(loaderKey);
+    }
+
+    /**
      * Starts a detached container matching the itzg/minecraft-server compose
      * defaults.
      */
@@ -298,6 +352,8 @@ public class DockerMinecraftServer {
             command.add("-e");
             command.add("PURPUR_BUILD=latest");
         }
+        command.add("-e");
+        command.add("CREATE_CONSOLE_IN_PIPE=TRUE");
         command.add("-e");
         command.add("ENABLE_RCON=TRUE");
         command.add("-e");

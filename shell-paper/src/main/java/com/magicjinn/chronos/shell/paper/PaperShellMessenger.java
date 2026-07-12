@@ -33,10 +33,10 @@ final class PaperShellMessenger implements ShellMessenger {
         String dispatchLine = line;
         Runnable dispatch =
                 () -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), dispatchLine);
-        if (Bukkit.isPrimaryThread()) {
+        if (PaperSchedulers.runsOnGlobalThread()) {
             dispatch.run();
         } else {
-            Bukkit.getScheduler().runTask(plugin, dispatch);
+            PaperSchedulers.runGlobal(plugin, dispatch);
         }
     }
 }

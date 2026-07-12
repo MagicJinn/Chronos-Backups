@@ -55,6 +55,11 @@ public final class Scheduler {
             Backupper.tickBackupTracker();
             Backupper.tickSpeedtestSession();
 
+            BackupRuntimeContext context = runtimeContext;
+            if (context != null && Backupper.hasPendingBackupBegin()) {
+                Backupper.tryBeginBackup(context);
+            }
+
             if (!Config.getScheduleBackups())
                 return;
 
