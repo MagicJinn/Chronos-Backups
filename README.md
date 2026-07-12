@@ -180,7 +180,7 @@ To run one or a few targets instead of the full matrix, pass `-Pchronos.testServ
 
 You can also pass `--filter` (repeatable) to include or exclude servers by substring in the target name (case ignored). Prefix a filter with `!` to exclude matches, e.g. `--filter folia` or `--filter !folia`.
 
-This test is meant for power users and should be run at least once before any release to ensure the mod is working correctly on every supported version. On the initial run, it will need to pull every Docker Image (7 in total), as well as create and install every loader and version in the server, for over 100 combinations. This can take an extremely long time on first install, but will mostly be cached after that. The entire test run, after the initial install, can still take more than an hour in the best case scenario.
+This test is meant for power users and should be run at least once before any release to ensure the mod is working correctly on every supported version. On the initial run, it will need to pull every Docker Image (7 in total), as well as create and install every loader and version in the server, for over 250 combinations. This can take an extremely long time on first install, but will mostly be cached after that. The entire test run, after the initial install, can still take several hours in the best case scenario.
 
 > [!Note]
 > Keep in mind that Docker Images and containers are stored and managed by Docker. Commands like `cleanVariants` and `clean` will not remove them. You will need to manually remove them with your operating system's Docker management tools.
