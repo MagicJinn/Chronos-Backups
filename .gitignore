@@ -34,3 +34,4 @@ tooling/publish/dist/
 /core/native/rust-pruner/.cargo/config.toml
 /core/native/rust-pruner/test/world
 /core/native/rust-pruner/test/.prune-test-tmp
+/tooling/testJars

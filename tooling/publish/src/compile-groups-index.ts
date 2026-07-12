@@ -9,6 +9,11 @@ interface ConfigBlock {
   supportedVersions?: string[];
 }
 
+interface LoaderIndexEntry {
+  jarLoader: string;
+  publishLoaders: string[];
+}
+
 interface CompileGroup {
   jarTargetLabel?: string;
   supportedVersions?: string[];
@@ -21,7 +26,10 @@ interface CompileGroupsFile {
 
 export interface JarTargetEntry {
   archiveTag: string;
+  /** Jar filename suffix (`-plugin.jar`, `-fabric.jar`, etc.). */
   loader: string;
+  /** Platform loader slugs sent to Modrinth/CurseForge (e.g. paper, spigot, bukkit). */
+  publishLoaders: string[];
   gameVersions: string[];
 }
 
@@ -56,11 +64,22 @@ function loaderFromBlock(blockKey: string, block: ConfigBlock): string[] {
   return [derived.toLowerCase()];
 }
 
-function indexLoadersForBlock(blockKey: string, block: ConfigBlock): string[] {
-  if (blockKey === "pluginConfig")
-    return [(block.jarLoaderKey ?? "PLUGIN").trim().toLowerCase()];
+function indexLoadersForBlock(blockKey: string, block: ConfigBlock): LoaderIndexEntry {
+  if (blockKey === "pluginConfig") {
+    const jarLoader = (block.jarLoaderKey ?? "PLUGIN").trim().toLowerCase();
+    const publishLoaders = resolveLoaderKeys(block).map((key) => key.toLowerCase());
+    if (!publishLoaders.length) {
+      throw new Error("pluginConfig must define loaderKeys for publish");
+    }
+    return { jarLoader, publishLoaders };
+  }
 
-  return loaderFromBlock(blockKey, block);
+  const publishLoaders = loaderFromBlock(blockKey, block);
+  const jarLoader = publishLoaders[0];
+  if (!jarLoader) {
+    throw new Error(`No loader resolved for ${blockKey}`);
+  }
+  return { jarLoader, publishLoaders };
 }
 
 function configBlocksInGroup(group: CompileGroup): Array<{ blockKey: string; block: ConfigBlock }> {
@@ -94,19 +113,18 @@ export function buildJarTargetIndex(groups: CompileGroup[]): Map<string, JarTarg
         );
       }
 
-      const loaders = indexLoadersForBlock(blockKey, block);
-      for (const loader of loaders) {
-        const mapKey = `${archiveTag}\0${loader}`;
-        if (index.has(mapKey)) {
-          throw new Error(`Duplicate jar target index entry: ${archiveTag} + ${loader}`);
-        }
-
-        index.set(mapKey, {
-          archiveTag,
-          loader,
-          gameVersions: [...gameVersions],
-        });
+      const { jarLoader, publishLoaders } = indexLoadersForBlock(blockKey, block);
+      const mapKey = `${archiveTag}\0${jarLoader}`;
+      if (index.has(mapKey)) {
+        throw new Error(`Duplicate jar target index entry: ${archiveTag} + ${jarLoader}`);
       }
+
+      index.set(mapKey, {
+        archiveTag,
+        loader: jarLoader,
+        publishLoaders: [...publishLoaders],
+        gameVersions: [...gameVersions],
+      });
     }
   }
 

@@ -183,6 +183,9 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       console.log(
         `\n> ${fileName}\n  loader=${parsed.loader} mc=${parsed.mcTarget} mod=${parsed.modVersion} ` +
           `versions=[${target.gameVersions.join(", ")}]` +
+          (target.publishLoaders.length > 1 || target.publishLoaders[0] !== parsed.loader
+            ? ` publishLoaders=[${target.publishLoaders.join(", ")}]`
+            : "") +
           (modrinthVersionsDiffer ? ` modrinth=[${modrinthGameVersions.join(", ")}]` : "") +
           (curseforgeVersionsDiffer ? ` curseforge=[${curseforgeGameVersions.join(", ")}]` : "") +
           ` curseforgeProject=${curseforgeProjectId}`,
@@ -194,7 +197,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           versionNumber,
           name: fileName, // Filename instead of title to unify Curseforge and Modrinth approach
           changelog: config.changelog,
-          loaders: [parsed.loader],
+          loaders: target.publishLoaders,
           gameVersions: modrinthGameVersions,
           environment: config.platform.modrinth.environment,
           dependencies: config.platform.dependencies,
@@ -213,7 +216,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           projectId: curseforgeProjectId,
           displayName: fileName,
           changelog: config.changelog,
-          loader: parsed.loader,
+          loaders: target.publishLoaders,
           gameVersions: curseforgeGameVersions,
           dependencies: config.platform.dependencies,
           userAgent: config.platform.userAgent,
