@@ -41,30 +41,30 @@ Chronos prioritizes aged world data, chunks that do not yet count as "old enough
 
 All currently supported versions are listed below.
 
-| Minecraft    | Support       | Loader(s)                         | Backup | Config       | Notes                                                                                                                       |
-|--------------|---------------|-----------------------------------|--------|--------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `26.x`       | ✅ Supported   | Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Paper plugin: 26.1.1+ only. Folia: 26.1.2 only. ,                                                                                            |
-| `1.21.x`     | ✅ Supported   | Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Fabric/NeoForge: pre-1.21.11 vs 1.21.11+ split. Paper plugin: one jar for all 1.21.x. Folia: subset of patches.                                  |
-| `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Forge: 1.20.0–1.20.1 only. Fabric: 1.20.x. NeoForge: 1.20.2–1.20.6. Paper plugin: all patches except 1.20.3. Folia: subset of patches. ,         |
-| `1.19.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Folia: 1.19.4 only.                                                                                                                           |
-| `1.18.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper and Purpur | ✅      | 🟠 File-only | -                                                                                                                           |
-| `1.17.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper and Purpur | ✅      | 🟠 File-only | Forge: 1.17.1 only.                                                                                                         |
-| `1.16.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Paper plugin: 1.16.1+ only.                                                                                             |
-| `1.15.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Fabric + Forge: unified `1.14-1.15.x` jar.                                                                                  |
-| `1.14.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Fabric + Forge: unified `1.14-1.15.x` jar. Forge: 1.14.2–1.14.4 only.                                                     |
-| `1.13.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.13.2 only. [^2]                                                                                                    |
-| `1.12.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: all 1.12.x patches. Paper plugin: 1.12.2 only. [^2], [^3]                                                            |
-| `1.11.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.11.0, 1.11.2 only. Paper plugin: 1.11.2 only. [^2]                                                                 |
-| `1.10.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.10.0, 1.10.2 only. Paper plugin: 1.10.2 only. [^2]                                                               |
-| `1.9.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.9.0, 1.9.4 only. Paper plugin: 1.9.4 only. [^2]                                                                  |
-| `1.8.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.8.0, 1.8.8, 1.8.9 only. Paper plugin: 1.8.8 only. [^2]                                                             |
-| `1.7.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper | ✅      | 🟠 File-only | Forge: 1.7.10 only. Paper plugin: 1.7.10 only. [^1], [^2]                                                                 |
-| `1.6.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.5.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.4.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.3.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | [^2]                                                                                                                        |
-| `1.2.x`      | ❌ Unsupported | Forge                             | ❌      | 🔴 None      | -                                                                                                                           |
-| Beta & Alpha | ❌ Unsupported | Babric                            | ❌      | 🔴 None      | Beta & Alpha versions may be supported in the future, but the flagship Chronos feature (world pruning) will be unavailable. |
+| Minecraft    | Support       | Loader(s)                                                           | Backup | Config       | Notes                                                                                                                                  |
+|--------------|---------------|---------------------------------------------------------------------|--------|--------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| `26.x`       | ✅ Supported   | Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia         | ✅      | 🟠 File-only | Paper plugin: 26.1.1+ only. Folia: 26.1.2 only.                                                                                        |
+| `1.21.x`     | ✅ Supported   | Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia         | ✅      | 🟠 File-only | Fabric/NeoForge: pre-1.21.11 vs 1.21.11+ split. Paper plugin: one jar for all 1.21.x. Folia: subset of patches.                        |
+| `1.20.x`     | ✅ Supported   | Forge + Fabric + NeoForge + Bukkit, Spigot, Paper, Purpur and Folia | ✅      | 🟠 File-only | Forge: 1.20.0–1.20.1 only. Fabric: 1.20.x. NeoForge: 1.20.2–1.20.6. Paper plugin: all patches except 1.20.3. Folia: subset of patches. |
+| `1.19.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper, Purpur and Folia            | ✅      | 🟠 File-only | Folia: 1.19.4 only.                                                                                                                    |
+| `1.18.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper and Purpur                   | ✅      | 🟠 File-only | -                                                                                                                                      |
+| `1.17.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot, Paper and Purpur                   | ✅      | 🟠 File-only | Forge: 1.17.1 only.                                                                                                                    |
+| `1.16.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper                           | ✅      | 🟠 File-only | Paper plugin: 1.16.1+ only.                                                                                                            |
+| `1.15.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper                           | ✅      | 🟠 File-only | Fabric + Forge: unified `1.14-1.15.x` jar.                                                                                             |
+| `1.14.x`     | ✅ Supported   | Fabric + Forge + Bukkit, Spigot and Paper                           | ✅      | 🟠 File-only | Fabric + Forge: unified `1.14-1.15.x` jar. Forge: 1.14.2–1.14.4 only.                                                                  |
+| `1.13.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: 1.13.2 only. [^2]                                                                                                               |
+| `1.12.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: all 1.12.x patches. Paper plugin: 1.12.2 only. [^2], [^3]                                                                       |
+| `1.11.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: 1.11.0, 1.11.2 only. Paper plugin: 1.11.2 only. [^2]                                                                            |
+| `1.10.x`     | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: 1.10.0, 1.10.2 only. Paper plugin: 1.10.2 only. [^2]                                                                            |
+| `1.9.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: 1.9.0, 1.9.4 only. Paper plugin: 1.9.4 only. [^2]                                                                               |
+| `1.8.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: 1.8.0, 1.8.8, 1.8.9 only. Paper plugin: 1.8.8 only. [^2]                                                                        |
+| `1.7.x`      | ✅ Supported   | Forge + Bukkit, Spigot and Paper                                    | ✅      | 🟠 File-only | Forge: 1.7.10 only. Paper plugin: 1.7.10 only. [^1], [^2]                                                                              |
+| `1.6.x`      | ❌ Unsupported | Forge                                                               | ❌      | 🔴 None      | [^2]                                                                                                                                   |
+| `1.5.x`      | ❌ Unsupported | Forge                                                               | ❌      | 🔴 None      | [^2]                                                                                                                                   |
+| `1.4.x`      | ❌ Unsupported | Forge                                                               | ❌      | 🔴 None      | [^2]                                                                                                                                   |
+| `1.3.x`      | ❌ Unsupported | Forge                                                               | ❌      | 🔴 None      | [^2]                                                                                                                                   |
+| `1.2.x`      | ❌ Unsupported | Forge                                                               | ❌      | 🔴 None      | -                                                                                                                                      |
+| Beta & Alpha | ❌ Unsupported | Babric                                                              | ❌      | 🔴 None      | Beta & Alpha versions may be supported in the future, but the flagship Chronos feature (world pruning) will be unavailable.            |
 
 [//]: # (If a note occurs more than once, move it to a footnote as shown below. If a note appears once, but the version has multiple notes, move it to a footnote as well. If a note appears once and the version has no other notes, leave it in the notes section.)
 
@@ -178,6 +178,8 @@ Once the artifacts are built, testServers starts a Dockerized Minecraft server f
 
 To run one or a few targets instead of the full matrix, pass `-Pchronos.testServers.args` with `--only` (repeatable). Targets use the form `loader-version`, with dots or underscores in the version (e.g. `fabric-1.14.4`, `forge-1_14_4`). These match the Docker container id suffix (`chronos-fabric-1_14_4`).
 
+You can also pass `--filter` (repeatable) to include or exclude servers by substring in the target name (case ignored). Prefix a filter with `!` to exclude matches, e.g. `--filter folia` or `--filter !folia`.
+
 This test is meant for power users and should be run at least once before any release to ensure the mod is working correctly on every supported version. On the initial run, it will need to pull every Docker Image (7 in total), as well as create and install every loader and version in the server, for over 100 combinations. This can take an extremely long time on first install, but will mostly be cached after that. The entire test run, after the initial install, can still take more than an hour in the best case scenario.
 
 > [!Note]
@@ -193,4 +195,6 @@ This test is meant for power users and should be run at least once before any re
 ./gradlew testServers
 ./gradlew testServers "-Pchronos.testServers.args=--only fabric-1.14.4"
 ./gradlew testServers "-Pchronos.testServers.args=--only fabric-1_14_4 --only forge-1_14_4"
+./gradlew testServers "-Pchronos.testServers.args=--filter folia"
+./gradlew testServers "-Pchronos.testServers.args=--filter !folia"
 ```

@@ -437,8 +437,57 @@ public final class TestServers {
         }
     }
 
+    /**
+     * Returns whether {@code serverName} passes all {@code --filter} patterns.
+     * Include patterns (default) match as case ignored substrings, at least one
+     * include must match when any includes are present. Exclude patterns ({@code !prefix})
+     * reject names containing the remainder.
+     */
+    static boolean matchesNameFilters(String serverName, List<String> filters) {
+        if (filters.isEmpty()) {
+            return true;
+        }
+        String name = serverName.toLowerCase(Locale.ROOT);
+        List<String> includes = new ArrayList<>();
+        List<String> excludes = new ArrayList<>();
+        for (String filter : filters) {
+            String trimmed = filter.trim();
+            if (trimmed.startsWith("!")) {
+                String pattern = trimmed.substring(1).trim().toLowerCase(Locale.ROOT);
+                if (pattern.isEmpty()) {
+                    throw new IllegalArgumentException("--filter ! requires a pattern after '!'");
+                }
+                excludes.add(pattern);
+            } else {
+                String pattern = trimmed.toLowerCase(Locale.ROOT);
+                if (pattern.isEmpty()) {
+                    throw new IllegalArgumentException("--filter requires a non-empty pattern");
+                }
+                includes.add(pattern);
+            }
+        }
+        for (String exclude : excludes) {
+            if (name.contains(exclude)) {
+                return false;
+            }
+        }
+        if (includes.isEmpty()) {
+            return true;
+        }
+        for (String include : includes) {
+            if (name.contains(include)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String serverNameForFilter(String loaderKey, String version) {
+        return loaderKey.toLowerCase(Locale.ROOT) + "-" + version.replace('.', '_');
+    }
+
     private static TreeSet<DockerMinecraftServer> getServers(
-            List<Map<String, Object>> groups, Set<String> only) throws IOException {
+            List<Map<String, Object>> groups, Set<String> only, List<String> filters) throws IOException {
         Set<String> normalizedOnly = only.isEmpty()
                 ? Set.of()
                 : only.stream().map(TestServers::normalizeTargetKey).collect(java.util.stream.Collectors.toSet());
@@ -459,6 +508,9 @@ public final class TestServers {
                     for (String loaderKey : CompileGroupLoaders.resolveLoaderKeys(loaderConfig)) {
                         if (!normalizedOnly.isEmpty()
                                 && !normalizedOnly.contains(normalizeTargetKey(loaderKey + "-" + version))) {
+                            continue;
+                        }
+                        if (!matchesNameFilters(serverNameForFilter(loaderKey, version), filters)) {
                             continue;
                         }
                         if (BukkitPluginLoaderAvailability.isBukkitFamilyLoader(loaderKey)
@@ -499,9 +551,15 @@ public final class TestServers {
         }
 
         if (servers.isEmpty()) {
-            if (!normalizedOnly.isEmpty()) {
-                throw new IllegalStateException(
-                        "No test servers matched --only filters: " + only);
+            if (!normalizedOnly.isEmpty() || !filters.isEmpty()) {
+                StringBuilder message = new StringBuilder("No test servers matched");
+                if (!normalizedOnly.isEmpty()) {
+                    message.append(" --only ").append(only);
+                }
+                if (!filters.isEmpty()) {
+                    message.append(" --filter ").append(filters);
+                }
+                throw new IllegalStateException(message.toString());
             }
             throw new IOException("No test servers resolved from compile groups.");
         }
@@ -530,10 +588,13 @@ public final class TestServers {
         Map<String, Object> config = readObject(CONFIG_FILE);
         if (!cli.only.isEmpty()) {
             System.out.println("Filtering to target(s): " + cli.only);
-        } else {
+        } else if (cli.filters.isEmpty()) {
             System.out.println("Testing all supported loader/version pairs.");
         }
-        TreeSet<DockerMinecraftServer> servers = getServers(groups, cli.only);
+        if (!cli.filters.isEmpty()) {
+            System.out.println("Applying name filter(s): " + cli.filters);
+        }
+        TreeSet<DockerMinecraftServer> servers = getServers(groups, cli.only, cli.filters);
         System.out.println("Found " + servers.size() + " servers to test.");
 
         List<String> readyMarkers = strList(config.get("readyMarkers"));
@@ -865,39 +926,47 @@ public final class TestServers {
 
     private static void printUsage() {
         System.out.println("""
-                Usage: TestServers [--only <target>]...
+                Usage: TestServers [--only <target>]... [--filter <pattern>]...
 
                 Runs Docker integration tests for Chronos loader/version pairs.
 
-                  --only <target>   Run only the given target (repeatable). Targets use the form
-                                    loader-version with dots or underscores, e.g. fabric-1.14.4
-                                    or forge-1_14_4.
-                  --help            Show this help text.
+                  --only <target>     Run only the given target (repeatable). Targets use the form
+                                      loader-version with dots or underscores, e.g. fabric-1.14.4
+                                      or forge-1_14_4.
+                  --filter <pattern>  Run only servers whose name contains the pattern (repeatable,
+                                      case ignored). Prefix with ! to exclude matches, e.g.
+                                      --filter folia or --filter !folia.
+                  --help              Show this help text.
                 """);
     }
 
     private static final class CliArgs {
         final Set<String> only;
+        final List<String> filters;
         final boolean help;
 
-        private CliArgs(Set<String> only, boolean help) {
+        private CliArgs(Set<String> only, List<String> filters, boolean help) {
             this.only = only;
+            this.filters = filters;
             this.help = help;
         }
 
         static CliArgs parse(String[] args) {
             Set<String> only = new HashSet<>();
+            List<String> filters = new ArrayList<>();
             boolean help = false;
             for (int i = 0; i < args.length; i++) {
                 if ("--only".equals(args[i]) && i + 1 < args.length) {
                     only.add(args[++i]);
+                } else if ("--filter".equals(args[i]) && i + 1 < args.length) {
+                    filters.add(args[++i]);
                 } else if ("--help".equals(args[i]) || "-h".equals(args[i])) {
                     help = true;
                 } else {
                     throw new IllegalArgumentException("Unknown argument: " + args[i] + " (try --help)");
                 }
             }
-            return new CliArgs(only, help);
+            return new CliArgs(only, filters, help);
         }
     }
 }
