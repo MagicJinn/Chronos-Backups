@@ -2,7 +2,6 @@ package com.magicjinn.chronos.shell.mojmap.common;
 
 import com.magicjinn.chronos.core.BackupWorldController;
 import java.lang.reflect.Method;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -56,24 +55,6 @@ public final class MojmapBackupWorldController implements BackupWorldController 
             task.run();
             return;
         }
-        // TODO. This sucks. Remove all reflection in the future.
-        Method executeBlocking = findMethod(server.getClass(), "executeBlocking", Runnable.class);
-        if (executeBlocking != null) {
-            invokeChecked(executeBlocking, server, task);
-            return;
-        }
-        Method submit = findMethod(server.getClass(), "submit", Runnable.class);
-        if (submit != null) {
-            Object future = invokeChecked(submit, server, task);
-            if (future instanceof CompletableFuture) {
-                ((CompletableFuture<?>) future).join();
-            }
-            return;
-        }
-        runOnServerThreadAsync(server, task);
-    }
-
-    private static void runOnServerThreadAsync(MinecraftServer server, Runnable task) {
         Method schedule = firstMethod(
                 server.getClass(),
                 new String[] { "execute", "postToMainThread", "tell" },

@@ -27,6 +27,12 @@ final class Forge114Reflect {
     }
 
     static Path getRunDirectory(MinecraftServer server) {
+        try {
+            // 1.14.4+ Mojmap
+            return toAbsolutePath(server.getServerDirectory());
+        } catch (NoSuchMethodError ignored) {
+            // 1.14.2-1.14.3: fall back to reflective probes
+        }
         Path resolved = toAbsolutePath(
                 invokeNoArg(
                         server,
@@ -76,6 +82,18 @@ final class Forge114Reflect {
     }
 
     static String getWorldName(MinecraftServer server) {
+        try {
+            // 1.14.4+ Mojmap (dedicated + integrated).
+            String id = server.getLevelIdName();
+            if (id != null) {
+                String name = id.trim();
+                if (!name.isEmpty()) {
+                    return name;
+                }
+            }
+        } catch (NoSuchMethodError ignored) {
+            // 1.14.2-1.14.3: fall back
+        }
         if (server.isDedicatedServer()) {
             Object folder = invokeNoArg(server, new String[] { "getLevelName", "getFolderName", "getLevelIdName" });
             if (folder instanceof String) {
@@ -113,9 +131,13 @@ final class Forge114Reflect {
         runOnServerThread(
                 server,
                 () -> {
-                    Object playerList = invokeNoArg(server, "getPlayerList");
-                    if (playerList != null) {
-                        invokeVoid(playerList, new String[] { "saveAll", "saveAllPlayerData", "func_72389_g" });
+                    try {
+                        server.getPlayerList().saveAll();
+                    } catch (NoSuchMethodError ignored) {
+                        Object playerList = invokeNoArg(server, "getPlayerList");
+                        if (playerList != null) {
+                            invokeVoid(playerList, new String[] { "saveAll", "saveAllPlayerData", "func_72389_g" });
+                        }
                     }
                     flushWorldsToDisk(server);
                 });
@@ -126,6 +148,12 @@ final class Forge114Reflect {
      * names at runtime.
      */
     private static void flushWorldsToDisk(MinecraftServer server) {
+        try {
+            server.saveAllChunks(true, true, true);
+            return;
+        } catch (NoSuchMethodError ignored) {
+            // fall back to reflective probes for early 1.14.x
+        }
         if (invokeVoid(server, new String[] { "saveAllChunks", "saveAllWorlds" }, true, true, true)) {
             return;
         }
@@ -174,6 +202,19 @@ final class Forge114Reflect {
         runOnServerThread(
                 server,
                 () -> {
+                    try {
+                        for (Object level : server.getAllLevels()) {
+                            if (level == null) {
+                                continue;
+                            }
+                            if (setBooleanField(level, new String[] { "noSave", "disableLevelSaving" }, disabled)) {
+                                touched[0] = true;
+                            }
+                        }
+                        return;
+                    } catch (NoSuchMethodError ignored) {
+                        // early 1.14.x: fall back
+                    }
                     for (Object level : loadedLevels(server)) {
                         if (level == null) {
                             continue;
@@ -191,45 +232,27 @@ final class Forge114Reflect {
             task.run();
             return;
         }
-        Method executeBlocking = findMethod(server.getClass(), "executeBlocking", Runnable.class);
-        if (executeBlocking != null) {
-            invokeChecked(executeBlocking, server, task);
+        // Prefer the stable scheduling entrypoint. If it links, we can avoid all reflection.
+        try {
+            runBlockingOn(server::execute, task);
             return;
+        } catch (NoSuchMethodError ignored) {
+            // early 1.14.x: fall back
         }
-        Method submit = findMethod(server.getClass(), "submit", Runnable.class);
-        if (submit != null) {
-            Object future = invokeChecked(submit, server, task);
-            if (future instanceof CompletableFuture) {
-                ((CompletableFuture<?>) future).join();
-            }
-            return;
-        }
-        Method addScheduledTask = findMethod(server.getClass(), "addScheduledTask", Runnable.class);
-        if (addScheduledTask != null) {
-            try {
-                Object future = invokeChecked(addScheduledTask, server, task);
-                if (future instanceof Future) {
-                    ((Future<?>) future).get();
-                }
-                return;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            } catch (ExecutionException e) {
-                throw unwrap(e);
-            }
-        }
-        runOnServerThreadAsync(server, task);
-    }
 
-    private static void runOnServerThreadAsync(MinecraftServer server, Runnable task) {
-        Method schedule = firstMethod(
-                server.getClass(),
-                new String[] { "execute", "postToMainThread", "tell" },
-                Runnable.class);
+        Method schedule = firstMethod(server.getClass(), new String[] { "execute", "postToMainThread", "tell" }, Runnable.class);
         if (schedule == null) {
             throw new IllegalStateException("Cannot schedule backup work on the Minecraft server thread");
         }
+        runBlockingOn(r -> invokeChecked(schedule, server, r), task);
+    }
+
+    @FunctionalInterface
+    private interface Scheduler {
+        void schedule(Runnable runnable);
+    }
+
+    private static void runBlockingOn(Scheduler scheduler, Runnable task) {
         CountDownLatch latch = new CountDownLatch(1);
         Throwable[] failure = new Throwable[1];
         Runnable wrapped = () -> {
@@ -241,7 +264,7 @@ final class Forge114Reflect {
                 latch.countDown();
             }
         };
-        invokeChecked(schedule, server, wrapped);
+        scheduler.schedule(wrapped);
         try {
             latch.await();
         } catch (InterruptedException e) {

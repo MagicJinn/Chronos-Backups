@@ -14,6 +14,7 @@
       "forgeBuildGradle112": "forge-build-1.12.gradle.template",
       "forgeBuildGradle113": "forge-build-1.13.gradle.template",
       "forgeBuildGradle114": "forge-build-1.14.gradle.template",
+      "forgeBuildGradle114Late": "forge-build-1.14-late.gradle.template",
       "forgeBuildGradle116": "forge-build-1.16.gradle.template",
       "forgeBuildGradle117": "forge-build-1.17.gradle.template",
       "forgeBuildGradle118": "forge-build-1.18.gradle.template",
@@ -258,8 +259,36 @@
       ]
     },
     {
+      "id": "minecraft_1_14_early",
+      "description": "Forge jar for Minecraft 1.14.2-1.14.3 (compat slice; reflection only where unavoidable).",
+      "minecraftVersionPrefixes": [
+        "1.14.2",
+        "1.14.3"
+      ],
+      "forgeConfig": {
+        "referenceMinecraft": "1.14.4",
+        "forge": "28.2.28",
+        "minecraftRange": "[1.14.2,1.14.4)",
+        "archiveVersionTag": "1.14.2-1.14.3",
+        "buildTemplateKey": "forgeBuildGradle114",
+        "mappingsKind": "mojmap",
+        "metadataTemplate": "forgeModsToml",
+        "supportedVersions": [
+          "1.14.2",
+          "1.14.3"
+        ],
+        "loaderKeys": [
+          "FORGE"
+        ]
+      },
+      "supportedVersions": [
+        "1.14.2",
+        "1.14.3"
+      ]
+    },
+    {
       "id": "minecraft_1_14",
-      "description": "Fabric and Forge jars for Minecraft 1.14-1.15 (bytecode identical).",
+      "description": "Fabric jar for Minecraft 1.14-1.15, Forge jar for Minecraft 1.14.4-1.15.2 (no reflection slice).",
       "minecraftVersionPrefixes": [
         "1.14",
         "1.15"
@@ -289,12 +318,10 @@
         "forge": "28.2.28",
         "minecraftRange": "[1.14,1.16)",
         "archiveVersionTag": "1.14-1.15.x",
-        "buildTemplateKey": "forgeBuildGradle114",
+        "buildTemplateKey": "forgeBuildGradle114Late",
         "mappingsKind": "mojmap",
         "metadataTemplate": "forgeModsToml",
         "supportedVersions": [
-          "1.14.2",
-          "1.14.3",
           "1.14.4",
           "1.15.0",
           "1.15.1",
