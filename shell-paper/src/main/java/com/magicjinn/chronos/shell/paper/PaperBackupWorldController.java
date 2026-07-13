@@ -1,8 +1,10 @@
 package com.magicjinn.chronos.shell.paper;
 
 import com.magicjinn.chronos.core.BackupWorldController;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
@@ -10,6 +12,7 @@ import org.bukkit.plugin.Plugin;
 /** Flushes and pauses world saves through the stable Bukkit API. */
 public final class PaperBackupWorldController implements BackupWorldController {
     private static volatile AsyncWorldPrep activePrep;
+    private static volatile TickWorldPrep activeTickPrep;
 
     @Override
     public void saveAllWorldData(Object serverHandle) {
@@ -81,20 +84,33 @@ public final class PaperBackupWorldController implements BackupWorldController {
             return true;
         }
         Server server = (Server) serverHandle;
-        if (!needsTickBasedWorldOps()) {
+        if (!needsTickBasedFlush()) {
             saveAllWorldData(serverHandle);
             return true;
         }
 
-        AsyncWorldPrep prep = activePrep;
-        if (prep == null || prep.kind != AsyncWorldPrep.Kind.FLUSH) {
-            activePrep = AsyncWorldPrep.startFlush(server, PaperRuntime.plugin(server));
+        if (PaperSchedulers.usesRegionSchedulers()) {
+            AsyncWorldPrep prep = activePrep;
+            if (prep == null || prep.kind != AsyncWorldPrep.Kind.FLUSH) {
+                activePrep = AsyncWorldPrep.startFlush(server, PaperRuntime.plugin(server));
+                return false;
+            }
+            if (!prep.isDone()) {
+                return false;
+            }
+            activePrep = null;
+            return true;
+        }
+
+        TickWorldPrep prep = activeTickPrep;
+        if (prep == null || prep.kind != TickWorldPrep.Kind.FLUSH) {
+            activeTickPrep = TickWorldPrep.startFlush(server);
             return false;
         }
-        if (!prep.isDone()) {
+        if (!prep.advance(server)) {
             return false;
         }
-        activePrep = null;
+        activeTickPrep = null;
         return true;
     }
 
@@ -104,7 +120,7 @@ public final class PaperBackupWorldController implements BackupWorldController {
             return true;
         }
         Server server = (Server) serverHandle;
-        if (!needsTickBasedWorldOps()) {
+        if (!needsTickBasedPause()) {
             setWorldSavingDisabled(serverHandle, disabled);
             return true;
         }
@@ -122,7 +138,21 @@ public final class PaperBackupWorldController implements BackupWorldController {
         return true;
     }
 
-    private static boolean needsTickBasedWorldOps() {
+    /**
+     * Folia global tick thread, or legacy Paper primary thread during backup prep.
+     */
+    private static boolean needsTickBasedFlush() {
+        if (PaperSchedulers.usesRegionSchedulers()) {
+            return PaperSchedulers.runsOnGlobalThread();
+        }
+        return Bukkit.isPrimaryThread();
+    }
+
+    /**
+     * Folia global tick thread only. Legacy setAutoSave is cheap enough to run
+     * synchronously.
+     */
+    private static boolean needsTickBasedPause() {
         return PaperSchedulers.usesRegionSchedulers() && PaperSchedulers.runsOnGlobalThread();
     }
 
@@ -200,6 +230,53 @@ public final class PaperBackupWorldController implements BackupWorldController {
                 return pending.get() <= 0 && playersSaved;
             }
             return pending.get() <= 0;
+        }
+    }
+
+    /**
+     * Legacy Paper/Spigot: flush one world (then players) per server tick so
+     * {@code world.save()} does not block the main thread long enough to trip
+     * Paper's watchdog.
+     */
+    private static final class TickWorldPrep {
+        private enum Kind {
+            FLUSH
+        }
+
+        private final Kind kind;
+        private final List<World> worlds;
+        private int nextWorldIndex;
+        private boolean playersSaved;
+
+        private TickWorldPrep(Kind kind, List<World> worlds) {
+            this.kind = kind;
+            this.worlds = worlds;
+        }
+
+        private static TickWorldPrep startFlush(Server server) {
+            return new TickWorldPrep(Kind.FLUSH, collectWorlds(server));
+        }
+
+        private boolean advance(Server server) {
+            if (nextWorldIndex < worlds.size()) {
+                worlds.get(nextWorldIndex++).save();
+                return false;
+            }
+            if (!playersSaved) {
+                server.savePlayers();
+                playersSaved = true;
+            }
+            return true;
+        }
+
+        private static List<World> collectWorlds(Server server) {
+            List<World> out = new ArrayList<>();
+            for (World world : server.getWorlds()) {
+                if (world != null) {
+                    out.add(world);
+                }
+            }
+            return out;
         }
     }
 }

@@ -18,10 +18,11 @@ import java.util.Set;
 /**
  * Resolves which directories to copy and prune for a backup.
  * <p>
- * Uses {@link BackupRuntimeContext#getWorldSaveRoot()} when it already contains
- * {@code level.dat}. Otherwise performs a shallow filesystem scan under
- * {@link BackupRuntimeContext#getRunDirectory()} for sibling save folders
- * (e.g. Bukkit {@code world_nether}, {@code world_the_end}).
+ * Uses {@link BackupRuntimeContext#getWorldSaveRoot()} when it is the only save
+ * folder under {@link BackupRuntimeContext#getRunDirectory()}. Otherwise
+ * performs a shallow filesystem scan for every directory that contains
+ * {@code level.dat} (e.g. Bukkit {@code world}, {@code world_nether},
+ * {@code world_the_end}) and backs them up from a shared container root.
  */
 public final class SaveRootDiscovery {
     /**
@@ -60,11 +61,11 @@ public final class SaveRootDiscovery {
      *                         cleaned up or further processed after the copy. These
      *                         are all the relevant world save roots we care about
      *                         for backup.
-     * @param discoveredByScan True if {@code level.dat} was not found in the
-     *                         original (primary) save root, and sibling save
-     *                         folders were discovered by scanning through
-     *                         directories. False if everything was found where it
-     *                         was expected.
+     * @param discoveredByScan True when multiple save roots were resolved by
+     *                         scanning {@link BackupRuntimeContext#getRunDirectory()},
+     *                         or when the primary save root had no {@code level.dat}
+     *                         and roots were discovered that way. False when a
+     *                         single save root was used as-is.
      */
 
     public static final class BackupScope {
@@ -93,12 +94,15 @@ public final class SaveRootDiscovery {
 
     public static BackupScope resolve(BackupRuntimeContext context) throws IOException {
         Path primary = context.getWorldSaveRoot().toAbsolutePath().normalize();
-        if (hasLevelDat(primary)) {
-            return new BackupScope(primary, Collections.singletonList(primary), false);
-        }
-
         Path container = context.getRunDirectory().toAbsolutePath().normalize();
         List<Path> discovered = discoverSaveRoots(container);
+
+        if (hasLevelDat(primary) && !containsNormalizedPath(discovered, primary)) {
+            discovered = new ArrayList<>(discovered);
+            discovered.add(primary);
+            discovered.sort(Comparator.comparing(p -> p.getFileName().toString()));
+        }
+
         if (discovered.isEmpty()) {
             throw new IOException(
                     "No level.dat found at primary save root " + primary + " or under run directory " + container);
@@ -106,10 +110,21 @@ public final class SaveRootDiscovery {
 
         if (discovered.size() == 1) {
             Path only = discovered.get(0);
-            return new BackupScope(only, Collections.singletonList(only), true);
+            boolean scanned = !only.equals(primary) || !hasLevelDat(primary);
+            return new BackupScope(only, Collections.singletonList(only), scanned);
         }
 
         return new BackupScope(container, Collections.unmodifiableList(new ArrayList<>(discovered)), true);
+    }
+
+    private static boolean containsNormalizedPath(List<Path> paths, Path target) {
+        Path normalized = target.toAbsolutePath().normalize();
+        for (Path path : paths) {
+            if (path.toAbsolutePath().normalize().equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Maps a live-server save root to its path inside a snapshot directory. */

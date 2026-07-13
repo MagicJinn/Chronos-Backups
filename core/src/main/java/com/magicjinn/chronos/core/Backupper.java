@@ -349,7 +349,7 @@ public final class Backupper {
                             context.logInfo(
                                     "Chronos backups: discovered "
                                             + scope.pruneRoots().size()
-                                            + " save root(s) under run directory (primary save root had no level.dat).");
+                                            + " save root(s) under run directory.");
                         }
                         phase = Phase.PAUSE;
                         break;
@@ -489,16 +489,17 @@ public final class Backupper {
 
     private static void runHeavyBackupWork(InFlightBackup run) {
         try {
-            Path worldRootAbs = run.worldPath.toAbsolutePath().normalize();
+            Path copyRootAbs = run.worldPath.toAbsolutePath().normalize();
 
             if (run.compressionMethod == CompressionMethod.ZIP) {
                 run.context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
-                assertCacheOutsideWorld(worldRootAbs, run.cacheSnapshotPath);
+                assertCacheOutsideSaveRoots(run.pruneRoots, copyRootAbs, run.cacheSnapshotPath);
                 deleteDirectory(run.cacheSnapshotPath);
                 Files.createDirectories(run.cacheSnapshotPath);
                 int[] outCopied = new int[1];
-                RustPrunerBridge.copyWorldToCache(
-                        worldRootAbs,
+                copySaveRootsToSnapshot(
+                        copyRootAbs,
+                        run.pruneRoots,
                         run.cacheSnapshotPath,
                         Config.getCopyBlacklist(),
                         Config.getPruneMaxWorkerThreads(),
@@ -508,12 +509,13 @@ public final class Backupper {
             } else {
                 run.context.logInfo(
                         "Chronos backups: copying world to backup folder...");
-                assertCacheOutsideWorld(worldRootAbs, run.folderOutputPath);
+                assertCacheOutsideSaveRoots(run.pruneRoots, copyRootAbs, run.folderOutputPath);
                 deleteDirectory(run.folderOutputPath);
                 Files.createDirectories(run.folderOutputPath);
                 int[] outCopied = new int[1];
-                RustPrunerBridge.copyWorldToCache(
-                        worldRootAbs,
+                copySaveRootsToSnapshot(
+                        copyRootAbs,
+                        run.pruneRoots,
                         run.folderOutputPath,
                         Config.getCopyBlacklist(),
                         Config.getPruneMaxWorkerThreads(),
@@ -858,16 +860,53 @@ public final class Backupper {
         }
     }
 
-    private static void assertCacheOutsideWorld(Path worldRoot, Path cacheSnapshotPath) throws IOException {
-        Path w = worldRoot.toAbsolutePath().normalize();
-        Path c = cacheSnapshotPath.toAbsolutePath().normalize();
-        if (c.startsWith(w)) {
-            throw new IOException(
-                    "Refusing backup: chronos cache folder would live inside the world directory "
-                            + "(game/run directory resolution is wrong for this setup). world="
-                            + w
-                            + " cache="
-                            + c);
+    private static void copySaveRootsToSnapshot(
+            Path copyRoot,
+            List<Path> pruneRoots,
+            Path snapshotRoot,
+            List<String> copyBlacklist,
+            int maxCopyWorkerThreads,
+            int[] outCopied)
+            throws IOException {
+        List<Path> sources = saveRootsToCopy(copyRoot, pruneRoots);
+        int totalCopied = 0;
+        for (Path sourceRoot : sources) {
+            Path dest = SaveRootDiscovery.snapshotPathForSourceRoot(copyRoot, sourceRoot, snapshotRoot);
+            Files.createDirectories(dest);
+            int[] part = new int[1];
+            RustPrunerBridge.copyWorldToCache(
+                    sourceRoot, dest, copyBlacklist, maxCopyWorkerThreads, part);
+            totalCopied += part[0];
+        }
+        outCopied[0] = totalCopied;
+    }
+
+    private static List<Path> saveRootsToCopy(Path copyRoot, List<Path> pruneRoots) {
+        if (pruneRoots == null || pruneRoots.isEmpty()) {
+            return Collections.singletonList(copyRoot);
+        }
+        if (pruneRoots.size() == 1) {
+            return Collections.singletonList(pruneRoots.get(0));
+        }
+        return pruneRoots;
+    }
+
+    private static void assertCacheOutsideSaveRoots(
+            List<Path> pruneRoots,
+            Path copyRoot,
+            Path cacheSnapshotPath)
+            throws IOException {
+        Path cache = cacheSnapshotPath.toAbsolutePath().normalize();
+        for (Path sourceRoot : saveRootsToCopy(copyRoot, pruneRoots)) {
+            Path source = sourceRoot.toAbsolutePath().normalize();
+            if (cache.startsWith(source)) {
+                throw new IOException(
+                        "Refusing backup: chronos cache folder would live inside the world directory "
+                                + "(game/run directory resolution is wrong for this setup). world="
+                                + source
+                                + " cache="
+                                + cache);
+            }
         }
     }
 
