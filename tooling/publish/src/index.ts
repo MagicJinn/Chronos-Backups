@@ -256,6 +256,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       config.dryRun,
     );
     console.log(`\nModrinth project page updated (${modPageDescription.length} chars).`);
+    console.log("\nNew mod page description:\n", modPageDescription);
   }
 
   console.log(`\nDone. Published ${jarNames.length} jar(s).`);
