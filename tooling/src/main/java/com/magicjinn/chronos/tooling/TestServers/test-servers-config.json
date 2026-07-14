@@ -3,11 +3,14 @@
         "Chronos is initializing...",
         "Scheduler is ready and on standby...",
         "Backupper is ready and on standby...",
+        "Done (",
         "RCON running on"
     ],
-    "testCommand": "chronos speedtest 4",
+    "testCommand": "chronos speedtest 6",
     "failureMarkers": [
         "Chronos backup failed",
+        "Backupper skipped",
+        ": 0 successful backup(s)",
         "FAILED TO BIND TO PORT",
         "Address already in use: bind",
         "Failed to start the minecraft server"

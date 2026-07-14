@@ -10,9 +10,7 @@ use std::sync::Arc;
 use crate::snapshot_zip::ZipStreamSink;
 use na_nbt::{CompoundRef, ValueRef};
 
-// Worlds have a meaningfully different structure before and after 26.1 snapshot 6
-// World structure has changed over the years, but it's never been significantly different, so we could always work around it in those versions
-const DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6: u32 = 4774;
+// World folder layouts differ before/after 26.1 snapshot 6. Detect from paths instead of DataVersion.
 const DIMENSIONS_FOLDER_NAME: &str = "dimensions";
 const REGION_FOLDER_NAME: &str = "region";
 const ENTITIES_FOLDER_NAME: &str = "entities";
@@ -44,7 +42,6 @@ impl Display for DataFolder {
 
 pub fn prune_world(
     world_folder: PathBuf,
-    data_version: u32,
     inhabited_time_seconds_required: u64,
     max_worker_threads: usize,
     zip_sink: Option<Arc<ZipStreamSink>>,
@@ -59,7 +56,7 @@ pub fn prune_world(
     }
     let inhabited_time_ticks_required = inhabited_time_seconds_required * 20;
 
-    let data_folders = get_data_folders(&world_folder, data_version)?;
+    let data_folders = get_data_folders(&world_folder)?;
 
     let worker_threads = resolve_pruner_threads(max_worker_threads);
     println!(
@@ -471,21 +468,16 @@ fn read_inhabited_time_ticks(chunk_nbt: &[u8]) -> u64 {
     0
 }
 
-fn get_data_folders(
-    world_folder: &Path,
-    data_version: u32,
-) -> Result<Vec<DataFolder>, std::io::Error> {
+fn get_data_folders(world_folder: &Path) -> Result<Vec<DataFolder>, std::io::Error> {
     if !world_folder.is_dir() {
         return Ok(Vec::new());
     }
 
     let mut region_directories: Vec<PathBuf> = Vec::new();
 
-    if data_version >= DATA_VERSION_WORLD_LAYOUT_26_1_SNAPSHOT_6 {
+    if uses_modern_dimensions_layout(world_folder) {
         let dimensions = world_folder.join(DIMENSIONS_FOLDER_NAME);
-        if dimensions.is_dir() {
-            collect_region_directories_under(&dimensions, &mut region_directories)?;
-        }
+        collect_region_directories_under(&dimensions, &mut region_directories)?;
     } else {
         let root_region = world_folder.join(REGION_FOLDER_NAME);
         if root_region.is_dir() {
@@ -530,6 +522,38 @@ fn get_data_folders(
         });
     }
     Ok(data_folders)
+}
+
+fn uses_modern_dimensions_layout(world_folder: &Path) -> bool {
+    let dimensions = world_folder.join(DIMENSIONS_FOLDER_NAME);
+    if !dimensions.is_dir() {
+        return false;
+    }
+    let mut region_directories = Vec::new();
+    if collect_region_directories_under(&dimensions, &mut region_directories).is_err() {
+        return false;
+    }
+    region_directories
+        .iter()
+        .any(|region_dir| region_dir_has_mca(region_dir))
+}
+
+fn region_dir_has_mca(region_dir: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(region_dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file()
+            && path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".mca"))
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn collect_region_directories_under(

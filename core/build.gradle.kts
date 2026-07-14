@@ -12,6 +12,13 @@ repositories {
 dependencies {
     val nightConfigVersion = findProperty("chronos.nightconfig.version") as String? ?: "3.6.7"
     implementation("com.electronwill.night-config:toml:$nightConfigVersion")
+    compileOnly("org.apache.logging.log4j:log4j-api:2.24.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+sourceSets.named("main") {
+    java.srcDir(rootProject.file("shell-shared/src/main/java"))
 }
 
 java {
@@ -26,4 +33,8 @@ tasks.withType<JavaCompile>().configureEach {
     // Core is authored against modern Java but emits bytecode for older runtimes.
     // Increase `chronos.core.java.release` when every supported loader ships a newer JVM floor.
     options.release.set((findProperty("chronos.core.java.release") as String?)?.toIntOrNull() ?: 8)
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

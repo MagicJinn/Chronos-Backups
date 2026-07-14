@@ -11,28 +11,27 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * Resolves which directories to copy and prune for a backup.
+ * Resolves full world save containers to copy for a backup.
  * <p>
- * Uses {@link BackupRuntimeContext#getWorldSaveRoot()} when it is the only save
- * folder under {@link BackupRuntimeContext#getRunDirectory()}. Otherwise
- * performs a shallow filesystem scan for every directory that contains
- * {@code level.dat} (e.g. Bukkit {@code world}, {@code world_nether},
- * {@code world_the_end}) and backs them up from a shared container root.
+ * Discovery locates dimension data via {@code region/*.mca}, rolls paths up to
+ * save containers ({@code world/}, sibling folders on dedicated servers, or
+ * {@code saves/<name>/} on integrated clients), and copies each entire
+ * container.
+ * Chunk pruning runs only on {@code region/} trees inside the snapshot.
  */
 public final class SaveRootDiscovery {
     /**
-     * Max depth below the run directory (supports
-     * {@code worlds/survival/level.dat}).
+     * Max depth below each search root (covers
+     * {@code dimensions/minecraft/overworld/region}).
      */
-    private static final int MAX_DISCOVERY_DEPTH = 2;
+    private static final int MAX_DIMENSION_SEARCH_DEPTH = 8;
 
-    // List of directories to skip during discovery. Common directories that are not
-    // save roots.
     private static final Set<String> SKIP_DIR_NAMES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "plugins",
             "logs",
@@ -44,47 +43,50 @@ public final class SaveRootDiscovery {
             "defaultconfigs",
             "journeymap",
             ".cache",
-            ".git")));
+            ".git",
+            "region",
+            "entities",
+            "poi",
+            "playerdata",
+            "stats",
+            "advancements")));
 
     private SaveRootDiscovery() {
     }
 
-    /**
-     * Describes which folders should be included in a backup and how they were
-     * found.
-     *
-     * @param copyRoot         The main directory used as the root for the world
-     *                         copy. This is what gets passed to the native world
-     *                         copying process.
-     * @param pruneRoots       The absolute paths to all save root directories (each
-     *                         of which contains a {@code level.dat}) that should be
-     *                         cleaned up or further processed after the copy. These
-     *                         are all the relevant world save roots we care about
-     *                         for backup.
-     * @param discoveredByScan True when multiple save roots were resolved by
-     *                         scanning {@link BackupRuntimeContext#getRunDirectory()},
-     *                         or when the primary save root had no {@code level.dat}
-     *                         and roots were discovered that way. False when a
-     *                         single save root was used as-is.
-     */
-
     public static final class BackupScope {
-        private final Path copyRoot;
-        private final List<Path> pruneRoots;
+        /** Base path used to lay out multiple save containers inside a snapshot. */
+        private final Path snapshotLayoutRoot;
+        /**
+         * Full world save directories to copy (each includes level data, region, etc.).
+         */
+        private final List<Path> saveContainers;
         private final boolean discoveredByScan;
 
-        public BackupScope(Path copyRoot, List<Path> pruneRoots, boolean discoveredByScan) {
-            this.copyRoot = copyRoot;
-            this.pruneRoots = pruneRoots;
+        public BackupScope(Path snapshotLayoutRoot, List<Path> saveContainers, boolean discoveredByScan) {
+            this.snapshotLayoutRoot = snapshotLayoutRoot;
+            this.saveContainers = saveContainers;
             this.discoveredByScan = discoveredByScan;
         }
 
+        /** @deprecated use {@link #snapshotLayoutRoot()} */
+        @Deprecated
         public Path copyRoot() {
-            return copyRoot;
+            return snapshotLayoutRoot;
         }
 
+        public Path snapshotLayoutRoot() {
+            return snapshotLayoutRoot;
+        }
+
+        /** @deprecated use {@link #saveContainers()} */
+        @Deprecated
         public List<Path> pruneRoots() {
-            return pruneRoots;
+            return saveContainers;
+        }
+
+        public List<Path> saveContainers() {
+            return saveContainers;
         }
 
         public boolean discoveredByScan() {
@@ -94,65 +96,220 @@ public final class SaveRootDiscovery {
 
     public static BackupScope resolve(BackupRuntimeContext context) throws IOException {
         Path primary = context.getWorldSaveRoot().toAbsolutePath().normalize();
-        Path container = context.getRunDirectory().toAbsolutePath().normalize();
-        List<Path> discovered = discoverSaveRoots(container);
+        Path runDirectory = context.getRunDirectory().toAbsolutePath().normalize();
+        Set<String> skipNames = skipDirNames();
 
-        if (hasLevelDat(primary) && !containsNormalizedPath(discovered, primary)) {
-            discovered = new ArrayList<>(discovered);
-            discovered.add(primary);
-            discovered.sort(Comparator.comparing(p -> p.getFileName().toString()));
+        Set<Path> saveContainers = new LinkedHashSet<>();
+        for (Path searchRoot : searchRoots(context, primary, runDirectory, skipNames)) {
+            collectFromDimensionData(searchRoot, 0, MAX_DIMENSION_SEARCH_DEPTH, skipNames, saveContainers,
+                    primary, runDirectory);
         }
+
+        if (context.isDedicatedServer()) {
+            addDedicatedServerContainers(runDirectory, primary, skipNames, saveContainers);
+        } else {
+            Path clientRoot = integratedClientSaveRoot(context, primary, runDirectory);
+            if (looksLikeSaveContainer(clientRoot)) {
+                saveContainers.add(clientRoot.toAbsolutePath().normalize());
+            }
+        }
+
+        if (looksLikeSaveContainer(primary)) {
+            saveContainers.add(primary);
+        }
+
+        List<Path> discovered = new ArrayList<>(saveContainers);
+        discovered.sort(Comparator.comparing(p -> p.getFileName().toString()));
 
         if (discovered.isEmpty()) {
             throw new IOException(
-                    "No level.dat found at primary save root " + primary + " or under run directory " + container);
+                    "No world save found at primary save root "
+                            + primary
+                            + " or under run directory "
+                            + runDirectory);
+        }
+
+        for (Path root : discovered) {
+            if (!Files.isDirectory(root)) {
+                throw new IOException("Save container is not a directory: " + root);
+            }
         }
 
         if (discovered.size() == 1) {
             Path only = discovered.get(0);
-            boolean scanned = !only.equals(primary) || !hasLevelDat(primary);
+            boolean scanned = !only.equals(primary);
             return new BackupScope(only, Collections.singletonList(only), scanned);
         }
 
-        return new BackupScope(container, Collections.unmodifiableList(new ArrayList<>(discovered)), true);
+        return new BackupScope(runDirectory, Collections.unmodifiableList(discovered), true);
     }
 
-    private static boolean containsNormalizedPath(List<Path> paths, Path target) {
-        Path normalized = target.toAbsolutePath().normalize();
-        for (Path path : paths) {
-            if (path.toAbsolutePath().normalize().equals(normalized)) {
-                return true;
+    private static void addDedicatedServerContainers(
+            Path runDirectory,
+            Path primary,
+            Set<String> skipNames,
+            Set<Path> saveContainers)
+            throws IOException {
+        if (!Files.isDirectory(runDirectory)) {
+            return;
+        }
+        boolean primaryActive = hasRegionMca(primary) || hasLevelDat(primary);
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(runDirectory, Files::isDirectory)) {
+            for (Path child : entries) {
+                if (shouldSkipSearchRoot(child, skipNames)) {
+                    continue;
+                }
+                if (looksLikeSaveContainer(child)) {
+                    saveContainers.add(child.toAbsolutePath().normalize());
+                    continue;
+                }
+                if (primaryActive && Files.isDirectory(child.resolve("region"))) {
+                    saveContainers.add(child.toAbsolutePath().normalize());
+                }
             }
         }
-        return false;
     }
 
-    /** Maps a live-server save root to its path inside a snapshot directory. */
-    public static Path snapshotPathForSourceRoot(Path copyRoot, Path sourceRoot, Path snapshotRoot) {
-        Path copy = copyRoot.toAbsolutePath().normalize();
-        Path source = sourceRoot.toAbsolutePath().normalize();
-        Path snapshot = snapshotRoot.toAbsolutePath().normalize();
-        if (copy.equals(source)) {
-            return snapshot;
+    private static Set<Path> searchRoots(
+            BackupRuntimeContext context,
+            Path primary,
+            Path runDirectory,
+            Set<String> skipNames)
+            throws IOException {
+        Set<Path> roots = new LinkedHashSet<>();
+        if (context.isDedicatedServer()) {
+            if (Files.isDirectory(primary)) {
+                roots.add(primary);
+            }
+            if (Files.isDirectory(runDirectory)) {
+                try (DirectoryStream<Path> entries = Files.newDirectoryStream(runDirectory, Files::isDirectory)) {
+                    for (Path child : entries) {
+                        if (shouldSkipSearchRoot(child, skipNames)) {
+                            continue;
+                        }
+                        roots.add(child.toAbsolutePath().normalize());
+                    }
+                }
+            }
+            return roots;
         }
-        return snapshot.resolve(copy.relativize(source)).normalize();
+
+        Path integratedRoot = integratedClientSaveRoot(context, primary, runDirectory);
+        if (Files.isDirectory(integratedRoot)) {
+            roots.add(integratedRoot);
+        } else if (Files.isDirectory(primary)) {
+            roots.add(primary);
+        }
+        return roots;
+    }
+
+    /**
+     * Integrated clients: only the active save under {@code saves/<world>/}, never
+     * all of {@code saves/}.
+     */
+    private static Path integratedClientSaveRoot(
+            BackupRuntimeContext context, Path primary, Path runDirectory) {
+        Path savesRoot = runDirectory.resolve("saves").resolve(context.getWorldName());
+        Path normalized = savesRoot.toAbsolutePath().normalize();
+        Path primaryNorm = primary.toAbsolutePath().normalize();
+        if (Files.isDirectory(normalized)) {
+            return normalized;
+        }
+        if (primaryNorm.startsWith(runDirectory.resolve("saves").toAbsolutePath().normalize())) {
+            return primaryNorm;
+        }
+        return primaryNorm;
+    }
+
+    private static boolean shouldSkipSearchRoot(Path directory, Set<String> skipNames) {
+        String name = directory.getFileName().toString().toLowerCase(Locale.ROOT);
+        return skipNames.contains(name);
+    }
+
+    private static void collectFromDimensionData(
+            Path directory,
+            int depth,
+            int maxDepth,
+                    Set<String> skipNames,
+            Set<Path> saveContainers,
+            Path primary,
+            Path runDirectory)
+            throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return;
+        }
+        if (hasRegionMca(directory)) {
+            saveContainers.add(rollupToContainer(directory, primary, runDirectory));
+            return;
+        }
+        if (depth >= maxDepth) {
+            return;
+        }
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory, Files::isDirectory)) {
+            for (Path child : entries) {
+                if (shouldSkipSearchRoot(child, skipNames)) {
+                    continue;
+                }
+                collectFromDimensionData(
+                        child, depth + 1, maxDepth, skipNames, saveContainers, primary, runDirectory);
+            }
+        }
+    }
+
+    static Path rollupToContainer(Path dimensionRoot, Path primary, Path runDirectory) {
+        Path dimension = dimensionRoot.toAbsolutePath().normalize();
+        Path primaryNorm = primary.toAbsolutePath().normalize();
+        Path runNorm = runDirectory.toAbsolutePath().normalize();
+
+        if (dimension.startsWith(primaryNorm)) {
+            return primaryNorm;
+        }
+
+        Path current = dimension;
+        while (current.getParent() != null && !current.getParent().equals(runNorm)) {
+            current = current.getParent();
+        }
+        return current;
+    }
+
+    /**
+     * Full save folder: overworld/nested-dim container or a Bukkit-style dimension
+     * sibling.
+     */
+    static boolean looksLikeSaveContainer(Path directory) {
+        if (directory == null || !Files.isDirectory(directory)) {
+            return false;
+        }
+        if (hasLevelDat(directory)) {
+            return true;
+        }
+        if (Files.isDirectory(directory.resolve("dimensions"))) {
+            return true;
+        }
+        return hasRegionMca(directory);
     }
 
     static boolean hasLevelDat(Path directory) {
         return directory != null
                 && Files.isDirectory(directory)
-                && Files.isRegularFile(directory.resolve("level.dat"));
+                && (Files.isRegularFile(directory.resolve("level.dat"))
+                        || Files.isRegularFile(directory.resolve("level.dat_new")));
     }
 
-    static List<Path> discoverSaveRoots(Path container) throws IOException {
-        if (!Files.isDirectory(container)) {
-            return Collections.emptyList();
+    /** Directory contains {@code region/*.mca} (chunk data on disk). */
+    static boolean hasRegionMca(Path directory) {
+        if (directory == null || !Files.isDirectory(directory)) {
+            return false;
         }
-        Set<String> skipNames = skipDirNames();
-        List<Path> found = new ArrayList<>();
-        collectSaveRoots(container, container, 0, skipNames, found);
-        found.sort(Comparator.comparing(p -> p.getFileName().toString()));
-        return found;
+        Path region = directory.resolve("region");
+        if (!Files.isDirectory(region)) {
+            return false;
+        }
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(region, "*.mca")) {
+            return entries.iterator().hasNext();
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     private static Set<String> skipDirNames() {
@@ -164,30 +321,16 @@ public final class SaveRootDiscovery {
         return skip;
     }
 
-    private static void collectSaveRoots(
-            Path container,
-            Path directory,
-            int depth,
-            Set<String> skipNames,
-            List<Path> found)
-            throws IOException {
-        if (hasLevelDat(directory)) {
-            found.add(directory.toAbsolutePath().normalize());
-            return;
+    /**
+     * Maps a live-server save container to its path inside a snapshot directory.
+     */
+    public static Path snapshotPathForSourceRoot(Path layoutRoot, Path sourceRoot, Path snapshotRoot) {
+        Path layout = layoutRoot.toAbsolutePath().normalize();
+        Path source = sourceRoot.toAbsolutePath().normalize();
+        Path snapshot = snapshotRoot.toAbsolutePath().normalize();
+        if (layout.equals(source)) {
+            return snapshot;
         }
-        if (depth >= MAX_DISCOVERY_DEPTH) {
-            return;
-        }
-        if (!directory.equals(container)) {
-            String name = directory.getFileName().toString().toLowerCase(Locale.ROOT);
-            if (skipNames.contains(name)) {
-                return;
-            }
-        }
-        try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory, Files::isDirectory)) {
-            for (Path child : entries) {
-                collectSaveRoots(container, child, depth + 1, skipNames, found);
-            }
-        }
+        return snapshot.resolve(layout.relativize(source)).normalize();
     }
 }

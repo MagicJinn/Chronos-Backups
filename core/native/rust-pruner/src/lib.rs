@@ -11,13 +11,11 @@ mod world_copy;
 #[cfg(feature = "world-test")]
 mod world_test;
 
-use na_nbt::ValueRef;
-use std::io::{ErrorKind, Read};
+use std::io::ErrorKind;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use flate2::read::GzDecoder;
 use jni::objects::{JClass, JIntArray, JObjectArray, JStaticMethodID, JString};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jint, jintArray, jobjectArray, jstring};
@@ -33,53 +31,15 @@ pub fn prune_world_folder(
     inhabited_time_seconds_required: u64,
     max_worker_threads: usize,
 ) -> Result<(), std::io::Error> {
-    let data_version = get_data_version(world_folder.clone());
-    if data_version == 0 {
+    if inhabited_time_seconds_required == 0 {
         return Ok(());
     }
     pruner::prune_world(
         world_folder,
-        data_version,
         inhabited_time_seconds_required,
         max_worker_threads,
         None,
     )
-}
-
-fn get_data_version(world_folder: PathBuf) -> u32 {
-    let level_dat = world_folder.join("level.dat");
-    if !level_dat.is_file() {
-        eprintln!("Error: level.dat not found");
-        return 0;
-    }
-
-    let file_bytes = match std::fs::read(level_dat) {
-        Ok(file_bytes) => file_bytes,
-        Err(e) => {
-            eprintln!("Error: failed to open level.dat: {e}");
-            return 0;
-        }
-    };
-
-    let mut decoder = GzDecoder::new(file_bytes.as_slice());
-    let mut decompressed = Vec::new();
-    if let Err(e) = decoder.read_to_end(&mut decompressed) {
-        eprintln!("Error: failed to decompress level.dat: {e}");
-        return 0;
-    }
-
-    let doc = match na_nbt::read_borrowed::<na_nbt::BE>(&decompressed) {
-        Ok(doc) => doc,
-        Err(e) => {
-            eprintln!("Error: failed to read level.dat: {e}");
-            return 0;
-        }
-    };
-
-    doc.root()
-        .get("Data")
-        .and_then(|data| data.get_::<na_nbt::tag::Int>("DataVersion"))
-        .unwrap_or(0) as u32
 }
 
 fn prune_world_to_zip_impl(
@@ -106,8 +66,7 @@ fn prune_world_to_zip_impl(
         }
     };
 
-    let data_version = get_data_version(world_folder.clone());
-    let run_prune = data_version != 0 && inhabited_time_seconds_required > 0;
+    let run_prune = inhabited_time_seconds_required > 0;
 
     let sink = match snapshot_zip::ZipStreamSink::create(world_folder.clone(), zip_path) {
         Ok(s) => Arc::new(s),
@@ -120,7 +79,6 @@ fn prune_world_to_zip_impl(
     if run_prune {
         if let Err(err) = pruner::prune_world(
             world_folder.clone(),
-            data_version,
             inhabited_time_seconds_required,
             max_worker_threads,
             Some(sink.clone()),

@@ -190,7 +190,7 @@ This test is meant for power users and should be run at least once before any re
 ```powershell
 ./gradlew cleanVariants
 ./gradlew buildAll
-./gradlew :neoforge-line-26_1:runClient
+./gradlew :forge-line-1_10:runClient
 ./gradlew :fabric-line-1_21_11:runServer
 ./gradlew testServers
 ./gradlew testServers "-Pchronos.testServers.args=--only fabric-1.14.4"

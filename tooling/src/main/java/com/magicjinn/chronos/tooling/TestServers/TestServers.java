@@ -26,8 +26,8 @@ import java.util.zip.ZipFile;
 
 public final class TestServers {
     /**
-     * Brief pause after ready markers so Paper 1.13.x (and possibly others) RCON
-     * can accept plugin commands.
+     * Pause after ready markers so RCON accepts plugin commands and fresh Docker
+     * worlds finish their first save before speedtest starts.
      */
     private static final long RCON_SEND_DELAY_MS = 2_000;
     private static final int RCON_SEND_MAX_ATTEMPTS = 5;

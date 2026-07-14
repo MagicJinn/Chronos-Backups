@@ -12,6 +12,6 @@ public interface ServerEnvironment {
 
     Path getRunDirectory();
 
-    /** Absolute path to the save root (directory containing {@code level.dat}). */
+    /** Absolute path to the primary save root (overworld folder). */
     Path getWorldSaveRoot();
 }

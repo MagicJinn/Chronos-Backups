@@ -179,7 +179,7 @@ public final class Backupper {
         }
 
         if (session.waitingForBackup) {
-            if (isBackupRunActive()) {
+            if (isBackupRunActive() || hasPendingBackupBegin()) {
                 return;
             }
             if (session.lastBackupSucceeded) {
@@ -194,7 +194,7 @@ public final class Backupper {
         }
 
         if (System.nanoTime() >= session.endNanos) {
-            if (isBackupRunActive()) {
+            if (isBackupRunActive() || hasPendingBackupBegin()) {
                 session.expired = true;
                 return;
             }
@@ -202,7 +202,10 @@ public final class Backupper {
             return;
         }
 
-        if (!isBackupRunActive() && tryBeginBackup(session.context)) {
+        if (!isBackupRunActive() && !hasPendingBackupBegin()) {
+            tryBeginBackup(session.context);
+        }
+        if (isBackupRunActive() || hasPendingBackupBegin()) {
             session.waitingForBackup = true;
         }
     }
@@ -339,7 +342,7 @@ public final class Backupper {
                             clearPendingBackupBegin();
                             return false;
                         }
-                        Path worldPath = scope.copyRoot();
+                        Path worldPath = scope.snapshotLayoutRoot();
                         if (!Files.isDirectory(worldPath)) {
                             context.logError("Backupper skipped: world path does not exist -> " + worldPath);
                             clearPendingBackupBegin();
@@ -348,8 +351,8 @@ public final class Backupper {
                         if (scope.discoveredByScan()) {
                             context.logInfo(
                                     "Chronos backups: discovered "
-                                            + scope.pruneRoots().size()
-                                            + " save root(s) under run directory.");
+                                            + scope.saveContainers().size()
+                                            + " save container(s) under run directory.");
                         }
                         phase = Phase.PAUSE;
                         break;
@@ -393,7 +396,7 @@ public final class Backupper {
             SaveRootDiscovery.BackupScope scope,
             BackupWorldController worldController,
             Object serverHandle) {
-        Path worldPath = scope.copyRoot();
+        Path worldPath = scope.snapshotLayoutRoot();
 
         final CompressionMethod compressionMethod = Config.getCompressionMethod();
         final String safeWorldDirName = sanitizeWorldBackupSubdir(context.getWorldName());
@@ -421,7 +424,7 @@ public final class Backupper {
         run.cacheSnapshotPath = cacheSnapshotPath;
         run.folderOutputPath = folderOutputPath;
         run.worldPath = worldPath;
-        run.pruneRoots = scope.pruneRoots();
+        run.saveContainers = scope.saveContainers();
         run.worldController = worldController;
         run.serverHandle = serverHandle;
         run.backupStartNanos = System.nanoTime();
@@ -480,26 +483,29 @@ public final class Backupper {
     private static void pruneSnapshotSaveRoots(InFlightBackup run, Path snapshotRoot) throws IOException {
         int pruneSeconds = Config.getPruneTimeRequirementSeconds();
         int pruneThreads = Config.getPruneMaxWorkerThreads();
-        for (Path sourceRoot : run.pruneRoots) {
+        for (Path sourceRoot : run.saveContainers) {
             Path snapshotSaveRoot = SaveRootDiscovery.snapshotPathForSourceRoot(
                     run.worldPath, sourceRoot, snapshotRoot);
-            RustPrunerBridge.pruneWorld(snapshotSaveRoot, pruneSeconds, pruneThreads);
+            RustPrunerBridge.pruneWorld(
+                    snapshotSaveRoot,
+                    pruneSeconds,
+                    pruneThreads);
         }
     }
 
     private static void runHeavyBackupWork(InFlightBackup run) {
         try {
-            Path copyRootAbs = run.worldPath.toAbsolutePath().normalize();
+            Path layoutRootAbs = run.worldPath.toAbsolutePath().normalize();
 
             if (run.compressionMethod == CompressionMethod.ZIP) {
                 run.context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
-                assertCacheOutsideSaveRoots(run.pruneRoots, copyRootAbs, run.cacheSnapshotPath);
+                assertCacheOutsideSaveContainers(run.saveContainers, layoutRootAbs, run.cacheSnapshotPath);
                 deleteDirectory(run.cacheSnapshotPath);
                 Files.createDirectories(run.cacheSnapshotPath);
                 int[] outCopied = new int[1];
-                copySaveRootsToSnapshot(
-                        copyRootAbs,
-                        run.pruneRoots,
+                copySaveContainersToSnapshot(
+                        layoutRootAbs,
+                        run.saveContainers,
                         run.cacheSnapshotPath,
                         Config.getCopyBlacklist(),
                         Config.getPruneMaxWorkerThreads(),
@@ -509,13 +515,13 @@ public final class Backupper {
             } else {
                 run.context.logInfo(
                         "Chronos backups: copying world to backup folder...");
-                assertCacheOutsideSaveRoots(run.pruneRoots, copyRootAbs, run.folderOutputPath);
+                assertCacheOutsideSaveContainers(run.saveContainers, layoutRootAbs, run.folderOutputPath);
                 deleteDirectory(run.folderOutputPath);
                 Files.createDirectories(run.folderOutputPath);
                 int[] outCopied = new int[1];
-                copySaveRootsToSnapshot(
-                        copyRootAbs,
-                        run.pruneRoots,
+                copySaveContainersToSnapshot(
+                        layoutRootAbs,
+                        run.saveContainers,
                         run.folderOutputPath,
                         Config.getCopyBlacklist(),
                         Config.getPruneMaxWorkerThreads(),
@@ -545,11 +551,11 @@ public final class Backupper {
                     run.context.logInfo(
                             "Chronos backups: pruning snapshot and writing zip...");
                     Files.deleteIfExists(run.zipOutputPath);
-                    boolean singleSaveRoot = run.pruneRoots.size() == 1
+                    boolean singleSaveContainer = run.saveContainers.size() == 1
                             && SaveRootDiscovery.snapshotPathForSourceRoot(
-                                            run.worldPath, run.pruneRoots.get(0), snapshotRoot)
+                                            run.worldPath, run.saveContainers.get(0), snapshotRoot)
                                     .equals(snapshotRoot);
-                    if (singleSaveRoot) {
+                    if (singleSaveContainer) {
                         RustPrunerBridge.pruneWorldToZip(
                                 snapshotRoot,
                                 run.zipOutputPath,
@@ -703,7 +709,7 @@ public final class Backupper {
         Path cacheSnapshotPath;
         Path folderOutputPath;
         Path worldPath;
-        List<Path> pruneRoots = Collections.emptyList();
+        List<Path> saveContainers = Collections.emptyList();
         BackupWorldController worldController;
         Object serverHandle;
         long backupStartNanos;
@@ -860,18 +866,18 @@ public final class Backupper {
         }
     }
 
-    private static void copySaveRootsToSnapshot(
-            Path copyRoot,
-            List<Path> pruneRoots,
+    private static void copySaveContainersToSnapshot(
+            Path layoutRoot,
+            List<Path> saveContainers,
             Path snapshotRoot,
             List<String> copyBlacklist,
             int maxCopyWorkerThreads,
             int[] outCopied)
             throws IOException {
-        List<Path> sources = saveRootsToCopy(copyRoot, pruneRoots);
+        List<Path> sources = saveContainersToCopy(layoutRoot, saveContainers);
         int totalCopied = 0;
         for (Path sourceRoot : sources) {
-            Path dest = SaveRootDiscovery.snapshotPathForSourceRoot(copyRoot, sourceRoot, snapshotRoot);
+            Path dest = SaveRootDiscovery.snapshotPathForSourceRoot(layoutRoot, sourceRoot, snapshotRoot);
             Files.createDirectories(dest);
             int[] part = new int[1];
             RustPrunerBridge.copyWorldToCache(
@@ -881,23 +887,23 @@ public final class Backupper {
         outCopied[0] = totalCopied;
     }
 
-    private static List<Path> saveRootsToCopy(Path copyRoot, List<Path> pruneRoots) {
-        if (pruneRoots == null || pruneRoots.isEmpty()) {
-            return Collections.singletonList(copyRoot);
+    private static List<Path> saveContainersToCopy(Path layoutRoot, List<Path> saveContainers) {
+        if (saveContainers == null || saveContainers.isEmpty()) {
+            return Collections.singletonList(layoutRoot);
         }
-        if (pruneRoots.size() == 1) {
-            return Collections.singletonList(pruneRoots.get(0));
+        if (saveContainers.size() == 1) {
+            return Collections.singletonList(saveContainers.get(0));
         }
-        return pruneRoots;
+        return saveContainers;
     }
 
-    private static void assertCacheOutsideSaveRoots(
-            List<Path> pruneRoots,
-            Path copyRoot,
+    private static void assertCacheOutsideSaveContainers(
+            List<Path> saveContainers,
+            Path layoutRoot,
             Path cacheSnapshotPath)
             throws IOException {
         Path cache = cacheSnapshotPath.toAbsolutePath().normalize();
-        for (Path sourceRoot : saveRootsToCopy(copyRoot, pruneRoots)) {
+        for (Path sourceRoot : saveContainersToCopy(layoutRoot, saveContainers)) {
             Path source = sourceRoot.toAbsolutePath().normalize();
             if (cache.startsWith(source)) {
                 throw new IOException(

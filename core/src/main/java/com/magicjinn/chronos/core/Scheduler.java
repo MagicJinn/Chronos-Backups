@@ -26,6 +26,12 @@ public final class Scheduler {
 
     private static BackupRuntimeContext runtimeContext;
 
+    /**
+     * Cleared on {@link #ShutdownScheduler()} so each world session logs readiness
+     * once.
+     */
+    private static boolean readyLogged;
+
     // Set to current time, to prevent immediate backup on startup
     private static long secondsSinceLastBackup = getCurrentTimeSeconds();
 
@@ -46,21 +52,24 @@ public final class Scheduler {
         ShutdownScheduler();
 
         runtimeContext = context;
-
-        context.logInfo("Scheduler is ready and on standby...");
     }
 
     public static void tickScheduler() {
         try {
+            BackupRuntimeContext context = runtimeContext;
+            if (context != null && !readyLogged) {
+                readyLogged = true;
+                context.logInfo("Scheduler is ready and on standby...");
+            }
+
             Backupper.tickBackupTracker();
             Backupper.tickSpeedtestSession();
 
-            BackupRuntimeContext context = runtimeContext;
             if (context != null && Backupper.hasPendingBackupBegin()) {
                 Backupper.tryBeginBackup(context);
             }
 
-            if (!Config.getScheduleBackups())
+            if (runtimeContext == null || !Config.getScheduleBackups())
                 return;
 
             if (Backupper.isSpeedtestSessionActive())
@@ -84,6 +93,7 @@ public final class Scheduler {
 
     public static void ShutdownScheduler() {
         runtimeContext = null;
+        readyLogged = false;
     }
 
     /**

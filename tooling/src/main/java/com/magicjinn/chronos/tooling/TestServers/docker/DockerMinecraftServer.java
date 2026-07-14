@@ -6,6 +6,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -292,14 +293,12 @@ public class DockerMinecraftServer {
         Path dataDir = dataDir();
         Files.createDirectories(dataDir);
         resetSavedWorlds(dataDir);
+        stageModJar(dataDir);
         String containerName = containerName();
         removeDockerContainer();
         String image = DockerServerImage.imageFor(getVersion());
         System.out.println("Starting " + containerName + " with image " + image);
 
-        String modJarMount = modJarPath + ":/data/"
-                + (BukkitPluginLoaderAvailability.isBukkitFamilyLoader(loaderKey) ? "plugins" : "mods")
-                + "/chronosbackups.jar";
         List<String> command = new ArrayList<>();
         command.add("docker");
         command.add("run");
@@ -311,8 +310,6 @@ public class DockerMinecraftServer {
         command.add(rconPort + ":25575");
         command.add("-v");
         command.add(dataDir.toAbsolutePath().normalize() + ":/data");
-        command.add("-v");
-        command.add(modJarMount);
         command.add("-e");
         command.add("EULA=TRUE");
         command.add("-e");
@@ -506,6 +503,23 @@ public class DockerMinecraftServer {
         for (String name : List.of("world", "world_nether", "world_the_end", "DIM-1", "DIM1", "backups")) {
             deleteRecursively(dataDir.resolve(name));
         }
+    }
+
+    /**
+     * Copies the built mod/plugin jar into the server data directory. Avoids
+     * bind-mounting a single host file on Windows, which can serve a stale or
+     * truncated jar when Gradle replaces the build output.
+     */
+    private void stageModJar(Path dataDir) throws IOException {
+        Path source = modJarPath.toAbsolutePath().normalize();
+        if (!Files.isRegularFile(source)) {
+            throw new IOException("Mod jar does not exist: " + source);
+        }
+        String folder = BukkitPluginLoaderAvailability.isBukkitFamilyLoader(loaderKey) ? "plugins" : "mods";
+        Path targetDir = dataDir.resolve(folder);
+        Files.createDirectories(targetDir);
+        Path target = targetDir.resolve("chronosbackups.jar");
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
     }
 
     private static void deleteRecursively(Path path) throws IOException {
