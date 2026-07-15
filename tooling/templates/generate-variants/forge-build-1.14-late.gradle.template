@@ -64,7 +64,7 @@ sourceSets.main.java.srcDirs(
     rootProject.file('shell-forge/forge-mojmap-chronos-forge-mod-kernel/src/main/java'),
     rootProject.file('shell-forge/forge-mojmap-brigadier-hooks/src/main/java'),
     rootProject.file('shell-forge/forge-mojmap-command-registrar-textcomponent/src/main/java'),
-    rootProject.file('shell-forge/v1_14_4-v1_15/src/main/java'),
+    rootProject.file('shell-forge/v1_14_v1_15/src/main/java'),
 )
 
 {{forgeShellMessengerCompatGroovy}}

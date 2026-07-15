@@ -357,6 +357,7 @@ public class DockerMinecraftServer {
         command.add("RCON_PASSWORD=" + RconClient.RCON_PASSWORD);
         command.add("-e");
         command.add("RCON_PORT=25575");
+        addTestServerEnvironment(command);
         command.add("--name");
         command.add(containerName);
         command.add(image);
@@ -379,15 +380,18 @@ public class DockerMinecraftServer {
      * Streams container and bind-mounted {@code latest.log} until the container
      * stops.
      */
-    public void followLogsUntilExit(String longShutdownMarker, Consumer<String> logCallback) throws IOException {
+    public void followLogsUntilExit(List<String> longShutdownMarkers, Consumer<String> logCallback) throws IOException {
         String containerName = containerName();
         AtomicLong lastLogMs = new AtomicLong(System.currentTimeMillis());
         AtomicLong idleTimeoutMs = new AtomicLong(IDLE_TIMEOUT_MS);
         try (Closeable _ = DockerContainerLogs.followContainer(containerName, line -> {
             lastLogMs.set(System.currentTimeMillis());
-            // Long install/shutdown steps may go quiet for a while; allow a longer idle window.
-            if (!longShutdownMarker.isBlank() && line.contains(longShutdownMarker)) {
-                idleTimeoutMs.set(LONG_IDLE_TIMEOUT_MS);
+            // Long install/shutdown/world-prep steps may go quiet for a while.
+            for (String marker : longShutdownMarkers) {
+                if (marker != null && !marker.isBlank() && line.contains(marker)) {
+                    idleTimeoutMs.set(LONG_IDLE_TIMEOUT_MS);
+                    break;
+                }
             }
             logCallback.accept(line);
         })) {
@@ -503,6 +507,27 @@ public class DockerMinecraftServer {
         for (String name : List.of("world", "world_nether", "world_the_end", "DIM-1", "DIM1", "backups")) {
             deleteRecursively(dataDir.resolve(name));
         }
+        Files.deleteIfExists(dataDir.resolve("server.properties"));
+    }
+
+    /**
+     * Docker env vars for {@code server.properties}. Applied during container init on
+     * this run (before the JVM starts). {@code OVERRIDE_SERVER_PROPERTIES=true} ensures
+     * they win over a leftover file in the bind-mounted {@code /data} directory.
+     */
+    private static void addTestServerEnvironment(List<String> command) {
+        command.add("-e");
+        command.add("OVERRIDE_SERVER_PROPERTIES=TRUE");
+        command.add("-e");
+        command.add("MAX_TICK_TIME=-1");
+        command.add("-e");
+        command.add("VIEW_DISTANCE=4");
+        command.add("-e");
+        command.add("SIMULATION_DISTANCE=4");
+        command.add("-e");
+        command.add("SPAWN_MONSTERS=false");
+        command.add("-e");
+        command.add("SPAWN_ANIMALS=false");
     }
 
     /**

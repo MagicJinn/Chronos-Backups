@@ -27,5 +27,5 @@
     "worryMarkers": [
         "ticks behind"
     ],
-    "longShutdownMarker": "This might take a while..."
+    "longShutdownMarkers": ["This might take a while...", "Preparing level"]
 }

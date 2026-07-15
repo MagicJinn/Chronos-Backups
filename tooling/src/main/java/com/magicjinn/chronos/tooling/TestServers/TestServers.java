@@ -603,7 +603,7 @@ public final class TestServers {
         List<String> serverSetupFailureMarkers = strList(config.get("serverSetupFailureMarkers"));
         List<String> successMarkers = strList(config.get("successMarkers"));
         List<String> worryMarkers = strList(config.get("worryMarkers"));
-        String longShutdownMarker = str(config.get("longShutdownMarker"));
+        List<String> longShutdownMarkers = resolveLongShutdownMarkers(config);
 
         List<String> failures = new ArrayList<>();
         List<String> worries = new ArrayList<>();
@@ -624,7 +624,7 @@ public final class TestServers {
                     successMarkers,
                     worryMarkers,
                     serverWorries,
-                    longShutdownMarker,
+                    longShutdownMarkers,
                     false);
             if (failure != null) {
                 TestServersConsole.retry(
@@ -647,7 +647,7 @@ public final class TestServers {
                         successMarkers,
                         worryMarkers,
                         serverWorries,
-                        longShutdownMarker,
+                        longShutdownMarkers,
                         true);
             }
             if (failure != null) {
@@ -692,7 +692,7 @@ public final class TestServers {
             List<String> successMarkers,
             List<String> worryMarkers,
             List<String> worryHitsOut,
-            String longShutdownMarker,
+            List<String> longShutdownMarkers,
             boolean finalAttempt)
             throws IOException {
         startDockerContainer(server, usedPorts);
@@ -705,7 +705,7 @@ public final class TestServers {
         AtomicBoolean successSeen = new AtomicBoolean(false);
         AtomicBoolean failureSeen = new AtomicBoolean(false);
         AtomicBoolean serverSetupFailureSeen = new AtomicBoolean(false);
-        server.followLogsUntilExit(longShutdownMarker, logLine -> {
+        server.followLogsUntilExit(longShutdownMarkers, logLine -> {
             for (int i = 0; i < readyMarkers.size(); i++) {
                 if (!readySeen[i] && containsIgnoreCase(logLine, readyMarkers.get(i))) {
                     readySeen[i] = true;
@@ -898,6 +898,18 @@ public final class TestServers {
     @SuppressWarnings("unchecked")
     private static List<String> strList(Object value) {
         return value == null ? List.of() : (List<String>) value;
+    }
+
+    private static List<String> resolveLongShutdownMarkers(Map<String, Object> config) {
+        List<String> markers = strList(config.get("longShutdownMarkers"));
+        if (!markers.isEmpty()) {
+            return markers;
+        }
+        String legacy = str(config.get("longShutdownMarker"));
+        if (legacy.isBlank()) {
+            return List.of();
+        }
+        return List.of(legacy);
     }
 
     private static String str(Object value) {
