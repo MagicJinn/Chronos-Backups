@@ -97,6 +97,12 @@ def chronosPrepareRunServerPort = tasks.register('chronosPrepareRunServerPort') 
         def runDir = new File(projectDir, 'run')
         runDir.mkdirs()
 
+        def eulaFile = new File(runDir, 'eula.txt')
+        if (!eulaFile.exists() || !eulaFile.text.contains('eula=true')) {
+            eulaFile.text = 'eula=true'
+            logger.lifecycle('Chronos: wrote {} for local Fabric runServer', eulaFile)
+        }
+
         def serverProperties = new File(runDir, 'server.properties')
         def properties = new Properties()
         if (serverProperties.exists()) {
