@@ -90,6 +90,9 @@ public final class Config {
             out.commandRequiredPermissionLevel = cfg.getIntOrElse(
                     ChronosTomlSpec.KEY_COMMAND_REQUIRED_PERMISSION_LEVEL,
                     defaults.commandRequiredPermissionLevel);
+            out.googleDriveEnabled = cfg.getOrElse(
+                    ChronosTomlSpec.KEY_GOOGLE_DRIVE_ENABLED,
+                    defaults.googleDriveEnabled);
             loadCopyBlacklist(cfg, out, defaults);
             int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
             if (fileVersion != ChronosTomlSpec.CONFIG_VERSION) {
@@ -204,6 +207,11 @@ public final class Config {
     /** Compression method used for backups. */
     public static CompressionMethod getCompressionMethod() {
         return modConfig != null ? modConfig.compressionMethod : BUILTIN_DEFAULTS.compressionMethod;
+    }
+
+    /** When true, Chronos may authorize and upload backups to Google Drive. */
+    public static boolean isGoogleDriveEnabled() {
+        return modConfig != null ? modConfig.googleDriveEnabled : BUILTIN_DEFAULTS.googleDriveEnabled;
     }
 
     private Config() {

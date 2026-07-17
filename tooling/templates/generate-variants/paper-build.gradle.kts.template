@@ -19,6 +19,12 @@ dependencies {
     val nightConfigVer = rootProject.findProperty("chronos.nightconfig.version") ?: "3.6.7"
     implementation("com.electronwill.night-config:core:$nightConfigVer")
     implementation("com.electronwill.night-config:toml:$nightConfigVer")
+    val googleApiClientVer = rootProject.findProperty("chronos.google.api.client.version") ?: "2.7.2"
+    val googleOauthClientVer = rootProject.findProperty("chronos.google.oauth.client.version") ?: "1.36.0"
+    val googleDriveApiVer = rootProject.findProperty("chronos.google.api.services.drive.version") ?: "v3-rev20230822-2.0.0"
+    implementation("com.google.api-client:google-api-client:$googleApiClientVer")
+    implementation("com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVer")
+    implementation("com.google.apis:google-api-services-drive:$googleDriveApiVer")
 }
 
 {{paperCompileClasspathJvmAttrsKts}}
@@ -28,6 +34,9 @@ sourceSets.named("main") {
         rootProject.file("core/src/main/java"),
         rootProject.file("shell-shared/src/main/java"),
         rootProject.file("shell-paper/src/main/java"),
+    )
+    resources.srcDirs(
+        rootProject.file("core/src/main/resources"),
     )
 }
 

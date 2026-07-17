@@ -18,11 +18,12 @@ public final class ChronosTomlSpec {
     public static final String KEY_MAX_STORED_BACKUPS = "maxStoredBackups";
     public static final String KEY_COMPRESSION_METHOD = "compressionMethod";
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
+    public static final String KEY_GOOGLE_DRIVE_ENABLED = "googleDriveEnabled";
     public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     // Track the internal config format version, update a config when outdated
-    public static final int CONFIG_VERSION = 1;
+    public static final int CONFIG_VERSION = 2;
 
     /**
      * Full file body: stable key order, comments tuned for reading in a text
@@ -67,6 +68,10 @@ public final class ChronosTomlSpec {
                 "# Snapshot storage: \"zip\" or \"none\".",
                 "# \"zip\" uses zip for compression. \"none\" stores an uncompressed folder.",
                 KEY_COMPRESSION_METHOD + " = " + tomlStringLiteral(config.compressionMethod.name().toLowerCase()),
+                "",
+                "# Whether backups should be uploaded to Google Drive.",
+                "# Requires OAuth credentials to be set up. On mod startup, check the console for instructions.",
+                KEY_GOOGLE_DRIVE_ENABLED + " = " + config.googleDriveEnabled,
                 "",
                 "# Paths to exclude from the backup snapshot copy (names anywhere under the world, or relative paths",
                 "# with /).",

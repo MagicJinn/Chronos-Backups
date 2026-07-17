@@ -2,14 +2,27 @@ package com.magicjinn.chronos.core;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.chronos.shell.ChronosConstants;
+import com.magicjinn.cloudintegration.CloudIntegration;
+import com.magicjinn.cloudintegration.Dropbox;
+import com.magicjinn.cloudintegration.GoogleDrive;
+import com.magicjinn.cloudintegration.OneDrive;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class Core {
     public static Path RunningDirectory;
     private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
+    private static final List<CloudIntegration> cloudIntegrations = new ArrayList<>(Arrays.asList(
+            GoogleDrive.INSTANCE,
+            OneDrive.INSTANCE,
+            Dropbox.INSTANCE));
 
     /**
      * Where the mod first loads - before title screen or worlds, excludes
@@ -27,6 +40,13 @@ public class Core {
         RunningDirectory = Paths.get(System.getProperty("user.dir"));
         Config.InitializeConfig();
         Backupper.InitializeBackupper();
+
+        // Initialize cloud integrations
+        for (CloudIntegration cloudIntegration : cloudIntegrations) {
+            if (cloudIntegration.isEnabled()) {
+                cloudIntegration.initialize();
+            }
+        }
     }
 
     public static void OnWorldStarted(BackupRuntimeContext context) {
@@ -34,6 +54,9 @@ public class Core {
     }
 
     public static void OnWorldStopped() {
+        for (CloudIntegration cloudIntegration : cloudIntegrations) {
+            cloudIntegration.shutdown();
+        }
         Backupper.ShutdownBackupper();
     }
 

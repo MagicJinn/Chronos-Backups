@@ -462,7 +462,44 @@ val chronosRustPrunerResources =
     rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources")
 
 configure(packableSubprojects) {
+    val googleApiClientVersion =
+        rootProject.findProperty("chronos.google.api.client.version") as String? ?: "2.7.2"
+    val googleOauthClientVersion =
+        rootProject.findProperty("chronos.google.oauth.client.version") as String? ?: "1.36.0"
+    val googleDriveApiVersion =
+        rootProject.findProperty("chronos.google.api.services.drive.version") as String?
+            ?: "v3-rev20230822-2.0.0"
+    val googleDriveCoords =
+        listOf(
+            "com.google.api-client:google-api-client:$googleApiClientVersion",
+            "com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVersion",
+            "com.google.apis:google-api-services-drive:$googleDriveApiVersion",
+        )
+
+    pluginManager.withPlugin("java") {
+        // Variants compile core sources directly
+        dependencies {
+            for (coord in googleDriveCoords) {
+                "implementation"(coord)
+            }
+        }
+    }
     afterEvaluate {
+        // Fabric JiJ + legacy Forge flatten need configurations created by the variant buildscript.
+        if (name.startsWith("fabric-") && configurations.findByName("include") != null) {
+            dependencies {
+                for (coord in googleDriveCoords) {
+                    "include"(coord)
+                }
+            }
+        }
+        if (configurations.findByName("chronosEmbedded") != null) {
+            dependencies {
+                for (coord in googleDriveCoords) {
+                    "chronosEmbedded"(coord)
+                }
+            }
+        }
         tasks.matching { it.name == "build" || it.name == "jar" || it.name == "remapJar" }.configureEach {
             dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         }

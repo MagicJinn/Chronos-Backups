@@ -27,6 +27,16 @@ repositories {
 
 // Night Config is already on the compile/runtime classpath via NeoForge/FML - do not jar-in-jar or duplicate it here.
 
+dependencies {
+    val googleApiClientVer = rootProject.findProperty("chronos.google.api.client.version") ?: "2.7.2"
+    val googleOauthClientVer = rootProject.findProperty("chronos.google.oauth.client.version") ?: "1.36.0"
+    val googleDriveApiVer = rootProject.findProperty("chronos.google.api.services.drive.version") ?: "v3-rev20230822-2.0.0"
+    // Bundle Google Drive clients (NeoForge does not ship these).
+    jarJar(implementation("com.google.api-client:google-api-client:$googleApiClientVer")!!)
+    jarJar(implementation("com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVer")!!)
+    jarJar(implementation("com.google.apis:google-api-services-drive:$googleDriveApiVer")!!)
+}
+
 sourceSets.named("main") {
     // Shared NeoForge code plus optional line-specific trees under shell-neoforge/<line>/ (e.g. 1.20, 1.21, 26.1).
     // Prefer one unified jar per line, use line folders only when APIs diverge, not separate Gradle modules.
@@ -40,6 +50,9 @@ sourceSets.named("main") {
         rootProject.file("shell-neoforge/src/main/java"),
         rootProject.file("shell-neoforge/{{neoForgeLineDir}}/src/main/java"),
         {{neoShellExtraSrcKts}}
+    )
+    resources.srcDirs(
+        rootProject.file("core/src/main/resources"),
     )
     {{neoShellExcludeKts}}
 }

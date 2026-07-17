@@ -31,8 +31,17 @@ dependencies {
     // Night Config (NeoForge bundles this, Fabric needs both jars - core has ConfigFormat, toml is the TOML backend).
     include implementation("com.electronwill.night-config:core:${nightConfigVer}")
     include implementation("com.electronwill.night-config:toml:${nightConfigVer}")
+    def googleApiClientVer = rootProject.findProperty('chronos.google.api.client.version') ?: '2.7.2'
+    def googleOauthClientVer = rootProject.findProperty('chronos.google.oauth.client.version') ?: '1.36.0'
+    def googleDriveApiVer = rootProject.findProperty('chronos.google.api.services.drive.version') ?: 'v3-rev20230822-2.0.0'
+    include implementation("com.google.api-client:google-api-client:${googleApiClientVer}")
+    include implementation("com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}")
+    include implementation("com.google.apis:google-api-services-drive:${googleDriveApiVer}")
 }
 
+sourceSets.main.resources.srcDirs(
+    rootProject.file('core/src/main/resources'),
+)
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),

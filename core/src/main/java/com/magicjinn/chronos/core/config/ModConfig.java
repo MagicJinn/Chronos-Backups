@@ -15,7 +15,10 @@ public final class ModConfig {
      * 0 (or less) means "auto" (pruner picks a sensible default).
      */
     public int pruneMaxWorkerThreads = 0;
-    /** When false, automatic backups are disabled ({@code /chronos} manual backups still work). */
+    /**
+     * When false, automatic backups are disabled ({@code /chronos} manual backups
+     * still work).
+     */
     public boolean scheduleBackups = true;
     /** Seconds between automatic backup runs (whole numbers only). */
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
@@ -34,10 +37,8 @@ public final class ModConfig {
      */
     public CompressionMethod compressionMethod = CompressionMethod.ZIP;
 
-    /**
-     * Permission level (0-4) required to run {@code /chronos}.
-     */
-    public int commandRequiredPermissionLevel = 4;
+    /** Whether backups should be uploaded to Google Drive. */
+    public boolean googleDriveEnabled = false;
 
     /**
      * World-relative path segments or names to skip when copying the save for a
@@ -54,4 +55,9 @@ public final class ModConfig {
                     "DistantHorizons.sqlite-wal",
                     "DistantHorizons.sqlite-shm",
                     "ledger.sqlite"));
+
+    /**
+     * Permission level (0-4) required to run {@code /chronos}.
+     */
+    public int commandRequiredPermissionLevel = 4;
 }
