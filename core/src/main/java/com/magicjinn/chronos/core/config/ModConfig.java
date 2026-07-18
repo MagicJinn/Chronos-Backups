@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * In-memory loaded values for {@code chronos.toml}.
+ * Add a public field here, then register it once in {@link ChronosTomlSpec}.
+ */
 public final class ModConfig {
     /* The name of the folder that will contain the backups */
     public String backupFolderName = "backups";
@@ -36,6 +40,9 @@ public final class ModConfig {
      * basename (no cache, no archive).
      */
     public CompressionMethod compressionMethod = CompressionMethod.ZIP;
+
+    /** When true, local backups will be kept even if a cloud integration is enabled, and upload succeeds. */
+    public boolean shouldKeepLocalBackups = true;
 
     /** Whether backups should be uploaded to Google Drive. */
     public boolean googleDriveEnabled = false;

@@ -72,28 +72,7 @@ public final class Config {
     private static ModConfig loadFromToml(Path configPath, ModConfig defaults) {
         try (FileConfig cfg = FileConfig.of(configPath, TomlFormat.instance())) {
             cfg.load();
-            ModConfig out = new ModConfig();
-            out.backupFolderName = cfg.getOrElse(ChronosTomlSpec.KEY_BACKUP_FOLDER_NAME, defaults.backupFolderName);
-            out.pruneChunks = cfg.getOrElse(ChronosTomlSpec.KEY_PRUNE_CHUNKS, defaults.pruneChunks);
-            out.pruneTimeRequirementSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_PRUNE_TIME_REQUIREMENT_SECONDS,
-                    defaults.pruneTimeRequirementSeconds);
-            out.pruneMaxWorkerThreads = cfg.getIntOrElse(
-                    ChronosTomlSpec.KEY_PRUNE_MAX_WORKER_THREADS,
-                    defaults.pruneMaxWorkerThreads);
-            out.scheduleBackups = cfg.getOrElse(ChronosTomlSpec.KEY_SCHEDULE_BACKUPS, defaults.scheduleBackups);
-            out.backupIntervalSeconds = cfg.getIntOrElse(ChronosTomlSpec.KEY_BACKUP_INTERVAL_SECONDS,
-                    defaults.backupIntervalSeconds);
-            out.maxStoredBackups = cfg.getIntOrElse(ChronosTomlSpec.KEY_MAX_STORED_BACKUPS, defaults.maxStoredBackups);
-            out.compressionMethod = CompressionMethod.fromTomlValue(
-                    cfg.get(ChronosTomlSpec.KEY_COMPRESSION_METHOD),
-                    defaults.compressionMethod);
-            out.commandRequiredPermissionLevel = cfg.getIntOrElse(
-                    ChronosTomlSpec.KEY_COMMAND_REQUIRED_PERMISSION_LEVEL,
-                    defaults.commandRequiredPermissionLevel);
-            out.googleDriveEnabled = cfg.getOrElse(
-                    ChronosTomlSpec.KEY_GOOGLE_DRIVE_ENABLED,
-                    defaults.googleDriveEnabled);
-            loadCopyBlacklist(cfg, out, defaults);
+            ModConfig out = ChronosTomlSpec.load(cfg, defaults);
             int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
             if (fileVersion != ChronosTomlSpec.CONFIG_VERSION) {
                 LOG.info("Updating " + CONFIG_FILE_NAME + " from format v" + fileVersion + " to v"
@@ -104,25 +83,6 @@ public final class Config {
         } catch (Exception e) {
             LOG.severe("Failed to load " + CONFIG_FILE_NAME + ", using defaults: " + e.getMessage());
             return defaults;
-        }
-    }
-
-    private static void loadCopyBlacklist(FileConfig cfg, ModConfig out, ModConfig defaults) {
-        Object raw = cfg.get(ChronosTomlSpec.KEY_COPY_BLACKLIST);
-        if (!(raw instanceof List)) {
-            out.copyBlacklist = new ArrayList<>(defaults.copyBlacklist);
-            return;
-        }
-        List<?> fromFile = (List<?>) raw;
-        out.copyBlacklist = new ArrayList<>();
-        for (Object o : fromFile) {
-            if (o == null) {
-                continue;
-            }
-            String s = o.toString().trim();
-            if (!s.isEmpty()) {
-                out.copyBlacklist.add(s);
-            }
         }
     }
 
@@ -207,6 +167,11 @@ public final class Config {
     /** Compression method used for backups. */
     public static CompressionMethod getCompressionMethod() {
         return modConfig != null ? modConfig.compressionMethod : BUILTIN_DEFAULTS.compressionMethod;
+    }
+
+    /** When true, local backups will be kept even if a cloud integration is enabled, and upload succeeds. */
+    public static boolean shouldKeepLocalBackups() {
+        return modConfig != null ? modConfig.shouldKeepLocalBackups : BUILTIN_DEFAULTS.shouldKeepLocalBackups;
     }
 
     /** When true, Chronos may authorize and upload backups to Google Drive. */
