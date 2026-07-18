@@ -81,6 +81,11 @@ public final class GoogleDrive implements CloudIntegration {
     }
 
     @Override
+    public String getDisplayName() {
+        return "Google Drive";
+    }
+
+    @Override
     public boolean isEnabled() {
         return Config.isGoogleDriveEnabled();
     }

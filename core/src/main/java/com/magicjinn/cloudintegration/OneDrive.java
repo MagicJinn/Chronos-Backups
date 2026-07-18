@@ -15,6 +15,11 @@ public class OneDrive implements CloudIntegration {
     }
 
     @Override
+    public String getDisplayName() {
+        return "OneDrive";
+    }
+
+    @Override
     public boolean isEnabled() {
         return false; // TODO: config flag
     }

@@ -15,6 +15,11 @@ public class Dropbox implements CloudIntegration {
     }
 
     @Override
+    public String getDisplayName() {
+        return "Dropbox";
+    }
+
+    @Override
     public boolean isEnabled() {
         return false; // TODO: config flag
     }

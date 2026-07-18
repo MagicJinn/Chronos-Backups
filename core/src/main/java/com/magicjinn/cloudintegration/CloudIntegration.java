@@ -6,8 +6,11 @@ import java.io.IOException;
  * Remote backup destination (Google Drive, OneDrive, Dropbox, ...).
  */
 public interface CloudIntegration {
-    /** Stable id for logs, e.g. {@code "gdrive"}. */
+    /** Stable machine id, e.g. {@code "gdrive"}. */
     String getId();
+
+    /** Human-readable name for logs, e.g. {@code "Google Drive"}. */
+    String getDisplayName();
 
     /** Whether this provider is turned on in config. */
     boolean isEnabled();

@@ -171,18 +171,18 @@ public final class CloudSync {
 
             if (!cloud.isReady()) {
                 // If enabled, but not ready, skip the sync
-                LOG.info("Cloud sync skipped for " + cloud.getId() + " (not ready yet).");
+                LOG.info("Cloud sync skipped for " + cloud.getDisplayName() + " (not ready yet).");
                 allOk = false;
                 continue;
             }
             anyAttempted = true;
             try {
-                LOG.info("Cloud sync starting for " + cloud.getId() + "...");
+                LOG.info("Cloud sync starting for " + cloud.getDisplayName() + "...");
                 cloud.synchronize();
-                LOG.info("Cloud sync finished for " + cloud.getId() + ".");
+                LOG.info("Cloud sync finished for " + cloud.getDisplayName() + ".");
             } catch (Exception e) {
                 allOk = false;
-                LOG.error("Cloud sync failed for " + cloud.getId() + ": " + e.getMessage(), e);
+                LOG.error("Cloud sync failed for " + cloud.getDisplayName() + ": " + e.getMessage(), e);
             }
         }
 
