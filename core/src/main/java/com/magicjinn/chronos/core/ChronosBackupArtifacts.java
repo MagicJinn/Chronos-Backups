@@ -85,9 +85,16 @@ public final class ChronosBackupArtifacts {
         return backupId + ".zip";
     }
 
-    /** Whether {@code name} looks like a Chronos zip or folder backup. */
-    public static boolean isChronosBackupName(String name) {
-        if (name == null || name.isEmpty() || name.startsWith(".")) {
+    /**
+     * Whether {@code name} is a Chronos zip or folder backup for {@code worldName}.
+     * Requires {@code {sanitizedWorld}-{timestamp}(.zip)?}, matching {@link #newBackupId}.
+     */
+    public static boolean isChronosBackupName(String name, String worldName) {
+        if (name == null || name.isEmpty() || name.startsWith(".") || worldName == null) {
+            return false;
+        }
+        String prefix = sanitizeWorldDirName(worldName) + "-";
+        if (!name.startsWith(prefix)) {
             return false;
         }
         return TIMESTAMP_SUFFIX.matcher(name).find();

@@ -469,11 +469,23 @@ configure(packableSubprojects) {
     val googleDriveApiVersion =
         rootProject.findProperty("chronos.google.api.services.drive.version") as String?
             ?: "v3-rev20230822-2.0.0"
+    val googleHttpClientVersion =
+        rootProject.findProperty("chronos.google.http.client.version") as String? ?: "1.45.2"
+    val googleAuthLibraryVersion =
+        rootProject.findProperty("chronos.google.auth.library.version") as String? ?: "1.30.0"
+    // Direct + nestable transitives. Fabric `include` / Forge flatten do not nest transitives.
     val googleDriveCoords =
         listOf(
             "com.google.api-client:google-api-client:$googleApiClientVersion",
             "com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVersion",
+            "com.google.oauth-client:google-oauth-client-java6:$googleOauthClientVersion",
+            "com.google.oauth-client:google-oauth-client:$googleOauthClientVersion",
             "com.google.apis:google-api-services-drive:$googleDriveApiVersion",
+            "com.google.http-client:google-http-client:$googleHttpClientVersion",
+            "com.google.http-client:google-http-client-gson:$googleHttpClientVersion",
+            "com.google.http-client:google-http-client-apache-v2:$googleHttpClientVersion",
+            "com.google.auth:google-auth-library-oauth2-http:$googleAuthLibraryVersion",
+            "com.google.auth:google-auth-library-credentials:$googleAuthLibraryVersion",
         )
 
     /**

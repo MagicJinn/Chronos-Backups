@@ -34,9 +34,19 @@ dependencies {
     def googleApiClientVer = rootProject.findProperty('chronos.google.api.client.version') ?: '2.7.2'
     def googleOauthClientVer = rootProject.findProperty('chronos.google.oauth.client.version') ?: '1.36.0'
     def googleDriveApiVer = rootProject.findProperty('chronos.google.api.services.drive.version') ?: 'v3-rev20230822-2.0.0'
+    def googleHttpClientVer = rootProject.findProperty('chronos.google.http.client.version') ?: '1.45.2'
+    def googleAuthLibraryVer = rootProject.findProperty('chronos.google.auth.library.version') ?: '1.30.0'
+    // Loom `include` nests only the named artifact, not transitives. Nest the Drive stack explicitly.
     include implementation("com.google.api-client:google-api-client:${googleApiClientVer}")
     include implementation("com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}")
+    include implementation("com.google.oauth-client:google-oauth-client-java6:${googleOauthClientVer}")
+    include implementation("com.google.oauth-client:google-oauth-client:${googleOauthClientVer}")
     include implementation("com.google.apis:google-api-services-drive:${googleDriveApiVer}")
+    include implementation("com.google.http-client:google-http-client:${googleHttpClientVer}")
+    include implementation("com.google.http-client:google-http-client-gson:${googleHttpClientVer}")
+    include implementation("com.google.http-client:google-http-client-apache-v2:${googleHttpClientVer}")
+    include implementation("com.google.auth:google-auth-library-oauth2-http:${googleAuthLibraryVer}")
+    include implementation("com.google.auth:google-auth-library-credentials:${googleAuthLibraryVer}")
 }
 
 sourceSets.main.resources.srcDirs(

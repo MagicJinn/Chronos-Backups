@@ -746,11 +746,12 @@ public final class Backupper {
         }
         try {
             List<Path> backups = new ArrayList<>();
+            String worldName = worldBackupDir.getFileName().toString();
             try (DirectoryStream<Path> ds = Files.newDirectoryStream(worldBackupDir)) {
                 for (Path p : ds) {
                     String name = p.getFileName().toString();
                     // Only Chronos-named artifacts. Never delete unrelated user files.
-                    if (!ChronosBackupArtifacts.isChronosBackupName(name)) {
+                    if (!ChronosBackupArtifacts.isChronosBackupName(name, worldName)) {
                         continue;
                     }
                     if (Files.isRegularFile(p) && name.endsWith(".zip")) {

@@ -16,8 +16,9 @@ class ChronosBackupArtifactsTest {
         String id = ChronosBackupArtifacts.newBackupId(
                 "New World", LocalDateTime.of(2026, 7, 18, 13, 23, 3, 525_000_000));
         assertEquals("New World-2026-07-18_13-23-03.525", id);
-        assertTrue(ChronosBackupArtifacts.isChronosBackupName(id));
-        assertTrue(ChronosBackupArtifacts.isChronosBackupName(ChronosBackupArtifacts.zipFileName(id)));
+        assertTrue(ChronosBackupArtifacts.isChronosBackupName(id, "New World"));
+        assertTrue(ChronosBackupArtifacts.isChronosBackupName(
+                ChronosBackupArtifacts.zipFileName(id), "New World"));
     }
 
     @Test
@@ -27,18 +28,31 @@ class ChronosBackupArtifactsTest {
     }
 
     @Test
-    void acceptsChronosZipAndFolderNames() {
-        assertTrue(ChronosBackupArtifacts.isChronosBackupName("world-2026-07-18_12-00-00.123.zip"));
-        assertTrue(ChronosBackupArtifacts.isChronosBackupName("world-2026-07-18_12-00-00.123"));
-        assertTrue(ChronosBackupArtifacts.isChronosBackupName("My World-2026-07-18_12-00-00.123.zip"));
+    void acceptsChronosZipAndFolderNamesForMatchingWorld() {
+        assertTrue(ChronosBackupArtifacts.isChronosBackupName(
+                "world-2026-07-18_12-00-00.123.zip", "world"));
+        assertTrue(ChronosBackupArtifacts.isChronosBackupName(
+                "world-2026-07-18_12-00-00.123", "world"));
+        assertTrue(ChronosBackupArtifacts.isChronosBackupName(
+                "My World-2026-07-18_12-00-00.123.zip", "My World"));
     }
 
     @Test
     void rejectsUnrelatedNames() {
-        assertFalse(ChronosBackupArtifacts.isChronosBackupName("notes.zip"));
-        assertFalse(ChronosBackupArtifacts.isChronosBackupName("manual-backup"));
-        assertFalse(ChronosBackupArtifacts.isChronosBackupName(".cache"));
-        assertFalse(ChronosBackupArtifacts.isChronosBackupName(null));
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName("notes.zip", "world"));
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName("manual-backup", "world"));
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName(".cache", "world"));
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName(null, "world"));
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName(
+                "world-2026-07-18_12-00-00.123.zip", null));
+    }
+
+    @Test
+    void rejectsTimestampedNameForWrongWorld() {
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName(
+                "notes-2026-07-18_12-00-00.123.zip", "world"));
+        assertFalse(ChronosBackupArtifacts.isChronosBackupName(
+                "other-2026-07-18_12-00-00.123.zip", "world"));
     }
 
     @Test

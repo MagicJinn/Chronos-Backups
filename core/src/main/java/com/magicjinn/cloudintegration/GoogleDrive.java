@@ -158,12 +158,12 @@ public final class GoogleDrive implements CloudIntegration {
             String rootFolderId,
             int maxStored,
             boolean keepLocal) throws IOException {
-        List<Path> localBackups = listLocalChronosBackups(worldDir);
+        List<Path> localBackups = listLocalChronosBackups(worldDir, worldName);
         if (localBackups.isEmpty() && maxStored < 1)
             return;
 
         String worldFolderId = findOrCreateFolder(rootFolderId, worldName);
-        Map<String, RemoteFile> remoteByName = listRemoteChronosBackups(worldFolderId);
+        Map<String, RemoteFile> remoteByName = listRemoteChronosBackups(worldFolderId, worldName);
 
         // Oldest first so catch-up fills history in order.
         localBackups.sort(Comparator.comparingLong(
@@ -175,14 +175,13 @@ public final class GoogleDrive implements CloudIntegration {
             if (remoteByName.containsKey(remoteName))
                 continue;
 
-            if (maxStored >= 1) {
-                // Leave one slot for the upload about to happen.
-                trimRemoteToAtMost(remoteByName, maxStored - 1);
-            }
             uploadLocalBackup(local, remoteName, worldFolderId, remoteByName);
 
             if (!keepLocal)
                 deleteLocalBackup(local);
+
+            if (maxStored >= 1)
+                trimRemoteToAtMost(remoteByName, maxStored);
         }
 
         // Cap remotes even when nothing new uploaded (e.g. maxStored lowered).
@@ -270,12 +269,12 @@ public final class GoogleDrive implements CloudIntegration {
         return oldest;
     }
 
-    private List<Path> listLocalChronosBackups(Path worldDir) throws IOException {
+    private List<Path> listLocalChronosBackups(Path worldDir, String worldName) throws IOException {
         List<Path> out = new ArrayList<Path>();
         try (DirectoryStream<Path> dirStream = Files.newDirectoryStream(worldDir)) {
             for (Path pa : dirStream) {
                 String name = pa.getFileName().toString();
-                if (!ChronosBackupArtifacts.isChronosBackupName(name))
+                if (!ChronosBackupArtifacts.isChronosBackupName(name, worldName))
                     continue;
                 
                 if (Files.isRegularFile(pa) && name.endsWith(".zip")) {
@@ -288,7 +287,8 @@ public final class GoogleDrive implements CloudIntegration {
         return out;
     }
 
-    private Map<String, RemoteFile> listRemoteChronosBackups(String parentId) throws IOException {
+    private Map<String, RemoteFile> listRemoteChronosBackups(String parentId, String worldName)
+            throws IOException {
         Map<String, RemoteFile> out = new HashMap<String, RemoteFile>();
         String pageToken = null;
         do {
@@ -309,7 +309,8 @@ public final class GoogleDrive implements CloudIntegration {
             if (files != null) {
                 for (File f : files) {
                     String name = f.getName();
-                    if (ChronosBackupArtifacts.isChronosBackupName(name) && name.endsWith(".zip"))
+                    if (ChronosBackupArtifacts.isChronosBackupName(name, worldName)
+                            && name.endsWith(".zip"))
                         out.put(name, new RemoteFile(f.getId(), name));
                 }
             }
