@@ -8,6 +8,9 @@ This page documents the changes and fixes made in Chronos Backups, compared to t
 - Improve world discovery to no longer rely on `level.dat` / dataversion
 - Reduce main-thread blocking during world flush
 - Fix speedtest failing to do a backup if the flush took longer than its duration
+- Add optional Google Drive backup sync (enable in config, authorize via the URL printed in the console)
+- - Add `shouldKeepLocalBackups` so uploads can leave or remove the local copy after a successful sync
+- Changed `maxStoredBackups` to only delete Chronos-named backup files when trimming (manually placed files in the backup folder are left alone)
 
 ## 1.0.1
 
