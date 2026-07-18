@@ -690,7 +690,9 @@ val verifyTestServerNativeJars =
 
 tasks.register("buildAll") {
     group = "build"
-    description = "Builds every included variant subproject and collects final jars."
+    description =
+        "Runs :core:test, builds every included variant subproject, and collects final jars."
+    dependsOn(":core:test")
     dependsOn(collectAllJars)
 }
 

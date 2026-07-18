@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
+import com.magicjinn.chronos.shell.ChronosConstants;
 import java.io.File;
 import java.nio.file.Path;
 import net.minecraft.server.MinecraftServer;
@@ -9,8 +10,6 @@ import net.minecraft.world.WorldServer;
 
 /** MCP 1.12 {@link MinecraftServer} snapshot passed through stable mappings. */
 public final class ForgeServerEnvironment implements ServerEnvironment {
-    private static final String DEFAULT_WORLD_NAME = "world";
-
     private final MinecraftServer server;
 
     public ForgeServerEnvironment(MinecraftServer server) {
@@ -30,7 +29,7 @@ public final class ForgeServerEnvironment implements ServerEnvironment {
             if (folder != null && !folder.trim().isEmpty()) {
                 return folder;
             }
-            return DEFAULT_WORLD_NAME;
+            return ChronosConstants.DEFAULT_WORLD_NAME;
         }
 
         WorldServer[] worlds = server.worlds;
@@ -40,7 +39,7 @@ public final class ForgeServerEnvironment implements ServerEnvironment {
                 return name;
             }
         }
-        return DEFAULT_WORLD_NAME;
+        return ChronosConstants.DEFAULT_WORLD_NAME;
     }
 
     @Override

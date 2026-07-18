@@ -157,8 +157,8 @@ public final class Config {
     }
 
     /**
-     * Maximum backups per world directory. Values below 1 disable automatic
-     * deletion of older backups.
+     * Maximum backups per world locally and on each enabled cloud destination.
+     * Values below 1 disable automatic deletion of older backups.
      */
     public static int getMaxStoredBackups() {
         return modConfig != null ? modConfig.maxStoredBackups : BUILTIN_DEFAULTS.maxStoredBackups;

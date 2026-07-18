@@ -28,7 +28,7 @@ public final class ModConfig {
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 
     /**
-     * Maximum number of backup artifacts kept per world.
+     * Maximum number of backup artifacts kept per world (local and remote).
      * Values less than 1 disable automatic deletion of older backups.
      */
     public int maxStoredBackups = 5;

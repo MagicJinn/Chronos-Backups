@@ -1,7 +1,6 @@
 package com.magicjinn.cloudintegration;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 public class OneDrive implements CloudIntegration {
     public static final OneDrive INSTANCE = new OneDrive();
@@ -31,16 +30,8 @@ public class OneDrive implements CloudIntegration {
     }
 
     @Override
-    public void uploadBackup(Path localBackup, String worldName) throws IOException {
-        throw new IOException("OneDrive upload is not implemented yet");
-    }
-
-    @Override
-    public void trimOldBackups(String worldName, int maxStored) throws IOException {
-        if (maxStored < 1) {
-            return;
-        }
-        throw new IOException("OneDrive retention trim is not implemented yet");
+    public void synchronize() throws IOException {
+        // TODO: Implement OneDrive synchronization
     }
 
     @Override

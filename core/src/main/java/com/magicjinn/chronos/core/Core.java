@@ -9,6 +9,7 @@ import java.util.List;
 import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.chronos.shell.ChronosConstants;
 import com.magicjinn.cloudintegration.CloudIntegration;
+import com.magicjinn.cloudintegration.CloudSync;
 import com.magicjinn.cloudintegration.Dropbox;
 import com.magicjinn.cloudintegration.GoogleDrive;
 import com.magicjinn.cloudintegration.OneDrive;
@@ -41,19 +42,28 @@ public class Core {
         Config.InitializeConfig();
         Backupper.InitializeBackupper();
 
+        CloudSync.registerIntegrations(cloudIntegrations);
+        CloudSync.resetForNewSession();
+
         // Initialize cloud integrations
         for (CloudIntegration cloudIntegration : cloudIntegrations) {
             if (cloudIntegration.isEnabled()) {
                 cloudIntegration.initialize();
             }
         }
+
+        // On loader start, request a sync resume any previous sync that was interrupted
+        CloudSync.requestSync();
     }
 
     public static void OnWorldStarted(BackupRuntimeContext context) {
+        CloudSync.resetForNewSession();
         Scheduler.InitializeScheduler(context);
+        CloudSync.requestSync();
     }
 
     public static void OnWorldStopped() {
+        CloudSync.shutdown();
         for (CloudIntegration cloudIntegration : cloudIntegrations) {
             cloudIntegration.shutdown();
         }

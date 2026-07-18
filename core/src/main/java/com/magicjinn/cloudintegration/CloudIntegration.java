@@ -1,7 +1,6 @@
 package com.magicjinn.cloudintegration;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 /**
  * Remote backup destination (Google Drive, OneDrive, Dropbox, ...).
@@ -19,13 +18,11 @@ public interface CloudIntegration {
     /** Resume tokens or start auth when enabled. */
     void initialize();
 
-    /** Upload one finished local backup artifact. */
-    void uploadBackup(Path localBackup, String worldName) throws IOException;
-
     /**
-     * Keep at most <code>maxStored</code> remote backups for this world.
+     * Upload local Chronos backups missing remotely, trim remote to
+     * {@code maxStoredBackups}, and optionally delete locals after upload.
      */
-    void trimOldBackups(String worldName, int maxStored) throws IOException;
+    void synchronize() throws IOException;
 
     /** Cancel in-flight work (e.g. on world stop). */
     void shutdown();

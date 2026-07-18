@@ -22,6 +22,7 @@
 - Scheduled and manual backups via an in-game `/chronos` command with a configurable permission level.
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
+- Cloud sync: upload finished backups to your cloud provider of choice, and optionally delete them locally after a successful upload. Currently supported: Google Drive.
 
 ## Commands
 
@@ -32,6 +33,22 @@
 | `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic. not for normal use). |
 
 The required permission level defaults to **4**.
+
+## Cloud sync
+
+Chronos can upload finished backups to a remote cloud provider, then optionally remove the local copy.
+
+### Behaviour
+
+- Local backups missing from the remote are uploaded, including catch-up after a failed upload or a restart.
+- `maxStoredBackups` also caps how many Chronos backups each enabled provider keeps per world (oldest removed first). Values below 1 disable automatic removal locally and remotely.
+- If `shouldKeepLocalBackups` is `false`, a backup is deleted from disk (only after it has been uploaded successfully).
+
+### Providers
+
+Currently supported: **Google Drive**. Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
+
+Google Drive was chosen because it is the most popular cloud provider, and has the most generous free tier, with 15GB of storage. OneDrive and Dropbox are planned. They are not available yet.
 
 ## Limitations
 
@@ -84,8 +101,10 @@ The mod's configuration is stored in the `config/chronos.toml` file. This file i
 - `pruneMaxWorkerThreads`: Maximum worker threads for pruning. 0 (or less) means "auto" (pruner picks a sensible default).
 - `scheduleBackups`: Whether to run backups on a timer.
 - `backupIntervalSeconds`: Seconds between automatic backup runs.
-- `maxStoredBackups`: Maximum backups kept per world. After a successful backup, oldest backups are removed if the limit is exceeded. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
+- `maxStoredBackups`: Maximum backups kept per world locally and on each enabled cloud destination. After a successful backup, oldest local backups are removed if the limit is exceeded. Cloud sync also trims remote Chronos backups to this cap. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
 - `compressionMethod`: Whether to compress the backups into a zip file or store it as an uncompressed folder. Accepts `"zip"` or `"none"`.
+- `googleDriveEnabled`: Enable Google Drive as a cloud sync destination (see [Cloud sync](#cloud-sync)).
+- `shouldKeepLocalBackups`: When `true`, keep local backups after a successful cloud upload. When `false`, delete each local backup once it has been uploaded.
 - `commandRequiredPermissionLevel`: Permission level required to run `/chronos`.
 - `copyBlacklist`: Folders and files to exclude from the backup.
 
