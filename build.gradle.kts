@@ -476,11 +476,25 @@ configure(packableSubprojects) {
             "com.google.apis:google-api-services-drive:$googleDriveApiVersion",
         )
 
+    /**
+     * Minecraft / NeoForge already ship these (often with `{strictly ...}`). Pulling Google's
+     * newer transitives makes compileClasspath unsatisfiable on NeoForge 1.20+.
+     */
+    fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvidedGoogleTransitives() {
+        exclude(group = "com.google.guava")
+        exclude(group = "com.google.code.gson")
+        exclude(group = "commons-codec")
+        exclude(group = "org.apache.httpcomponents")
+        exclude(group = "commons-logging")
+    }
+
     pluginManager.withPlugin("java") {
-        // Variants compile core sources directly
-        dependencies {
-            for (coord in googleDriveCoords) {
-                "implementation"(coord)
+        // NeoForge variants already jarJar(implementation(...)) Google Drive in their buildscript.
+        if (!name.startsWith("neoforge-")) {
+            dependencies {
+                for (coord in googleDriveCoords) {
+                    "implementation"(coord) { excludeMinecraftProvidedGoogleTransitives() }
+                }
             }
         }
     }
@@ -489,14 +503,14 @@ configure(packableSubprojects) {
         if (name.startsWith("fabric-") && configurations.findByName("include") != null) {
             dependencies {
                 for (coord in googleDriveCoords) {
-                    "include"(coord)
+                    "include"(coord) { excludeMinecraftProvidedGoogleTransitives() }
                 }
             }
         }
         if (configurations.findByName("chronosEmbedded") != null) {
             dependencies {
                 for (coord in googleDriveCoords) {
-                    "chronosEmbedded"(coord)
+                    "chronosEmbedded"(coord) { excludeMinecraftProvidedGoogleTransitives() }
                 }
             }
         }

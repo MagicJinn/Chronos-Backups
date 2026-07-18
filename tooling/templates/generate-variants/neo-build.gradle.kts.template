@@ -31,10 +31,24 @@ dependencies {
     val googleApiClientVer = rootProject.findProperty("chronos.google.api.client.version") ?: "2.7.2"
     val googleOauthClientVer = rootProject.findProperty("chronos.google.oauth.client.version") ?: "1.36.0"
     val googleDriveApiVer = rootProject.findProperty("chronos.google.api.services.drive.version") ?: "v3-rev20230822-2.0.0"
-    // Bundle Google Drive clients (NeoForge does not ship these).
-    jarJar(implementation("com.google.api-client:google-api-client:$googleApiClientVer")!!)
-    jarJar(implementation("com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVer")!!)
-    jarJar(implementation("com.google.apis:google-api-services-drive:$googleDriveApiVer")!!)
+    // Bundle Google Drive clients (NeoForge does not ship these). Exclude libs Minecraft already
+    // provides with strictly pinned versions, otherwise compileClasspath cannot resolve.
+    fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvided() {
+        exclude(group = "com.google.guava")
+        exclude(group = "com.google.code.gson")
+        exclude(group = "commons-codec")
+        exclude(group = "org.apache.httpcomponents")
+        exclude(group = "commons-logging")
+    }
+    jarJar(implementation("com.google.api-client:google-api-client:$googleApiClientVer")!! {
+        excludeMinecraftProvided()
+    })
+    jarJar(implementation("com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVer")!! {
+        excludeMinecraftProvided()
+    })
+    jarJar(implementation("com.google.apis:google-api-services-drive:$googleDriveApiVer")!! {
+        excludeMinecraftProvided()
+    })
 }
 
 sourceSets.named("main") {
