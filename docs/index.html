@@ -26,7 +26,7 @@
 <body>
   <header class="site-header">
     <a class="brand" href="/">
-      <img src="icon.png" width="32" height="32" alt="">
+      <img src="icon.png" width="36" height="36" alt="Chronos Backups logo">
       Chronos Backups
     </a>
     <nav class="site-nav" aria-label="Site">
@@ -40,10 +40,11 @@
     <img class="hero-banner" src="banner.png" alt="" width="1920" height="480" decoding="async">
     <div class="hero-vignette" aria-hidden="true"></div>
     <div class="hero-content">
+      <img class="hero-logo" src="icon.png" width="104" height="104" alt="Chronos Backups logo">
       <h1>Chronos Backups</h1>
       <p class="hero-pitch">
-        Keep Minecraft worlds safe without filling the disk. Smart chunk pruning,
-        broad loader support, and optional Google Drive sync.
+        Keep Minecraft worlds safe without filling your disk. Smart chunk pruning,
+        the broadest loader range of any backup mod, and optional Google Drive sync.
       </p>
       <div class="cta-row">
         <a class="cta" href="https://modrinth.com/mod/chronos-backups">Modrinth</a>
@@ -60,14 +61,41 @@
   <section id="about" class="section">
     <h2>What it does</h2>
     <p>
-      Chronos is a serverside Minecraft backup utility. It prunes aged chunks so
-      backups stay small while preserving the parts of the world that matter.
+      Chronos Backups is a multi-loader, multi-version Minecraft backup utility that
+      keeps your world safe without filling your disk. Instead of backing up every
+      chunk, it intelligently prunes backups to include only the most important parts
+      of your world, dramatically reducing backup size while preserving the areas that
+      actually matter. A shared core with loader-specific shells lets it run on Fabric,
+      NeoForge, Forge, and Bukkit/Spigot/Paper/Purpur/Folia from 1.7.x through the
+      latest releases. The mod is completely serverside, so vanilla clients can still
+      play while it is installed.
+    </p>
+    <p>
+      Backups can be triggered manually or run on a schedule. Backup frequency, along
+      with many other settings such as a copy-blacklist prefilled with sensible defaults
+      for common server setups, can all be configured. Compression can be set to zip or
+      none, and you can set a maximum number of backups to keep. Optional cloud sync can
+      upload finished backups to Google Drive, enforce the same retention cap remotely,
+      and optionally delete local copies after a successful upload.
+    </p>
+    <p>
+      At the heart of Chronos is a custom Rust-native chunk pruning library, built for
+      speed using MCA parsing and NBT processing. Chronos prioritizes aged world data.
+      Chunks that are not old enough yet (based on configurable playtime thresholds)
+      can be left out of a backup, so backups stay smaller while keeping the areas that
+      matter.
+    </p>
+    <p>
+      Reliability across more than 100 Minecraft version and loader combinations is
+      backed by a dedicated testing toolchain. A Docker-based <code>testServers</code>
+      suite spins up a dedicated server for every supported combination, and GitHub
+      Actions CI cross-compiles native Rust libraries on Linux, Windows, and macOS
+      before building every variant JAR.
     </p>
     <ul class="feature-list">
-      <li>Runs on Fabric, NeoForge, Forge, and Bukkit/Spigot/Paper/Purpur/Folia across a wide version range.</li>
       <li>Scheduled or manual backups via <code>/chronos</code>, with configurable retention and compression.</li>
-      <li>Optional cloud sync to Google Drive, including remote retention and dropping local copies after upload.</li>
-      <li>Rust-native chunk pruning for speed, with Docker and CI coverage across many loader/version builds.</li>
+      <li>Optional Google Drive sync with remote retention and optional drop of local copies after upload.</li>
+      <li>Nightly builds on GitHub, stable releases on Modrinth and CurseForge.</li>
     </ul>
     <p class="byline">
       Open source by <a href="https://magicjinn.net/">MagicJinn</a>.

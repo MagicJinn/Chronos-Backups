@@ -6,11 +6,13 @@ on:
     paths-ignore:
       - "**/*.md"
       - "**/*.html"
+      - "**/*.css"
       - "tooling/publish/**"
   pull_request:
     paths-ignore:
       - "**/*.md"
       - "**/*.html"
+      - "**/*.css"
       - "tooling/publish/**"
 
 jobs:
