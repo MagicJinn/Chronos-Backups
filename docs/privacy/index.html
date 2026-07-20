@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chronos Backups — Privacy Policy</title>
+  <meta name="description" content="Privacy policy for Chronos Backups and its optional Google Drive OAuth sync.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://chronos.magicjinn.net/privacy/">
+  <link rel="icon" type="image/png" href="../icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">
+      <img src="../icon.png" width="32" height="32" alt="">
+      Chronos Backups
+    </a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/">Home</a>
+      <a href="https://github.com/MagicJinn/Chronos-Backups">GitHub</a>
+    </nav>
+  </header>
+
+  <main class="privacy-wrap">
+    <article class="privacy-panel">
+      <h1>Chronos Backups Privacy Policy</h1>
+      <p class="meta">Last updated: 20 July 2026</p>
+
+      <p>
+        Chronos Backups (“Chronos”, “we”, “us”) is an open-source Minecraft mod by
+        MagicJinn. Optional Google Drive sync uses Google's standard installed-app
+        OAuth flow. Chronos does not collect any more data than that default Google
+        Drive OAuth integration requires for the scopes and APIs we request.
+      </p>
+
+      <h2>Who this applies to</h2>
+      <p>
+        This policy covers the Chronos Backups Google OAuth client and the mod's
+        optional Google Drive backup feature. It does not cover Google's own
+        services. Google's handling of your account and Drive data is governed by
+        <a href="https://policies.google.com/privacy">Google's Privacy Policy</a>.
+      </p>
+
+      <h2>Data we access</h2>
+      <p>Only if you enable Google Drive sync and complete authorization:</p>
+      <ul>
+        <li>
+          <strong>Google account authorization.</strong> OAuth tokens needed to call
+          the Google Drive API on your behalf (standard Google OAuth credentials for
+          an installed application).
+        </li>
+        <li>
+          <strong>Drive files created by Chronos.</strong> We request the
+          <code>drive.file</code> scope. Chronos may create, read, update, list, and
+          delete files and folders that Chronos itself created in your Google Drive
+          (your Chronos backups and related folders). Chronos cannot access other
+          Drive files you did not open or create with this app.
+        </li>
+        <li>
+          <strong>Backup contents you choose to sync.</strong> World backup archives
+          or folders produced by Chronos on the machine running the mod or server,
+          uploaded to your Drive when sync is enabled.
+        </li>
+      </ul>
+
+      <h2>How that data is used</h2>
+      <ul>
+        <li>Authenticate with Google Drive after you approve access.</li>
+        <li>Upload finished Chronos backups to your Google Drive.</li>
+        <li>List Chronos backup files for sync and retention.</li>
+        <li>Delete older Chronos backups on Drive when your config caps how many to keep.</li>
+      </ul>
+      <p>We do not use this access for advertising, analytics, or profiling.</p>
+
+      <h2>Where data is stored</h2>
+      <ul>
+        <li>
+          <strong>On your machine:</strong> OAuth tokens are stored locally under
+          <code>google-drive-tokens/</code> on the computer or server running Chronos.
+        </li>
+        <li>
+          <strong>In your Google account:</strong> Uploaded backups live in your
+          Google Drive.
+        </li>
+        <li>
+          <strong>Not on our servers:</strong> Chronos does not operate a backend that
+          receives your backups, Google tokens, or Google profile data. Uploads go
+          from your machine to Google.
+        </li>
+      </ul>
+
+      <h2>Sharing and sale of data</h2>
+      <p>
+        We do not sell your data. We do not share your backups or tokens with third
+        parties, because we do not receive them. The only third party involved in
+        Drive sync is Google, when your client talks to Google's APIs under your
+        authorization.
+      </p>
+      <p>
+        Anyone with access to your machine or the local token folder can use those
+        tokens to manage Chronos-created Drive files for that link. Protect that
+        environment accordingly.
+      </p>
+
+      <h2>Your choices</h2>
+      <ul>
+        <li>Leave <code>googleDriveEnabled</code> off. No Google OAuth or Drive API use occurs.</li>
+        <li>Revoke Chronos in
+          <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.</li>
+        <li>Delete the local <code>google-drive-tokens/</code> folder.</li>
+        <li>Delete Chronos backup files from your Google Drive in the Drive UI.</li>
+      </ul>
+
+      <h2>Changes</h2>
+      <p>
+        If what we access, store, or request from Google changes, we will update this
+        page and the “last updated” date.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about this policy:
+        <a href="https://github.com/MagicJinn/Chronos-Backups/issues">GitHub Issues</a>
+        on the Chronos Backups repository.
+      </p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <a href="/">Chronos Backups</a>
+    · by <a href="https://magicjinn.net/">MagicJinn</a>
+  </footer>
+</body>
+</html>
