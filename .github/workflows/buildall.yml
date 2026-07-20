@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths-ignore:
       - "**/*.md"
+      - "**/*.html"
       - "tooling/publish/**"
   pull_request:
     paths-ignore:
       - "**/*.md"
+      - "**/*.html"
       - "tooling/publish/**"
 
 jobs:

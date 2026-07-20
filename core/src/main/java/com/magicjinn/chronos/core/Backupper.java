@@ -10,8 +10,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,6 +23,7 @@ import java.util.zip.ZipOutputStream;
 
 import com.magicjinn.chronos.core.config.CompressionMethod;
 import com.magicjinn.chronos.core.config.Config;
+import com.magicjinn.cloudintegration.CloudSync;
 
 /**
  * Version-agnostic backup implementation.
@@ -37,14 +36,6 @@ public final class Backupper {
     private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
 
     private static final String CACHE_FOLDER_NAME = ".cache";
-    /**
-     * Includes milliseconds so rapid successive backups (e.g. speedtests) get
-     * distinct file names.
-     * Otherwise {@link #zipSnapshot} would {@code deleteIfExists} the same path and
-     * drop prior zips.
-     */
-    private static final DateTimeFormatter BACKUP_TIMESTAMP_FORMAT = DateTimeFormatter
-            .ofPattern("yyyy-MM-dd_HH-mm-ss.SSS");
 
     private static Path chronosFolder;
     private static Path cacheFolder;
@@ -227,6 +218,8 @@ public final class Backupper {
                 + averages;
         session.context.logInfo(summary);
         session.context.sendChat(summary);
+        // One catch-up sync after the burst, never per speedtest backup.
+        CloudSync.requestSync();
     }
 
     /**
@@ -399,16 +392,17 @@ public final class Backupper {
         Path worldPath = scope.snapshotLayoutRoot();
 
         final CompressionMethod compressionMethod = Config.getCompressionMethod();
-        final String safeWorldDirName = sanitizeWorldBackupSubdir(context.getWorldName());
+        final String safeWorldDirName = ChronosBackupArtifacts.sanitizeWorldDirName(context.getWorldName());
         final Path worldBackupDir = chronosFolder.resolve(safeWorldDirName);
-        final String backupId = safeWorldDirName + "-" + BACKUP_TIMESTAMP_FORMAT.format(LocalDateTime.now());
+        // Milliseconds keep rapid successive backups (e.g. speedtests) distinct.
+        final String backupId = ChronosBackupArtifacts.newBackupId(context.getWorldName());
 
         final Path zipOutputPath;
         final Path cacheSnapshotPath;
         final Path folderOutputPath;
         if (compressionMethod == CompressionMethod.ZIP) {
             cacheSnapshotPath = cacheFolder.resolve(backupId);
-            zipOutputPath = worldBackupDir.resolve(backupId + ".zip");
+            zipOutputPath = worldBackupDir.resolve(ChronosBackupArtifacts.zipFileName(backupId));
             folderOutputPath = null;
         } else {
             cacheSnapshotPath = null;
@@ -634,6 +628,10 @@ public final class Backupper {
                     run.context.logInfo("Chronos backup completed in " + duration + ": " + run.folderOutputPath);
                 }
                 run.context.sendChat("Backup completed in " + duration + ".");
+                // Skip sync if a speedtest is in progress
+                if (!isSpeedtestSessionActive()) {
+                    CloudSync.requestSync();
+                }
             }
         } finally {
             if (run.attemptedSavingPause && run.worldController != null) {
@@ -735,44 +733,6 @@ public final class Backupper {
     }
 
     /**
-     * Single-segment directory name under the Chronos backup root. Sanitizes
-     * characters that are invalid or awkward in file names.
-     */
-    private static String sanitizeWorldBackupSubdir(String worldName) {
-        if (worldName == null || worldName.isEmpty()) {
-            return "world";
-        }
-        StringBuilder sb = new StringBuilder(worldName.length());
-        for (int i = 0; i < worldName.length(); i++) {
-            char c = worldName.charAt(i);
-            if (c < 32 || c == 127) {
-                sb.append('_');
-            } else {
-                switch (c) {
-                    case '\\':
-                    case '/':
-                    case ':':
-                    case '*':
-                    case '?':
-                    case '"':
-                    case '<':
-                    case '>':
-                    case '|':
-                        sb.append('_');
-                        break;
-                    default:
-                        sb.append(c);
-                }
-            }
-        }
-        String s = sb.toString().trim();
-        while (s.endsWith(".") || s.endsWith(" ")) {
-            s = s.substring(0, s.length() - 1).trim();
-        }
-        return s.isEmpty() ? "world" : s;
-    }
-
-    /**
      * After a successful backup, deletes oldest zip/folder snapshots in
      * {@code worldBackupDir} if
      * more than {@code maxStored} remain. {@code maxStored} < 1 disables trimming.
@@ -786,10 +746,12 @@ public final class Backupper {
         }
         try {
             List<Path> backups = new ArrayList<>();
+            String worldName = worldBackupDir.getFileName().toString();
             try (DirectoryStream<Path> ds = Files.newDirectoryStream(worldBackupDir)) {
                 for (Path p : ds) {
                     String name = p.getFileName().toString();
-                    if (name.startsWith(".")) {
+                    // Only Chronos-named artifacts. Never delete unrelated user files.
+                    if (!ChronosBackupArtifacts.isChronosBackupName(name, worldName)) {
                         continue;
                     }
                     if (Files.isRegularFile(p) && name.endsWith(".zip")) {

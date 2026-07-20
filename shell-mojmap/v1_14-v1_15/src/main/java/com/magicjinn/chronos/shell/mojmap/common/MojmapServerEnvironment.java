@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.mojmap.common;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
+import com.magicjinn.chronos.shell.ChronosConstants;
 import java.io.File;
 import java.nio.file.Path;
 import net.minecraft.server.MinecraftServer;
@@ -12,8 +13,6 @@ import net.minecraft.world.level.dimension.DimensionType;
  * {@link ServerLevel#getLevelStorage()} (no {@code LevelResource}).
  */
 public final class MojmapServerEnvironment implements ServerEnvironment {
-    private static final String DEFAULT_WORLD_NAME = "world";
-
     private final MinecraftServer server;
 
     public MojmapServerEnvironment(MinecraftServer server) {
@@ -31,7 +30,7 @@ public final class MojmapServerEnvironment implements ServerEnvironment {
         if (id != null && !id.trim().isEmpty()) {
             return id;
         }
-        return DEFAULT_WORLD_NAME;
+        return ChronosConstants.DEFAULT_WORLD_NAME;
     }
 
     @Override

@@ -80,6 +80,14 @@ val rustOnlyBuild = requestedTasks.isNotEmpty() && requestedTasks.all { taskName
     val bare = taskBareName(taskName)
     bare == "buildRust" || bare.startsWith("buildRust_") || bare.startsWith("rustTargetAdd_")
 }
+/** Explicit {@code :core:…} / {@code :tooling:…} tasks do not need loader variants on the project graph. */
+fun taskTargetsCoreOrTooling(taskName: String): Boolean {
+    val projectName = taskProjectName(taskName) ?: return false
+    return projectName == "core" || projectName == "tooling"
+}
+val coreToolingOnlyBuild =
+    requestedTasks.isNotEmpty() && requestedTasks.all { taskTargetsCoreOrTooling(it) }
+val skipVariantIncludes = rustOnlyBuild || coreToolingOnlyBuild
 val variantsRootNeeded = requestedTasks.any { taskNeedsVariantsRoot(it) }
 
 fun chronosVariantGenerationSkipRequested(): Boolean {
@@ -126,14 +134,14 @@ if (!variantsRoot.isDirectory) {
     val requiresVariants =
         requestedTasks.isNotEmpty() &&
             requestedTasks.any { taskRequiresExistingVariants(it) } &&
-            !rustOnlyBuild &&
+            !skipVariantIncludes &&
             !cleanVariantsRequested
     if (requiresVariants && !bootstrapVariantGeneration) {
         throw GradleException(
             "Missing ${variantsRoot.path}. Run: ./gradlew generateVariants",
         )
     }
-} else if (!cleanVariantsRequested) {
+} else if (!cleanVariantsRequested && !skipVariantIncludes) {
     var includesForgeLine = false
     for (groupDir in variantsRoot.directoriesSorted()) {
         for (projectDir in groupDir.directoriesSorted()) {
@@ -155,6 +163,8 @@ if (!variantsRoot.isDirectory) {
                 "(set chronos.gradle.serializeForgeConfigure=false to disable).",
         )
     }
+} else if (coreToolingOnlyBuild) {
+    logger.lifecycle("[Chronos] Skipping loader variant includes (core/tooling-only task selection).")
 }
 
 fun chronosSerializeForgeConfigure(): Boolean {

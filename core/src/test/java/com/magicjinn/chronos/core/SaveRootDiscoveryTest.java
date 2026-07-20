@@ -9,12 +9,42 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 
 class SaveRootDiscoveryTest {
-    @TempDir
+    /**
+     * Windows often fails JUnit's strict temp delete while AV still holds .mca
+     * handles.
+     */
+    @TempDir(cleanup = CleanupMode.NEVER)
     Path tempDir;
+
+    @AfterEach
+    void cleanupTempDir() throws InterruptedException {
+        if (tempDir == null || !Files.exists(tempDir))
+            return;
+
+        for (int attempt = 0; attempt < 8; attempt++) {
+            try (Stream<Path> walk = Files.walk(tempDir)) {
+                walk.sorted(Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (IOException ignored) {
+                    }
+                });
+            } catch (IOException ignored) {
+            }
+            if (!Files.exists(tempDir))
+                return;
+
+            Thread.sleep(30L * (attempt + 1));
+        }
+    }
 
     @Test
     void classicSingleWorldRollsUpDimensions() throws IOException {

@@ -1,14 +1,13 @@
 package com.magicjinn.chronos.shell.paper;
 
 import com.magicjinn.chronos.core.ServerEnvironment;
+import com.magicjinn.chronos.shell.ChronosConstants;
 import java.nio.file.Path;
 import org.bukkit.Server;
 import org.bukkit.World;
 
 /** Bukkit {@link Server} paths for Paper (all supported versions). */
 public final class PaperServerEnvironment implements ServerEnvironment {
-    private static final String DEFAULT_WORLD_NAME = "world";
-
     private final Server server;
 
     public PaperServerEnvironment(Server server) {
@@ -25,7 +24,7 @@ public final class PaperServerEnvironment implements ServerEnvironment {
         if (!server.getWorlds().isEmpty()) {
             return server.getWorlds().get(0).getName();
         }
-        return DEFAULT_WORLD_NAME;
+        return ChronosConstants.DEFAULT_WORLD_NAME;
     }
 
     @Override

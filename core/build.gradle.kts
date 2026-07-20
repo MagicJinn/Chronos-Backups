@@ -12,6 +12,18 @@ repositories {
 dependencies {
     val nightConfigVersion = findProperty("chronos.nightconfig.version") as String? ?: "3.6.7"
     implementation("com.electronwill.night-config:toml:$nightConfigVersion")
+
+    // Google Drive OAuth + API (Java 7 bytecode, works on Java 8+)
+    val googleApiClientVersion =
+        findProperty("chronos.google.api.client.version") as String? ?: "2.7.2"
+    val googleOauthClientVersion =
+        findProperty("chronos.google.oauth.client.version") as String? ?: "1.36.0"
+    val googleDriveApiVersion =
+        findProperty("chronos.google.api.services.drive.version") as String? ?: "v3-rev20230822-2.0.0"
+    implementation("com.google.api-client:google-api-client:$googleApiClientVersion")
+    implementation("com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVersion")
+    implementation("com.google.apis:google-api-services-drive:$googleDriveApiVersion")
+
     compileOnly("org.apache.logging.log4j:log4j-api:2.24.3")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

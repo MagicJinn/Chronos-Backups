@@ -462,7 +462,70 @@ val chronosRustPrunerResources =
     rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources")
 
 configure(packableSubprojects) {
+    val googleApiClientVersion =
+        rootProject.findProperty("chronos.google.api.client.version") as String? ?: "2.7.2"
+    val googleOauthClientVersion =
+        rootProject.findProperty("chronos.google.oauth.client.version") as String? ?: "1.36.0"
+    val googleDriveApiVersion =
+        rootProject.findProperty("chronos.google.api.services.drive.version") as String?
+            ?: "v3-rev20230822-2.0.0"
+    val googleHttpClientVersion =
+        rootProject.findProperty("chronos.google.http.client.version") as String? ?: "1.45.2"
+    val googleAuthLibraryVersion =
+        rootProject.findProperty("chronos.google.auth.library.version") as String? ?: "1.30.0"
+    // Direct + nestable transitives. Fabric `include` / Forge flatten do not nest transitives.
+    val googleDriveCoords =
+        listOf(
+            "com.google.api-client:google-api-client:$googleApiClientVersion",
+            "com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVersion",
+            "com.google.oauth-client:google-oauth-client-java6:$googleOauthClientVersion",
+            "com.google.oauth-client:google-oauth-client:$googleOauthClientVersion",
+            "com.google.apis:google-api-services-drive:$googleDriveApiVersion",
+            "com.google.http-client:google-http-client:$googleHttpClientVersion",
+            "com.google.http-client:google-http-client-gson:$googleHttpClientVersion",
+            "com.google.http-client:google-http-client-apache-v2:$googleHttpClientVersion",
+            "com.google.auth:google-auth-library-oauth2-http:$googleAuthLibraryVersion",
+            "com.google.auth:google-auth-library-credentials:$googleAuthLibraryVersion",
+        )
+
+    /**
+     * Minecraft / NeoForge already ship these (often with `{strictly ...}`). Pulling Google's
+     * newer transitives makes compileClasspath unsatisfiable on NeoForge 1.20+.
+     */
+    fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvidedGoogleTransitives() {
+        exclude(group = "com.google.guava")
+        exclude(group = "com.google.code.gson")
+        exclude(group = "commons-codec")
+        exclude(group = "org.apache.httpcomponents")
+        exclude(group = "commons-logging")
+    }
+
+    pluginManager.withPlugin("java") {
+        // NeoForge variants already jarJar(implementation(...)) Google Drive in their buildscript.
+        if (!name.startsWith("neoforge-")) {
+            dependencies {
+                for (coord in googleDriveCoords) {
+                    "implementation"(coord) { excludeMinecraftProvidedGoogleTransitives() }
+                }
+            }
+        }
+    }
     afterEvaluate {
+        // Fabric JiJ + legacy Forge flatten need configurations created by the variant buildscript.
+        if (name.startsWith("fabric-") && configurations.findByName("include") != null) {
+            dependencies {
+                for (coord in googleDriveCoords) {
+                    "include"(coord) { excludeMinecraftProvidedGoogleTransitives() }
+                }
+            }
+        }
+        if (configurations.findByName("chronosEmbedded") != null) {
+            dependencies {
+                for (coord in googleDriveCoords) {
+                    "chronosEmbedded"(coord) { excludeMinecraftProvidedGoogleTransitives() }
+                }
+            }
+        }
         tasks.matching { it.name == "build" || it.name == "jar" || it.name == "remapJar" }.configureEach {
             dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         }
@@ -492,6 +555,10 @@ configure(packableSubprojects) {
         dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         inputs.dir(chronosRustPrunerResources).withPropertyName("chronosRustPrunerResources")
         from(chronosRustPrunerResources)
+        // Embedded Google libs ship Multi-Release / JPMS entries. Forge ASM 5.x on 1.7–1.12
+        // fails ClassReader on them and drops the whole mod as a "corrupt zip".
+        exclude("META-INF/versions/**")
+        exclude("**/module-info.class")
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 }
@@ -653,7 +720,9 @@ val verifyTestServerNativeJars =
 
 tasks.register("buildAll") {
     group = "build"
-    description = "Builds every included variant subproject and collects final jars."
+    description =
+        "Runs :core:test, builds every included variant subproject, and collects final jars."
+    dependsOn(":core:test")
     dependsOn(collectAllJars)
 }
 

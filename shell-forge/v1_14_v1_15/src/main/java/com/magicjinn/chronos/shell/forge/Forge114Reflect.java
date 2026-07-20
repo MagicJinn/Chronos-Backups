@@ -11,6 +11,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+
+import com.magicjinn.chronos.shell.ChronosConstants;
+
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -21,8 +24,6 @@ import net.minecraft.server.MinecraftServer;
  */
 final class Forge114Reflect {
     private static final String SERVER_THREAD_NAME = "Server thread";
-    private static final String DEFAULT_WORLD_NAME = "world";
-
     private Forge114Reflect() {
     }
 
@@ -110,7 +111,7 @@ final class Forge114Reflect {
                 return name;
             }
         }
-        return DEFAULT_WORLD_NAME;
+        return ChronosConstants.DEFAULT_WORLD_NAME;
     }
 
     static Path getWorldSaveRoot(MinecraftServer server) {

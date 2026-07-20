@@ -27,6 +27,44 @@ repositories {
 
 // Night Config is already on the compile/runtime classpath via NeoForge/FML - do not jar-in-jar or duplicate it here.
 
+dependencies {
+    val googleApiClientVer = rootProject.findProperty("chronos.google.api.client.version") ?: "2.7.2"
+    val googleOauthClientVer = rootProject.findProperty("chronos.google.oauth.client.version") ?: "1.36.0"
+    val googleDriveApiVer = rootProject.findProperty("chronos.google.api.services.drive.version") ?: "v3-rev20230822-2.0.0"
+    val googleHttpClientVer = rootProject.findProperty("chronos.google.http.client.version") ?: "1.45.2"
+    val googleAuthLibraryVer = rootProject.findProperty("chronos.google.auth.library.version") ?: "1.30.0"
+    // Bundle Google Drive clients (NeoForge does not ship these). Exclude libs Minecraft already
+    // provides with strictly pinned versions, otherwise compileClasspath cannot resolve.
+    // jarJar does not nest transitives, so list the Drive stack explicitly.
+    fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvided() {
+        exclude(group = "com.google.guava")
+        exclude(group = "com.google.code.gson")
+        exclude(group = "commons-codec")
+        exclude(group = "org.apache.httpcomponents")
+        exclude(group = "commons-logging")
+    }
+    val googleDriveCoords =
+        listOf(
+            "com.google.api-client:google-api-client:$googleApiClientVer",
+            "com.google.oauth-client:google-oauth-client-jetty:$googleOauthClientVer",
+            "com.google.oauth-client:google-oauth-client-java6:$googleOauthClientVer",
+            "com.google.oauth-client:google-oauth-client:$googleOauthClientVer",
+            "com.google.apis:google-api-services-drive:$googleDriveApiVer",
+            "com.google.http-client:google-http-client:$googleHttpClientVer",
+            "com.google.http-client:google-http-client-gson:$googleHttpClientVer",
+            "com.google.http-client:google-http-client-apache-v2:$googleHttpClientVer",
+            "com.google.auth:google-auth-library-oauth2-http:$googleAuthLibraryVer",
+            "com.google.auth:google-auth-library-credentials:$googleAuthLibraryVer",
+        )
+    for (coord in googleDriveCoords) {
+        jarJar(
+            implementation(coord) {
+                excludeMinecraftProvided()
+            },
+        )
+    }
+}
+
 sourceSets.named("main") {
     // Shared NeoForge code plus optional line-specific trees under shell-neoforge/<line>/ (e.g. 1.20, 1.21, 26.1).
     // Prefer one unified jar per line, use line folders only when APIs diverge, not separate Gradle modules.
@@ -40,6 +78,9 @@ sourceSets.named("main") {
         rootProject.file("shell-neoforge/src/main/java"),
         rootProject.file("shell-neoforge/{{neoForgeLineDir}}/src/main/java"),
         {{neoShellExtraSrcKts}}
+    )
+    resources.srcDirs(
+        rootProject.file("core/src/main/resources"),
     )
     {{neoShellExcludeKts}}
 }

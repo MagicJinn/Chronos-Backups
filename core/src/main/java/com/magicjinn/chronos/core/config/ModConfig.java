@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * In-memory loaded values for {@code chronos.toml}.
+ * Add a public field here, then register it once in {@link ChronosTomlSpec}.
+ */
 public final class ModConfig {
     /* The name of the folder that will contain the backups */
     public String backupFolderName = "backups";
@@ -15,13 +19,16 @@ public final class ModConfig {
      * 0 (or less) means "auto" (pruner picks a sensible default).
      */
     public int pruneMaxWorkerThreads = 0;
-    /** When false, automatic backups are disabled ({@code /chronos} manual backups still work). */
+    /**
+     * When false, automatic backups are disabled ({@code /chronos} manual backups
+     * still work).
+     */
     public boolean scheduleBackups = true;
     /** Seconds between automatic backup runs (whole numbers only). */
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 
     /**
-     * Maximum number of backup artifacts kept per world.
+     * Maximum number of backup artifacts kept per world (local and remote).
      * Values less than 1 disable automatic deletion of older backups.
      */
     public int maxStoredBackups = 5;
@@ -34,10 +41,11 @@ public final class ModConfig {
      */
     public CompressionMethod compressionMethod = CompressionMethod.ZIP;
 
-    /**
-     * Permission level (0-4) required to run {@code /chronos}.
-     */
-    public int commandRequiredPermissionLevel = 4;
+    /** When true, local backups will be kept even if a cloud integration is enabled, and upload succeeds. */
+    public boolean shouldKeepLocalBackups = true;
+
+    /** Whether backups should be uploaded to Google Drive. */
+    public boolean googleDriveEnabled = false;
 
     /**
      * World-relative path segments or names to skip when copying the save for a
@@ -54,4 +62,9 @@ public final class ModConfig {
                     "DistantHorizons.sqlite-wal",
                     "DistantHorizons.sqlite-shm",
                     "ledger.sqlite"));
+
+    /**
+     * Permission level (0-4) required to run {@code /chronos}.
+     */
+    public int commandRequiredPermissionLevel = 4;
 }

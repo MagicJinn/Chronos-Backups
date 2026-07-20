@@ -302,14 +302,9 @@ public final class SaveRootDiscovery {
             return false;
         }
         Path region = directory.resolve("region");
-        if (!Files.isDirectory(region)) {
-            return false;
-        }
-        try (DirectoryStream<Path> entries = Files.newDirectoryStream(region, "*.mca")) {
-            return entries.iterator().hasNext();
-        } catch (IOException ignored) {
-            return false;
-        }
+        // File.list avoids lingering NIO DirectoryStream handles on Windows
+        String[] mca = region.toFile().list((dir, name) -> name.endsWith(".mca"));
+        return mca != null && mca.length > 0;
     }
 
     private static Set<String> skipDirNames() {

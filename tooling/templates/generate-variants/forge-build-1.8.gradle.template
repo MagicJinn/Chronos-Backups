@@ -61,6 +61,15 @@ dependencies {
     implementation "com.electronwill.night-config:toml:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:core:${nightConfigVer}"
     chronosEmbedded "com.electronwill.night-config:toml:${nightConfigVer}"
+    def googleApiClientVer = rootProject.findProperty('chronos.google.api.client.version') ?: '2.7.2'
+    def googleOauthClientVer = rootProject.findProperty('chronos.google.oauth.client.version') ?: '1.36.0'
+    def googleDriveApiVer = rootProject.findProperty('chronos.google.api.services.drive.version') ?: 'v3-rev20230822-2.0.0'
+    implementation "com.google.api-client:google-api-client:${googleApiClientVer}"
+    implementation "com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}"
+    implementation "com.google.apis:google-api-services-drive:${googleDriveApiVer}"
+    chronosEmbedded "com.google.api-client:google-api-client:${googleApiClientVer}"
+    chronosEmbedded "com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}"
+    chronosEmbedded "com.google.apis:google-api-services-drive:${googleDriveApiVer}"
     runtimeOnly "net.minecrell:terminalconsoleappender:1.2.0"
 }
 
@@ -69,10 +78,16 @@ tasks.withType(Jar).configureEach { t ->
         t.from {
             configurations.chronosEmbedded.collect { zipTree(it) }
         }
+        // Old Forge ASM cannot parse Multi-Release / module-info entries from embedded deps.
+        t.exclude 'META-INF/versions/**'
+        t.exclude '**/module-info.class'
         t.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 }
 
+sourceSets.main.resources.srcDirs(
+    rootProject.file('core/src/main/resources'),
+)
 sourceSets.main.java.srcDirs(
     rootProject.file('core/src/main/java'),
     rootProject.file('shell-shared/src/main/java'),
