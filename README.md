@@ -22,7 +22,7 @@
 - Scheduled and manual backups via an in-game `/chronos` command with a configurable permission level.
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
-- Cloud sync: upload finished backups to your cloud provider of choice, and optionally delete them locally after a successful upload. Currently supported: Google Drive.
+- Cloud sync: upload finished backups to your cloud provider of choice, and optionally delete them locally after a successful upload. Currently supported: [Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white).
 
 ## Commands
 
@@ -46,7 +46,7 @@ Chronos can upload finished backups to a remote cloud provider, then optionally 
 
 ### Providers
 
-Currently supported: **Google Drive**. Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
+Currently supported: [Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white). Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
 
 Google Drive was chosen because it is the most popular cloud provider, and has the most generous free tier, with 15GB of storage. OneDrive and Dropbox are planned. They are not available yet.
 
@@ -124,6 +124,10 @@ Github Actions automatically builds and uploads nightly releases to the [GitHub 
 Chronos Backups is dedicated to making the development of this mod as easy as possible, on any OS, in any IDE, with simple automatic setups and tools for testing and building, but there are still some manual steps required.
 
 ### Prerequisites
+
+![Java](https://img.shields.io/badge/java-%23ED8B00.svg?logo=java&logoColor=white)
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?logo=rust&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)
 
 - Install **JDK 25+** and set `JAVA_HOME` to it. Older variants use a Java 8, 17 or 21 toolchain via Gradle/Foojay automatically.
 - Install **[Rustup](https://rustup.rs/)** and ensure `cargo` / `rustup` are on `PATH`, and install Rust **nightly** toolchain:
