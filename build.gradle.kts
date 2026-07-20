@@ -555,6 +555,10 @@ configure(packableSubprojects) {
         dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
         inputs.dir(chronosRustPrunerResources).withPropertyName("chronosRustPrunerResources")
         from(chronosRustPrunerResources)
+        // Embedded Google libs ship Multi-Release / JPMS entries. Forge ASM 5.x on 1.7–1.12
+        // fails ClassReader on them and drops the whole mod as a "corrupt zip".
+        exclude("META-INF/versions/**")
+        exclude("**/module-info.class")
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 }

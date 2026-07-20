@@ -652,6 +652,7 @@ public final class TestServers {
             }
             if (failure != null) {
                 failures.add(server + " (" + failure + ")");
+                TestServersConsole.failure("FAILED " + server + " (" + failure + ")");
             } else {
                 TestServersConsole.success("PASSED " + server);
             }

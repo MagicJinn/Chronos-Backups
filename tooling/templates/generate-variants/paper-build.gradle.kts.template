@@ -78,5 +78,7 @@ tasks.named<Jar>("jar") {
             }
             .map { dep -> if (dep.isDirectory) dep else zipTree(dep) }
     })
+    exclude("META-INF/versions/**")
+    exclude("**/module-info.class")
     duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
 }
