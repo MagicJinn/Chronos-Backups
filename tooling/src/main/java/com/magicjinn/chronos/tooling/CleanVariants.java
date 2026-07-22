@@ -9,9 +9,16 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class CleanVariants {
-    // Backoff schedule for retrying deletes when a file is locked (typical on
-    // Windows when an IDE/AV/Gradle daemon still holds a handle). Total ~4.1s.
-    private static final long[] RETRY_DELAYS_MS = { 50, 150, 400, 1000, 2500 };
+    // Short per-path backoff while a single entry is locked mid-pass.
+    private static final long[] RETRY_DELAYS_MS = { 50, 150, 400 };
+
+    // After the tree walk, re-check leftovers. Locks often release while later
+    // paths were still being retried; without this outer settle loop the task
+    // fails even though a second run would succeed immediately.
+    // Total settle budget ~60s (sums to 60500).
+    private static final long[] SETTLE_DELAYS_MS = {
+            250, 500, 1000, 2000, 4000, 8000, 15000, 30000
+    };
 
     private CleanVariants() {
     }
@@ -31,7 +38,7 @@ public final class CleanVariants {
         System.out.println("Force-deleting " + variants);
         long start = System.nanoTime();
         forceDeleteTree(variants);
-        List<Path> remaining = collectRemaining(variants);
+        List<Path> remaining = settleRemaining(variants);
         long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
 
         if (!remaining.isEmpty()) {
@@ -62,6 +69,26 @@ public final class CleanVariants {
         for (Path p : entries) {
             tryDeleteWithRetries(p);
         }
+    }
+
+    /**
+     * Re-walk leftovers and retry until gone or the settle budget is exhausted.
+     * Handles the common Windows case where a handle frees mid-clean but the
+     * first pass already moved past that path.
+     */
+    private static List<Path> settleRemaining(Path root) throws IOException, InterruptedException {
+        List<Path> remaining = collectRemaining(root);
+        for (int i = 0; i < SETTLE_DELAYS_MS.length && !remaining.isEmpty(); i++) {
+            System.out.println(
+                    "Waiting for " + remaining.size() + " locked entries to release ("
+                            + SETTLE_DELAYS_MS[i] + " ms)...");
+            Thread.sleep(SETTLE_DELAYS_MS[i]);
+            for (Path p : remaining) {
+                tryDeleteWithRetries(p);
+            }
+            remaining = collectRemaining(root);
+        }
+        return remaining;
     }
 
     private static void tryDeleteWithRetries(Path path) throws InterruptedException {
