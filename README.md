@@ -34,6 +34,21 @@
 
 The required permission level defaults to **4**.
 
+## Performance and benchmarks
+
+On default settings, Chronos backups typically shrink to about **1–15%** of the original world size. When Distant Horizons and/or Voxy data is filtered out as well, the backup is often **under 7%** of the full on-disk footprint (world + LOD).
+
+| World                                                                                                         | Size    | Distant Horizon size (256 render distance) | Voxy size (Full world) | Average backup time | Final size (%pruned, %filtered + pruned) |
+|---------------------------------------------------------------------------------------------------------------|---------|--------------------------------------------|------------------------|---------------------|------------------------------------------|
+| [MY 100 DAYS SURVIVAL WORLD (1.19)](https://www.planetminecraft.com/project/my-100-days-survival-world-1-19/) | 189 MB  | 106 MB                                     | 85,8 MB                | 1,25s               | 28,0 MB (15%, 7%)                        |
+| [my survival world](https://www.planetminecraft.com/project/my-survival-world-6880390/)                       | 4840 MB | 888 MB                                     | 3060 MB                | 10,76s              | 46,5 MB (0.96%, 0.53%)                   |
+| [My survival World (Mission)](https://www.planetminecraft.com/project/my-survival-world-mission/)             | 1290 MB | 630 MB                                     | 708MB                  | 4,56s               | 156 MB (12%, 6%)                         |
+| [My Survival World](https://www.planetminecraft.com/project/my-survival-world-6766250/)                       | 1260 MB | 501 MB                                     | 816 MB                 | 6,68s               | 29,3 MB (2%, 1%)                         |
+
+Distant Horizons (render distance 256, existing chunks only). Voxy (`/voxy import current`, existing chunks only).
+
+Method: Minecraft 26.2 Fabric, default Chronos config. Avg. time is mean backup duration over 120 seconds of continuous runs. CPU: AMD Ryzen 7 9800X3D. SSD: Samsung 970 EVO Plus 2TB.
+
 ## Cloud sync
 
 Chronos can upload finished backups to a remote cloud provider, then optionally remove the local copy.

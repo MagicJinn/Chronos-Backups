@@ -44,7 +44,7 @@
       <h1>Chronos Backups</h1>
       <p class="hero-pitch">
         Keep Minecraft worlds safe without filling your disk. Smart chunk pruning,
-        the broadest loader range of any backup mod, and optional Google Drive sync.
+        the broadest version range of any Minecraft backup mod, and optional Google Drive sync.
       </p>
       <div class="cta-row">
         <a class="cta" href="https://modrinth.com/mod/chronos-backups">Modrinth</a>
@@ -66,36 +66,35 @@
       chunk, it intelligently prunes backups to include only the most important parts
       of your world, dramatically reducing backup size while preserving the areas that
       actually matter. A shared core with loader-specific shells lets it run on Fabric,
-      NeoForge, Forge, and Bukkit/Spigot/Paper/Purpur/Folia from 1.7.x through the
-      latest releases. The mod is completely serverside, so vanilla clients can still
-      play while it is installed.
+      NeoForge, Forge, Bukkit, Spigot, Paper, Purpur and Folia from 1.7.x through 26.x,
+      making it the broadest version range of any Minecraft backup mod. The mod is
+      completely serverside, so vanilla clients can still play while it is installed.
     </p>
     <p>
-      Backups can be triggered manually or run on a schedule. Backup frequency, along
-      with many other settings such as a copy-blacklist prefilled with sensible defaults
-      for common server setups, can all be configured. Compression can be set to zip or
-      none, and you can set a maximum number of backups to keep. Optional cloud sync can
-      upload finished backups to Google Drive, enforce the same retention cap remotely,
-      and optionally delete local copies after a successful upload.
+      Backups can be triggered manually via <code>/chronos</code> or run on a schedule.
+      Backup frequency, permission level, compression (zip or none), a maximum number of
+      stored backups, and a copy-blacklist prefilled with sensible defaults for common
+      server setups can all be configured. Finished backups can also sync to the cloud
+      (currently Google Drive), with optional deletion of the local copy after a
+      successful upload. Other cloud providers are planned.
     </p>
     <p>
       At the heart of Chronos is a custom Rust-native chunk pruning library, built for
-      speed using MCA parsing and NBT processing. Chronos prioritizes aged world data.
-      Chunks that are not old enough yet (based on configurable playtime thresholds)
-      can be left out of a backup, so backups stay smaller while keeping the areas that
-      matter.
+      speed using MCA parsing and NBT processing. Chunks that haven't been played in long
+      enough can be excluded from backups based on configurable playtime thresholds.
     </p>
     <p>
-      Reliability across more than 100 Minecraft version and loader combinations is
+      Reliability across more than 250 Minecraft version and loader combinations is
       backed by a dedicated testing toolchain. A Docker-based <code>testServers</code>
-      suite spins up a dedicated server for every supported combination, and GitHub
-      Actions CI cross-compiles native Rust libraries on Linux, Windows, and macOS
-      before building every variant JAR.
+      suite spins up a dedicated server for every supported combination, checking that
+      the mod loads, initializes correctly, and runs a speedtest to verify functionality
+      and performance. GitHub Actions CI cross-compiles native Rust libraries on Linux,
+      Windows, and macOS, merges the artifacts, and builds every variant JAR on each push.
     </p>
     <ul class="feature-list">
       <li>Scheduled or manual backups via <code>/chronos</code>, with configurable retention and compression.</li>
-      <li>Optional Google Drive sync with remote retention and optional drop of local copies after upload.</li>
-      <li>Nightly builds on GitHub, stable releases on Modrinth and CurseForge.</li>
+      <li>Optional Google Drive sync with optional drop of local copies after upload.</li>
+      <li>Nightly builds on GitHub, stable releases on Modrinth and CurseForge. Publishing a stable GitHub release automatically uploads all variant JARs to both.</li>
     </ul>
     <p class="byline">
       Open source by <a href="https://magicjinn.net/">MagicJinn</a>.

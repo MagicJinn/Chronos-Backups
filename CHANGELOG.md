@@ -11,6 +11,7 @@ This page documents the changes and fixes made in Chronos Backups, compared to t
 - Add optional Google Drive backup sync (enable in config, authorize via the URL printed in the console)
 - - Add `shouldKeepLocalBackups` so uploads can leave or remove the local copy after a successful sync
 - Changed `maxStoredBackups` to only delete Chronos-named backup files when trimming (manually placed files in the backup folder are left alone)
+- Fixed a crash if a world name contained invalid characters (such as `:`)
 
 ## 1.0.1
 
