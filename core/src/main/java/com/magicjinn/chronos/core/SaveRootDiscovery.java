@@ -5,6 +5,7 @@ import com.magicjinn.chronos.core.config.Config;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -206,17 +207,29 @@ public final class SaveRootDiscovery {
     /**
      * Integrated clients: only the active save under {@code saves/<world>/}, never
      * all of {@code saves/}.
+     * <p>
+     * Prefer Minecraft's live save path.
+     * {@link BackupRuntimeContext#getWorldName()}
+     * is the LevelName and may contain characters illegal in Windows paths (e.g.
+     * {@code :}), while the on-disk folder name is already sanitized.
      */
     private static Path integratedClientSaveRoot(
             BackupRuntimeContext context, Path primary, Path runDirectory) {
-        Path savesRoot = runDirectory.resolve("saves").resolve(context.getWorldName());
-        Path normalized = savesRoot.toAbsolutePath().normalize();
         Path primaryNorm = primary.toAbsolutePath().normalize();
-        if (Files.isDirectory(normalized)) {
-            return normalized;
-        }
-        if (primaryNorm.startsWith(runDirectory.resolve("saves").toAbsolutePath().normalize())) {
+        Path savesDir = runDirectory.resolve("saves").toAbsolutePath().normalize();
+        if (primaryNorm.startsWith(savesDir))
             return primaryNorm;
+
+        String worldName = context.getWorldName();
+        if (worldName != null && !worldName.isEmpty()) {
+            try {
+                Path byName = runDirectory.resolve("saves").resolve(worldName).toAbsolutePath().normalize();
+                if (Files.isDirectory(byName)) {
+                    return byName;
+                }
+            } catch (InvalidPathException ignored) {
+                // LevelName is not always a valid path segment on this OS.
+            }
         }
         return primaryNorm;
     }

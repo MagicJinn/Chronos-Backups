@@ -136,6 +136,21 @@ class SaveRootDiscoveryTest {
     }
 
     @Test
+    void integratedClientToleratesIllegalCharsInLevelName() throws IOException {
+        Path runDir = tempDir.resolve("client");
+        Path active = runDir.resolve("saves").resolve("MY 100 DAYS IN MINECRAFT");
+        touchMca(active.resolve("region/r.0.0.mca"));
+        Files.write(active.resolve("level.dat"), new byte[] { 1 });
+
+        // LevelName can keep characters Windows rejects in paths (e.g. ':').
+        SaveRootDiscovery.BackupScope scope = SaveRootDiscovery.resolve(
+                context(runDir, active, false, "MY 100 DAYS IN MINECRAFT :)"));
+
+        assertEquals(active.toAbsolutePath().normalize(), scope.snapshotLayoutRoot());
+        assertEquals(1, scope.saveContainers().size());
+    }
+
+    @Test
     void emptyRegionFolderWithoutMcaIsNotSaveContainer() throws IOException {
         Path runDir = tempDir.resolve("server");
         Path world = runDir.resolve("world");
