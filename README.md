@@ -22,7 +22,7 @@
 - Scheduled and manual backups via an in-game `/chronos` command with a configurable permission level.
 - Backups are pruned and filtered to only include the most important parts of your world, keeping backups much smaller than traditional backups.
 - Configurable file copy blacklist to exclude specific files and folders from the backup, prefilled with common server-related files and folders.
-- Cloud sync: upload finished backups to your cloud provider of choice, and optionally delete them locally after a successful upload. Currently supported: [Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white).
+- Cloud sync: upload finished backups to your cloud provider of choice, and optionally delete them locally after a successful upload. Currently supported: ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white)
 
 ## Commands
 
@@ -61,7 +61,7 @@ Chronos can upload finished backups to a remote cloud provider, then optionally 
 
 ### Providers
 
-Currently supported: [Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white). Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
+Currently supported: ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white). Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
 
 Google Drive was chosen because it is the most popular cloud provider, and has the most generous free tier, with 15GB of storage. OneDrive and Dropbox are planned. They are not available yet.
 
