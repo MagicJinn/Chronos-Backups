@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - "docs/**"
+      - "icon.png"
+      - "banner.png"
+      - ".github/workflows/pages.yml"
 
 permissions:
   contents: read
@@ -22,6 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          cp icon.png docs/icon.png
+          cp banner.png docs/banner.png
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

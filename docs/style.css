@@ -129,22 +129,23 @@ img {
   position: relative;
   width: 100%;
   max-width: 100vw;
-  min-height: calc(100vh - 4rem);
-  min-height: calc(100dvh - 4rem);
+  /* Match banner aspect (1920x480)*/
+  min-height: calc(100vw * 480 / 1920);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
+  background: #000;
 }
 
 .hero-banner {
   position: absolute;
   inset: 0;
   width: 100%;
-  max-width: 100%;
+  max-width: none;
   height: 100%;
-  object-fit: cover;
-  object-position: center;
+  object-fit: contain;
+  object-position: center top;
   animation: bannerPulse 14s ease-in-out infinite alternate;
 }
 
