@@ -78,6 +78,7 @@ public class Core {
     public static void OnWorldStarted(BackupRuntimeContext context) {
         CloudSync.resetForNewSession();
         Scheduler.InitializeScheduler(context);
+        GoogleDrive.onWorldAvailable();
         CloudSync.requestSync();
     }
 

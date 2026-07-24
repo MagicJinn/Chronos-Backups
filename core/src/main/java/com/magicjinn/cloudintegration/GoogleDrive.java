@@ -14,8 +14,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -38,8 +40,10 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
+import com.magicjinn.chronos.core.BackupRuntimeContext;
 import com.magicjinn.chronos.core.ChronosBackupArtifacts;
 import com.magicjinn.chronos.core.Core;
+import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.chronos.shell.ChronosConstants;
 
@@ -65,6 +69,8 @@ public final class GoogleDrive implements CloudIntegration {
 
     private static final AtomicBoolean authInProgress = new AtomicBoolean(false);
     private static final AtomicBoolean syncCancelRequested = new AtomicBoolean(false);
+    /** True when OAuth finished before a world was loaded. Finish alias setup later. */
+    private static final AtomicBoolean aliasSetupPending = new AtomicBoolean(false);
 
     private static volatile Drive drive;
 
@@ -107,6 +113,7 @@ public final class GoogleDrive implements CloudIntegration {
                 drive = buildDriveService(existing);
                 ready = true;
                 LOG.info("Google Drive authorized from stored tokens.");
+                tryEnsureWorldFolderAliasSetup();
                 CloudSync.requestSync();
                 return;
             }
@@ -125,6 +132,11 @@ public final class GoogleDrive implements CloudIntegration {
         syncCancelRequested.set(false);
         if (!ready || drive == null)
             throw new IOException("Google Drive is not ready");
+
+        if (!ensureWorldFolderAliasSetup()) {
+            LOG.info("Google Drive sync deferred until a world is loaded (alias setup).");
+            return;
+        }
 
         Path backupRoot = Core.RunningDirectory.resolve(Config.getBackupFolderName());
         if (!Files.isDirectory(backupRoot)) {
@@ -162,7 +174,8 @@ public final class GoogleDrive implements CloudIntegration {
         if (localBackups.isEmpty() && maxStored < 1)
             return;
 
-        String worldFolderId = findOrCreateFolder(rootFolderId, worldName);
+        String remoteWorldFolder = CloudBackupAlias.remoteFolderName(worldName);
+        String worldFolderId = findOrCreateFolder(rootFolderId, remoteWorldFolder);
         Map<String, RemoteFile> remoteByName = listRemoteChronosBackups(worldFolderId, worldName);
 
         // Oldest first so catch-up fills history in order.
@@ -353,6 +366,123 @@ public final class GoogleDrive implements CloudIntegration {
         return created.getId();
     }
 
+    /**
+     * Best-effort alias reservation after OAuth / token resume. Defers when no
+     * world session is active yet.
+     */
+    public static void tryEnsureWorldFolderAliasSetup() {
+        if (!ready || drive == null)
+            return;
+        
+        BackupRuntimeContext context = Scheduler.tryGetRuntimeContext();
+        if (context == null) {
+            aliasSetupPending.set(true);
+            LOG.info(
+                    "Google Drive alias setup deferred until a world is loaded.");
+            return;
+        }
+        try {
+            INSTANCE.ensureWorldFolderAliasSetup(context.getWorldName());
+        } catch (Exception e) {
+            aliasSetupPending.set(true);
+            LOG.error("Google Drive alias setup failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Called from world start. Marks alias setup pending when needed so the
+     * cloud sync worker (not the server thread) can reserve the remote folder.
+     */
+    public static void onWorldAvailable() {
+        if (!ready || drive == null)
+            return;
+
+        if (!aliasSetupPending.get() && CloudBackupAlias.aliasFileExists())
+            return;
+        
+        aliasSetupPending.set(true);
+    }
+
+    /**
+     * @return {@code false} when alias reservation must wait for a world session
+     *         (caller should skip sync without treating it as a hard failure)
+     */
+    private boolean ensureWorldFolderAliasSetup() throws IOException {
+        if (CloudBackupAlias.aliasFileExists()) {
+            BackupRuntimeContext context = Scheduler.tryGetRuntimeContext();
+            if (context == null)
+                // Alias known; remote folder ensure can wait for a world session.
+                return true;
+            
+            ensureWorldFolderAliasSetup(context.getWorldName());
+            return true;
+        }
+        BackupRuntimeContext context = Scheduler.tryGetRuntimeContext();
+        if (context == null) {
+            aliasSetupPending.set(true);
+            return false;
+        }
+        ensureWorldFolderAliasSetup(context.getWorldName());
+        return true;
+    }
+
+    private void ensureWorldFolderAliasSetup(String worldName) throws IOException {
+        if (drive == null)
+            throw new IOException("Google Drive is not ready");
+        
+        syncCancelRequested.set(false);
+
+        String rootFolderId = findOrCreateFolder(null, REMOTE_ROOT_FOLDER_NAME);
+
+        if (!CloudBackupAlias.aliasFileExists()) {
+            Set<String> existing = listChildFolderNames(rootFolderId);
+            String alias = CloudBackupAlias.pickAlias(existing, worldName);
+            CloudBackupAlias.writeAlias(alias);
+            if (alias.isEmpty()) {
+                LOG.info(
+                        "Google Drive world folder alias: none (using "
+                                + ChronosBackupArtifacts.sanitizeWorldDirName(worldName)
+                                + ")");
+            } else {
+                LOG.info("Google Drive world folder alias reserved: " + alias);
+            }
+        }
+
+        String remoteFolder = CloudBackupAlias.remoteFolderName(worldName);
+        findOrCreateFolder(rootFolderId, remoteFolder);
+        aliasSetupPending.set(false);
+        LOG.info("Google Drive ensured remote world folder: " + remoteFolder);
+    }
+
+    private Set<String> listChildFolderNames(String parentId) throws IOException {
+        Set<String> names = new HashSet<String>();
+        String pageToken = null;
+        do {
+            checkCancelled();
+            FileList result = drive.files()
+                    .list()
+                    .setQ("'"
+                            + escapeDriveQuery(parentId)
+                            + "' in parents and trashed = false and mimeType = '"
+                            + FOLDER_MIME
+                            + "'")
+                    .setSpaces("drive")
+                    .setFields("nextPageToken, files(id, name)")
+                    .setPageToken(pageToken)
+                    .execute();
+            List<File> files = result.getFiles();
+            if (files != null) {
+                for (File f : files) {
+                    if (f.getName() != null) {
+                        names.add(f.getName());
+                    }
+                }
+            }
+            pageToken = result.getNextPageToken();
+        } while (pageToken != null);
+        return names;
+    }
+
     private void checkCancelled() throws IOException {
         if (syncCancelRequested.get())
             throw new IOException("Google Drive sync cancelled");
@@ -444,6 +574,7 @@ public final class GoogleDrive implements CloudIntegration {
         drive = buildDriveService(credential);
         ready = true;
         LOG.info("Google Drive authorization completed successfully.");
+        tryEnsureWorldFolderAliasSetup();
         CloudSync.requestSync();
         return drive;
     }
