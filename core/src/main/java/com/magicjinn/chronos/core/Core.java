@@ -78,7 +78,10 @@ public class Core {
     public static void OnWorldStarted(BackupRuntimeContext context) {
         CloudSync.resetForNewSession();
         Scheduler.InitializeScheduler(context);
-        GoogleDrive.onWorldAvailable();
+        // Only providers that loaded (missing Drive HTTP jars skip GoogleDrive entirely).
+        for (CloudIntegration cloudIntegration : cloudIntegrations()) {
+            cloudIntegration.onWorldAvailable();
+        }
         CloudSync.requestSync();
     }
 

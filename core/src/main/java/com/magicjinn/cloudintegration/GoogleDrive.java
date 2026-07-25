@@ -393,7 +393,8 @@ public final class GoogleDrive implements CloudIntegration {
      * Called from world start. Marks alias setup pending when needed so the
      * cloud sync worker (not the server thread) can reserve the remote folder.
      */
-    public static void onWorldAvailable() {
+    @Override
+    public void onWorldAvailable() {
         if (!ready || drive == null)
             return;
 

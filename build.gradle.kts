@@ -461,6 +461,63 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
 val chronosRustPrunerResources =
     rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources")
 
+/**
+ * Forge 1.13–1.16 ModLauncher installs a package filter that refuses to load any
+ * `com.google.*` class from a mod jar (so mods cannot replace Guava). Flattened
+ * Google Drive API classes live under `com.google.api` / `auth` / `oauth`, so the
+ * filter delegates to the parent loader, which does not have them >
+ * ClassNotFoundException. Relocate those prefixes out of `com.google.*` after the
+ * fat jar is built. Leave `com.google.common` / `com.google.gson` alone (Forge-provided).
+ * Fabric JiJ / NeoForge jarJar do not need this. Yes this fucking sucks.
+ */
+val chronosGoogleRelocations =
+    listOf(
+        "com.google.api" to "com.magicjinn.chronos.repack.google.api",
+        "com.google.auth" to "com.magicjinn.chronos.repack.google.auth",
+        "com.google.oauth" to "com.magicjinn.chronos.repack.google.oauth",
+    )
+
+/** ModLauncher SKIPPACKAGES `com.google.` starts with Forge 1.13. LaunchClassLoader lines do not need relocate. */
+fun forgeLineNeedsGoogleRelocate(projectName: String): Boolean {
+    val match = Regex("""^forge(?:-line)?-1_(\d+)(?:_|$)""").find(projectName) ?: return false
+    return match.groupValues[1].toInt() >= 13
+}
+
+fun relocateGooglePackagesInJar(inputJar: File, relocatorClasspath: Iterable<File>) {
+    val tmp = File(inputJar.parentFile, "${inputJar.nameWithoutExtension}.relocating.jar")
+    if (tmp.exists() && !tmp.delete())
+        throw GradleException("Could not delete temp relocate jar: ${tmp.absolutePath}")
+    
+    val urls = relocatorClasspath.map { it.toURI().toURL() }.toTypedArray()
+    java.net.URLClassLoader(urls, ClassLoader.getPlatformClassLoader()).use { cl ->
+        val relocationCl = cl.loadClass("me.lucko.jarrelocator.Relocation")
+        val jarRelocatorCl = cl.loadClass("me.lucko.jarrelocator.JarRelocator")
+        val relocationCtor =
+            relocationCl.getConstructor(String::class.java, String::class.java)
+        val relocations =
+            ArrayList<Any>(
+                chronosGoogleRelocations.map { (from, to) ->
+                    relocationCtor.newInstance(from, to)
+                },
+            )
+        val jarRelocatorCtor =
+            jarRelocatorCl.getConstructor(
+                File::class.java,
+                File::class.java,
+                Collection::class.java,
+            )
+        val relocator = jarRelocatorCtor.newInstance(inputJar, tmp, relocations)
+        jarRelocatorCl.getMethod("run").invoke(relocator)
+    }
+    if (!inputJar.delete())
+        throw GradleException("Could not replace jar after relocate: ${inputJar.absolutePath}")
+    
+    if (!tmp.renameTo(inputJar))
+        throw GradleException(
+            "Relocated jar written to ${tmp.absolutePath} but could not rename over ${inputJar.absolutePath}",
+        )
+}
+
 configure(packableSubprojects) {
     val googleApiClientVersion =
         rootProject.findProperty("chronos.google.api.client.version") as String? ?: "2.7.2"
@@ -528,6 +585,36 @@ configure(packableSubprojects) {
         }
         tasks.matching { it.name == "build" || it.name == "jar" || it.name == "remapJar" }.configureEach {
             dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
+        }
+
+        // Forge 1.13+ ModLauncher SKIPPACKAGES blocks com.google.* from mod jars.
+        // Only relocate when Google APIs were flattened in (chronosEmbedded). Unimined
+        // 1.14+ lines do not currently ship those classes in the remapped jar.
+        if (forgeLineNeedsGoogleRelocate(name) && configurations.findByName("chronosEmbedded") != null) {
+            val packagingTaskName =
+                if (tasks.findByName("remapJar") != null) "remapJar" else "jar"
+            val packagingTask = tasks.named(packagingTaskName, Jar::class.java)
+            val relocatorConf =
+                configurations.create("chronosJarRelocator") {
+                    isCanBeConsumed = false
+                    isCanBeResolved = true
+                    isVisible = false
+                }
+            dependencies.add(relocatorConf.name, "me.lucko:jar-relocator:1.5")
+            val relocateGoogle =
+                tasks.register("relocateGoogleDrivePackages") {
+                    group = "chronos"
+                    description =
+                        "Relocate Google API packages out of com.google.* so Forge ModLauncher loads them"
+                    dependsOn(packagingTask)
+                    val archive = packagingTask.flatMap { it.archiveFile }
+                    inputs.files(relocatorConf)
+                    doLast {
+                        relocateGooglePackagesInJar(archive.get().asFile, relocatorConf)
+                    }
+                }
+            packagingTask.configure { finalizedBy(relocateGoogle) }
+            tasks.named("build").configure { dependsOn(relocateGoogle) }
         }
     }
     tasks.withType<ProcessResources>().configureEach {

@@ -22,6 +22,12 @@ public interface CloudIntegration {
     void initialize();
 
     /**
+     * Called when a world session is available (alias / folder setup that
+     * needs a world name). Default: no-op.
+     */
+    default void onWorldAvailable() {}
+
+    /**
      * Upload local Chronos backups missing remotely, trim remote to
      * {@code maxStoredBackups}, and optionally delete locals after upload.
      */
