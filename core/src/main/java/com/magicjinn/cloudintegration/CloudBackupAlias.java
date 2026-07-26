@@ -40,7 +40,7 @@ public final class CloudBackupAlias {
     private static final String FILE_HEADER =
             "# Chronos cloud backup folder alias.\n"
                     + "# Leave empty to use the world name as-is on the cloud.\n"
-                    + "# If set (e.g. cherry), the remote folder becomes cherry-world.";
+                    + "# If set (e.g. cherry), the remote folder becomes cherry-world.\n";
 
     private static final Gson GSON = new Gson();
     private static final TypeToken<List<String>> STRING_LIST = new TypeToken<List<String>>() {};
