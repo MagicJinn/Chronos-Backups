@@ -532,9 +532,10 @@ configure(packableSubprojects) {
         rootProject.findProperty("chronos.google.auth.library.version") as String? ?: "1.30.0"
     val opencensusVersion =
         rootProject.findProperty("chronos.opencensus.version") as String? ?: "0.31.1"
-    val grpcContextVersion =
-        rootProject.findProperty("chronos.grpc.context.version") as String? ?: "1.68.2"
+    val grpcApiVersion =
+        rootProject.findProperty("chronos.grpc.api.version") as String? ?: "1.68.2"
     // Direct + nestable transitives. Fabric `include` / Forge flatten do not nest transitives.
+    // Nest grpc-api (not grpc-context): context jar is empty since 1.57 and only depends on api.
     val googleDriveCoords =
         listOf(
             "com.google.api-client:google-api-client:$googleApiClientVersion",
@@ -549,7 +550,7 @@ configure(packableSubprojects) {
             "com.google.auth:google-auth-library-credentials:$googleAuthLibraryVersion",
             "io.opencensus:opencensus-api:$opencensusVersion",
             "io.opencensus:opencensus-contrib-http-util:$opencensusVersion",
-            "io.grpc:grpc-context:$grpcContextVersion",
+            "io.grpc:grpc-api:$grpcApiVersion",
         )
 
     /**
@@ -795,6 +796,34 @@ fun nestedJarPresent(entries: Set<String>, nestDir: String, artifactPrefix: Stri
             name.endsWith(".jar")
     }
 
+/** True when a nested jar under {@code nestDir} matching {@code artifactPrefix} contains {@code classEntry}. */
+fun nestedJarContainsClass(
+    jar: java.io.File,
+    nestDir: String,
+    artifactPrefix: String,
+    classEntry: String,
+): Boolean {
+    java.util.zip.ZipFile(jar).use { zip ->
+        val nested =
+            zip.entries().asSequence().firstOrNull { entry ->
+                !entry.isDirectory &&
+                    entry.name.startsWith(nestDir) &&
+                    entry.name.substringAfterLast('/').startsWith(artifactPrefix) &&
+                    entry.name.endsWith(".jar")
+            } ?: return false
+        zip.getInputStream(nested).use { input ->
+            java.util.zip.ZipInputStream(input).use { inner ->
+                var e = inner.nextEntry
+                while (e != null) {
+                    if (e.name == classEntry) return true
+                    e = inner.nextEntry
+                }
+            }
+        }
+    }
+    return false
+}
+
 /** True when the collected jar's MC target starts at Forge 1.13+ */
 fun forgeMcTargetNeedsGoogleRelocate(mcTarget: String): Boolean {
     val match = Regex("""^1\.(\d+)""").find(mcTarget) ?: return false
@@ -873,13 +902,14 @@ val verifyGoogleDriveJarContents =
                     "google-api-client-",
                     "google-oauth-client-",
                     "opencensus-api-",
-                    "grpc-context-",
+                    "grpc-api-",
                 )
             val flatHttpInit = "com/google/api/client/http/HttpRequestInitializer.class"
             val relocatedHttpInit =
                 "com/magicjinn/chronos/repack/google/api/client/http/HttpRequestInitializer.class"
             val flatOpenCensusSetter =
                 "io/opencensus/trace/propagation/TextFormat\$Setter.class"
+            val flatGrpcContext = "io/grpc/Context.class"
 
             val problems = mutableListOf<String>()
             for (jar in jars) {
@@ -900,6 +930,8 @@ val verifyGoogleDriveJarContents =
                                 missing += "$nest$prefix*.jar"
                             }
                         }
+                        if (!nestedJarContainsClass(jar, nest, "grpc-api-", flatGrpcContext))
+                            missing += "${nest}grpc-api-*.jar!$flatGrpcContext"
                     }
                     "neoforge" -> {
                         val nest = "META-INF/jarjar/"
@@ -908,10 +940,13 @@ val verifyGoogleDriveJarContents =
                                 missing += "$nest$prefix*.jar"
                             }
                         }
+                        if (!nestedJarContainsClass(jar, nest, "grpc-api-", flatGrpcContext))
+                            missing += "${nest}grpc-api-*.jar!$flatGrpcContext"
                     }
                     "plugin" -> {
                         if (flatHttpInit !in entries) missing += flatHttpInit
                         if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
+                        if (flatGrpcContext !in entries) missing += flatGrpcContext
                     }
                     "forge" -> {
                         val hasFlat = flatHttpInit in entries
@@ -926,11 +961,13 @@ val verifyGoogleDriveJarContents =
                                     missing +=
                                         "Google Drive stack not packaged (need flattened+relocated $relocatedHttpInit)"
                             }
-                            // OpenCensus stays under io.opencensus (not relocated).
+                            // OpenCensus / grpc stay under their original packages (not relocated).
                             if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
+                            if (flatGrpcContext !in entries) missing += flatGrpcContext
                         } else {
                             if (!hasFlat) missing += flatHttpInit
                             if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
+                            if (flatGrpcContext !in entries) missing += flatGrpcContext
                         }
                     }
                     else -> problems += "${jar.name}: unknown loader '$loader'"

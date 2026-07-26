@@ -37,8 +37,9 @@ dependencies {
     def googleHttpClientVer = rootProject.findProperty('chronos.google.http.client.version') ?: '1.45.2'
     def googleAuthLibraryVer = rootProject.findProperty('chronos.google.auth.library.version') ?: '1.30.0'
     def opencensusVer = rootProject.findProperty('chronos.opencensus.version') ?: '0.31.1'
-    def grpcContextVer = rootProject.findProperty('chronos.grpc.context.version') ?: '1.68.2'
+    def grpcApiVer = rootProject.findProperty('chronos.grpc.api.version') ?: '1.68.2'
     // Loom `include` nests only the named artifact, not transitives. Nest the Drive stack explicitly.
+    // grpc-context is empty since 1.57. Nest grpc-api (where io.grpc.Context lives).
     include implementation("com.google.api-client:google-api-client:${googleApiClientVer}")
     include implementation("com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}")
     include implementation("com.google.oauth-client:google-oauth-client-java6:${googleOauthClientVer}")
@@ -51,7 +52,7 @@ dependencies {
     include implementation("com.google.auth:google-auth-library-credentials:${googleAuthLibraryVer}")
     include implementation("io.opencensus:opencensus-api:${opencensusVer}")
     include implementation("io.opencensus:opencensus-contrib-http-util:${opencensusVer}")
-    include implementation("io.grpc:grpc-context:${grpcContextVer}")
+    include implementation("io.grpc:grpc-api:${grpcApiVer}")
 }
 
 sourceSets.main.resources.srcDirs(

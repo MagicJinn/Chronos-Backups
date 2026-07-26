@@ -24,6 +24,8 @@
         "NoClassDefFoundError: com/google",
         "NoClassDefFoundError: com/magicjinn/chronos/repack/google",
         "NoClassDefFoundError: io/opencensus",
+        "NoClassDefFoundError: io/grpc",
+        "ClassNotFoundException: io.grpc",
         "Google Drive authorization failed",
         "Google Drive initialization failed",
         "Google Drive alias setup failed",
