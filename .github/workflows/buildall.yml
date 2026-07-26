@@ -85,6 +85,9 @@ jobs:
       - name: Run buildAll
         run: ./gradlew buildAll -PchronosRustSkipBuild=true -PchronosRustRequireAllTargets=false --no-daemon
 
+      - name: Verify Google Drive jar packaging
+        run: ./gradlew verifyGoogleDriveJarContents -PchronosRustSkipBuild=true --no-daemon
+
       - name: Upload built jars
         uses: actions/upload-artifact@v4
         with:

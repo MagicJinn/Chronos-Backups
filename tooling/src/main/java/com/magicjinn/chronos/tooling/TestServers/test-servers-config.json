@@ -26,6 +26,8 @@
         "NoClassDefFoundError: io/opencensus",
         "NoClassDefFoundError: io/grpc",
         "ClassNotFoundException: io.grpc",
+        "java.lang.module.ResolutionException",
+        "Modules chronosbackups and",
         "Google Drive authorization failed",
         "Google Drive initialization failed",
         "Google Drive alias setup failed",

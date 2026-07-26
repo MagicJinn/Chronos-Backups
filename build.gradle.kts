@@ -556,10 +556,15 @@ configure(packableSubprojects) {
     /**
      * Minecraft / NeoForge already ship these (often with `{strictly ...}`). Pulling Google's
      * newer transitives makes compileClasspath unsatisfiable on NeoForge 1.20+.
+     * Annotation jars (jsr305 / error_prone / j2objc) must not be flattened into Forge mods:
+     * JPMS rejects split packages such as javax.annotation on 1.17+.
      */
     fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvidedGoogleTransitives() {
         exclude(group = "com.google.guava")
         exclude(group = "com.google.code.gson")
+        exclude(group = "com.google.code.findbugs")
+        exclude(group = "com.google.errorprone")
+        exclude(group = "com.google.j2objc")
         exclude(group = "commons-codec")
         exclude(group = "org.apache.httpcomponents")
         exclude(group = "commons-logging")
@@ -585,9 +590,33 @@ configure(packableSubprojects) {
             }
         }
         if (configurations.findByName("chronosEmbedded") != null) {
+            // Template chronosEmbedded deps often omit excludes. Strip Forge-provided / annotation
+            // Google libs so flatten does not embed them (JPMS split-package crash on Forge 1.17+).
+            configurations.named("chronosEmbedded").configure {
+                exclude(mapOf("group" to "com.google.guava"))
+                exclude(mapOf("group" to "com.google.code.gson"))
+                exclude(mapOf("group" to "com.google.code.findbugs"))
+                exclude(mapOf("group" to "com.google.errorprone"))
+                exclude(mapOf("group" to "com.google.j2objc"))
+                exclude(mapOf("group" to "commons-codec"))
+                exclude(mapOf("group" to "commons-logging"))
+                exclude(mapOf("group" to "org.apache.httpcomponents"))
+            }
             dependencies {
                 for (coord in googleDriveCoords) {
                     "chronosEmbedded"(coord) { excludeMinecraftProvidedGoogleTransitives() }
+                }
+            }
+            tasks.withType<Jar>().configureEach {
+                if (name == "jar" || name == "remapJar") {
+                    exclude("com/google/common/**")
+                    exclude("com/google/gson/**")
+                    exclude("javax/annotation/**")
+                    exclude("com/google/errorprone/**")
+                    exclude("com/google/j2objc/**")
+                    // Minecraft/Forge already ship these. Embedding splits JPMS packages on 1.17+.
+                    exclude("org/apache/commons/**")
+                    exclude("org/apache/http/**")
                 }
             }
         }
@@ -881,12 +910,13 @@ val verifyGoogleDriveJarContents =
     tasks.register("verifyGoogleDriveJarContents") {
         group = "verification"
         description =
-            "Fails if collected jars are missing Google Drive packaging (JiJ / flattened / relocated). " +
-                "Expects jars already in build/libs (run collectAllJars / buildAll first)."
+            "Fails if collected jars are missing Google Drive packaging (JiJ / flattened / relocated) " +
+                "or Forge jars embed JPMS-conflicting packages (Guava/Gson/jsr305/commons)."
+        dependsOn(collectAllJars)
         doLast {
             val libsDir = layout.buildDirectory.dir("libs").get().asFile
             if (!libsDir.isDirectory) {
-                throw GradleException("Missing ${libsDir.absolutePath}; run buildAll first.")
+                throw GradleException("Missing ${libsDir.absolutePath}; run buildAll / collectAllJars first.")
             }
             val modId =
                 (findProperty("chronos.mod.id") ?: "chronosbackups").toString().lowercase()
@@ -910,6 +940,17 @@ val verifyGoogleDriveJarContents =
             val flatOpenCensusSetter =
                 "io/opencensus/trace/propagation/TextFormat\$Setter.class"
             val flatGrpcContext = "io/grpc/Context.class"
+            // Forge already ships these. Embedding them splits JPMS packages on 1.17+.
+            val forgeForbiddenPrefixes =
+                listOf(
+                    "com/google/common/" to "Forge-provided Guava / failureaccess",
+                    "com/google/gson/" to "Forge-provided Gson",
+                    "javax/annotation/" to "jsr305; splits with server module",
+                    "com/google/errorprone/" to "error_prone_annotations",
+                    "com/google/j2objc/" to "j2objc-annotations",
+                    "org/apache/commons/" to "Forge-provided commons-codec/logging",
+                    "org/apache/http/" to "Forge-provided httpcomponents",
+                )
 
             val problems = mutableListOf<String>()
             for (jar in jars) {
@@ -969,6 +1010,11 @@ val verifyGoogleDriveJarContents =
                             if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
                             if (flatGrpcContext !in entries) missing += flatGrpcContext
                         }
+                        for ((prefix, reason) in forgeForbiddenPrefixes) {
+                            if (entries.any { it.startsWith(prefix) }) {
+                                missing += "must not embed $prefix* ($reason)"
+                            }
+                        }
                     }
                     else -> problems += "${jar.name}: unknown loader '$loader'"
                 }
@@ -993,9 +1039,11 @@ val verifyGoogleDriveJarContents =
 tasks.register("buildAll") {
     group = "build"
     description =
-        "Runs :core:test, builds every included variant subproject, and collects final jars."
+        "Runs :core:test, builds every included variant subproject, collects jars, " +
+            "and verifies Google Drive packaging."
     dependsOn(":core:test")
     dependsOn(collectAllJars)
+    dependsOn(verifyGoogleDriveJarContents)
 }
 
 val prepareTestServers =
@@ -1006,6 +1054,7 @@ val prepareTestServers =
         dependsOn(stageRustPrunerNative)
         dependsOn("buildAll")
         dependsOn(verifyTestServerNativeJars)
+        dependsOn(verifyGoogleDriveJarContents)
     }
 
 tasks.register("testServers") {

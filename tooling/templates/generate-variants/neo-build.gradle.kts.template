@@ -42,6 +42,9 @@ dependencies {
     fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvided() {
         exclude(group = "com.google.guava")
         exclude(group = "com.google.code.gson")
+        exclude(group = "com.google.code.findbugs")
+        exclude(group = "com.google.errorprone")
+        exclude(group = "com.google.j2objc")
         exclude(group = "commons-codec")
         exclude(group = "org.apache.httpcomponents")
         exclude(group = "commons-logging")
