@@ -47,17 +47,44 @@ unimined.minecraft {
     defaultRemapJar = true
 }
 
+configurations {
+    chronosEmbedded {
+        canBeResolved = true
+        canBeConsumed = false
+    }
+}
+
 dependencies {
     def nightConfigVer = rootProject.findProperty('chronos.nightconfig.version') ?: '3.6.7'
-    // Unimined merges `implementation` into the remapped jar. Use `compileOnly` so Night Config is not bundled (Forge supplies it, avoids JPMS duplicate exports on 1.17+).
+    // Night Config: compileOnly only. Forge supplies it, bundling hits JPMS duplicate exports on 1.17+.
     compileOnly "com.electronwill.night-config:core:${nightConfigVer}"
     compileOnly "com.electronwill.night-config:toml:${nightConfigVer}"
     def googleApiClientVer = rootProject.findProperty('chronos.google.api.client.version') ?: '2.7.2'
     def googleOauthClientVer = rootProject.findProperty('chronos.google.oauth.client.version') ?: '1.36.0'
     def googleDriveApiVer = rootProject.findProperty('chronos.google.api.services.drive.version') ?: 'v3-rev20230822-2.0.0'
+    // Google Drive is not on the Forge classpath. Keep implementation for runServer. Flatten via
+    // chronosEmbedded for production jars (Unimined does not reliably merge these into remapJar).
+    // Root build adds nestable transitives + relocates com.google.* for ModLauncher SKIPPACKAGES.
     implementation "com.google.api-client:google-api-client:${googleApiClientVer}"
     implementation "com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}"
     implementation "com.google.apis:google-api-services-drive:${googleDriveApiVer}"
+    chronosEmbedded "com.google.api-client:google-api-client:${googleApiClientVer}"
+    chronosEmbedded "com.google.oauth-client:google-oauth-client-jetty:${googleOauthClientVer}"
+    chronosEmbedded "com.google.apis:google-api-services-drive:${googleDriveApiVer}"
+}
+
+tasks.withType(Jar).configureEach { t ->
+    if (t.name == 'jar' || t.name == 'remapJar') {
+        // Declare config as input so Gradle invalidates when Drive deps change / after template regen.
+        t.dependsOn(configurations.chronosEmbedded)
+        t.inputs.files(configurations.chronosEmbedded)
+        t.from {
+            configurations.chronosEmbedded.collect { zipTree(it) }
+        }
+        t.exclude 'META-INF/versions/**'
+        t.exclude '**/module-info.class'
+        t.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 }
 
 sourceSets.main.resources.srcDirs(
