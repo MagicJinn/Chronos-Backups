@@ -71,6 +71,11 @@ public class Core {
             }
         }
 
+        // Check whether the classpath is valid for each provider
+        for (CloudIntegration cloudIntegration : integrations) {
+            cloudIntegration.probeClasspath();
+        }
+
         // On loader start, request a sync resume any previous sync that was interrupted
         CloudSync.requestSync();
     }
@@ -78,6 +83,10 @@ public class Core {
     public static void OnWorldStarted(BackupRuntimeContext context) {
         CloudSync.resetForNewSession();
         Scheduler.InitializeScheduler(context);
+        // Only providers that loaded (missing Drive HTTP jars skip GoogleDrive entirely).
+        for (CloudIntegration cloudIntegration : cloudIntegrations()) {
+            cloudIntegration.onWorldAvailable();
+        }
         CloudSync.requestSync();
     }
 

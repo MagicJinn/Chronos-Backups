@@ -461,6 +461,63 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
 val chronosRustPrunerResources =
     rootProject.layout.buildDirectory.dir("generated/rust-pruner-resources")
 
+/**
+ * Forge 1.13–1.16 ModLauncher installs a package filter that refuses to load any
+ * `com.google.*` class from a mod jar (so mods cannot replace Guava). Flattened
+ * Google Drive API classes live under `com.google.api` / `auth` / `oauth`, so the
+ * filter delegates to the parent loader, which does not have them >
+ * ClassNotFoundException. Relocate those prefixes out of `com.google.*` after the
+ * fat jar is built. Leave `com.google.common` / `com.google.gson` alone (Forge-provided).
+ * Fabric JiJ / NeoForge jarJar do not need this. Yes this fucking sucks.
+ */
+val chronosGoogleRelocations =
+    listOf(
+        "com.google.api" to "com.magicjinn.chronos.repack.google.api",
+        "com.google.auth" to "com.magicjinn.chronos.repack.google.auth",
+        "com.google.oauth" to "com.magicjinn.chronos.repack.google.oauth",
+    )
+
+/** ModLauncher SKIPPACKAGES `com.google.` starts with Forge 1.13. LaunchClassLoader lines do not need relocate. */
+fun forgeLineNeedsGoogleRelocate(projectName: String): Boolean {
+    val match = Regex("""^forge(?:-line)?-1_(\d+)(?:_|$)""").find(projectName) ?: return false
+    return match.groupValues[1].toInt() >= 13
+}
+
+fun relocateGooglePackagesInJar(inputJar: File, relocatorClasspath: Iterable<File>) {
+    val tmp = File(inputJar.parentFile, "${inputJar.nameWithoutExtension}.relocating.jar")
+    if (tmp.exists() && !tmp.delete())
+        throw GradleException("Could not delete temp relocate jar: ${tmp.absolutePath}")
+    
+    val urls = relocatorClasspath.map { it.toURI().toURL() }.toTypedArray()
+    java.net.URLClassLoader(urls, ClassLoader.getPlatformClassLoader()).use { cl ->
+        val relocationCl = cl.loadClass("me.lucko.jarrelocator.Relocation")
+        val jarRelocatorCl = cl.loadClass("me.lucko.jarrelocator.JarRelocator")
+        val relocationCtor =
+            relocationCl.getConstructor(String::class.java, String::class.java)
+        val relocations =
+            ArrayList<Any>(
+                chronosGoogleRelocations.map { (from, to) ->
+                    relocationCtor.newInstance(from, to)
+                },
+            )
+        val jarRelocatorCtor =
+            jarRelocatorCl.getConstructor(
+                File::class.java,
+                File::class.java,
+                Collection::class.java,
+            )
+        val relocator = jarRelocatorCtor.newInstance(inputJar, tmp, relocations)
+        jarRelocatorCl.getMethod("run").invoke(relocator)
+    }
+    if (!inputJar.delete())
+        throw GradleException("Could not replace jar after relocate: ${inputJar.absolutePath}")
+    
+    if (!tmp.renameTo(inputJar))
+        throw GradleException(
+            "Relocated jar written to ${tmp.absolutePath} but could not rename over ${inputJar.absolutePath}",
+        )
+}
+
 configure(packableSubprojects) {
     val googleApiClientVersion =
         rootProject.findProperty("chronos.google.api.client.version") as String? ?: "2.7.2"
@@ -473,7 +530,12 @@ configure(packableSubprojects) {
         rootProject.findProperty("chronos.google.http.client.version") as String? ?: "1.45.2"
     val googleAuthLibraryVersion =
         rootProject.findProperty("chronos.google.auth.library.version") as String? ?: "1.30.0"
+    val opencensusVersion =
+        rootProject.findProperty("chronos.opencensus.version") as String? ?: "0.31.1"
+    val grpcApiVersion =
+        rootProject.findProperty("chronos.grpc.api.version") as String? ?: "1.68.2"
     // Direct + nestable transitives. Fabric `include` / Forge flatten do not nest transitives.
+    // Nest grpc-api (not grpc-context): context jar is empty since 1.57 and only depends on api.
     val googleDriveCoords =
         listOf(
             "com.google.api-client:google-api-client:$googleApiClientVersion",
@@ -486,15 +548,23 @@ configure(packableSubprojects) {
             "com.google.http-client:google-http-client-apache-v2:$googleHttpClientVersion",
             "com.google.auth:google-auth-library-oauth2-http:$googleAuthLibraryVersion",
             "com.google.auth:google-auth-library-credentials:$googleAuthLibraryVersion",
+            "io.opencensus:opencensus-api:$opencensusVersion",
+            "io.opencensus:opencensus-contrib-http-util:$opencensusVersion",
+            "io.grpc:grpc-api:$grpcApiVersion",
         )
 
     /**
      * Minecraft / NeoForge already ship these (often with `{strictly ...}`). Pulling Google's
      * newer transitives makes compileClasspath unsatisfiable on NeoForge 1.20+.
+     * Annotation jars (jsr305 / error_prone / j2objc) must not be flattened into Forge mods:
+     * JPMS rejects split packages such as javax.annotation on 1.17+.
      */
     fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvidedGoogleTransitives() {
         exclude(group = "com.google.guava")
         exclude(group = "com.google.code.gson")
+        exclude(group = "com.google.code.findbugs")
+        exclude(group = "com.google.errorprone")
+        exclude(group = "com.google.j2objc")
         exclude(group = "commons-codec")
         exclude(group = "org.apache.httpcomponents")
         exclude(group = "commons-logging")
@@ -520,14 +590,69 @@ configure(packableSubprojects) {
             }
         }
         if (configurations.findByName("chronosEmbedded") != null) {
+            // Template chronosEmbedded deps often omit excludes. Strip Forge-provided / annotation
+            // Google libs so flatten does not embed them (JPMS split-package crash on Forge 1.17+).
+            configurations.named("chronosEmbedded").configure {
+                exclude(mapOf("group" to "com.google.guava"))
+                exclude(mapOf("group" to "com.google.code.gson"))
+                exclude(mapOf("group" to "com.google.code.findbugs"))
+                exclude(mapOf("group" to "com.google.errorprone"))
+                exclude(mapOf("group" to "com.google.j2objc"))
+                exclude(mapOf("group" to "commons-codec"))
+                exclude(mapOf("group" to "commons-logging"))
+                exclude(mapOf("group" to "org.apache.httpcomponents"))
+            }
             dependencies {
                 for (coord in googleDriveCoords) {
                     "chronosEmbedded"(coord) { excludeMinecraftProvidedGoogleTransitives() }
                 }
             }
+            tasks.withType<Jar>().configureEach {
+                if (name == "jar" || name == "remapJar") {
+                    exclude("com/google/common/**")
+                    exclude("com/google/gson/**")
+                    exclude("javax/annotation/**")
+                    exclude("com/google/errorprone/**")
+                    exclude("com/google/j2objc/**")
+                    // Minecraft/Forge already ship these. Embedding splits JPMS packages on 1.17+.
+                    exclude("org/apache/commons/**")
+                    exclude("org/apache/http/**")
+                }
+            }
         }
         tasks.matching { it.name == "build" || it.name == "jar" || it.name == "remapJar" }.configureEach {
             dependsOn(rootProject.tasks.named("stageRustPrunerNative"))
+        }
+
+        // Forge 1.13+ ModLauncher SKIPPACKAGES blocks com.google.* from mod jars.
+        // Relocate after flatten (chronosEmbedded on Forge lines that ship Drive in the jar).
+        if (forgeLineNeedsGoogleRelocate(name) && configurations.findByName("chronosEmbedded") != null) {
+            val packagingTaskName =
+                if (tasks.findByName("remapJar") != null) "remapJar" else "jar"
+            val packagingTask = tasks.named(packagingTaskName, Jar::class.java)
+            val relocatorConf =
+                configurations.create("chronosJarRelocator") {
+                    isCanBeConsumed = false
+                    isCanBeResolved = true
+                    isVisible = false
+                }
+            dependencies.add(relocatorConf.name, "me.lucko:jar-relocator:1.5")
+            val relocateGoogle =
+                tasks.register("relocateGoogleDrivePackages") {
+                    group = "chronos"
+                    description =
+                        "Relocate Google API packages out of com.google.* so Forge ModLauncher loads them"
+                    dependsOn(packagingTask)
+                    val archive = packagingTask.flatMap { it.archiveFile }
+                    inputs.files(relocatorConf)
+                    inputs.file(archive)
+                    outputs.file(archive)
+                    doLast {
+                        relocateGooglePackagesInJar(archive.get().asFile, relocatorConf)
+                    }
+                }
+            packagingTask.configure { finalizedBy(relocateGoogle) }
+            tasks.named("build").configure { dependsOn(relocateGoogle) }
         }
     }
     tasks.withType<ProcessResources>().configureEach {
@@ -678,6 +803,76 @@ val collectAllJars =
     }
     }
 
+fun collectedChronosJars(libsDir: java.io.File, modId: String, modVersion: String): Array<java.io.File> {
+    val versionToken = "-$modVersion-"
+    return libsDir.listFiles { f ->
+        f.isFile &&
+            f.name.endsWith(".jar") &&
+            f.name.startsWith("$modId-") &&
+            f.name.contains(versionToken)
+    } ?: emptyArray()
+}
+
+fun zipEntryNames(jar: java.io.File): Set<String> =
+    java.util.zip.ZipFile(jar).use { zip ->
+        zip.entries().asSequence().map { it.name }.toSet()
+    }
+
+fun nestedJarPresent(entries: Set<String>, nestDir: String, artifactPrefix: String): Boolean =
+    entries.any { name ->
+        name.startsWith(nestDir) &&
+            name.substringAfterLast('/').startsWith(artifactPrefix) &&
+            name.endsWith(".jar")
+    }
+
+/** True when a nested jar under {@code nestDir} matching {@code artifactPrefix} contains {@code classEntry}. */
+fun nestedJarContainsClass(
+    jar: java.io.File,
+    nestDir: String,
+    artifactPrefix: String,
+    classEntry: String,
+): Boolean {
+    java.util.zip.ZipFile(jar).use { zip ->
+        val nested =
+            zip.entries().asSequence().firstOrNull { entry ->
+                !entry.isDirectory &&
+                    entry.name.startsWith(nestDir) &&
+                    entry.name.substringAfterLast('/').startsWith(artifactPrefix) &&
+                    entry.name.endsWith(".jar")
+            } ?: return false
+        zip.getInputStream(nested).use { input ->
+            java.util.zip.ZipInputStream(input).use { inner ->
+                var e = inner.nextEntry
+                while (e != null) {
+                    if (e.name == classEntry) return true
+                    e = inner.nextEntry
+                }
+            }
+        }
+    }
+    return false
+}
+
+/** True when the collected jar's MC target starts at Forge 1.13+ */
+fun forgeMcTargetNeedsGoogleRelocate(mcTarget: String): Boolean {
+    val match = Regex("""^1\.(\d+)""").find(mcTarget) ?: return false
+    return match.groupValues[1].toInt() >= 13
+}
+
+fun parseCollectedJar(modId: String, modVersion: String, fileName: String): Pair<String, String>? {
+    val prefix = "$modId-"
+    val suffixMatch =
+        Regex("""-(fabric|neoforge|forge|plugin)\.jar$""").find(fileName) ?: return null
+    if (!fileName.startsWith(prefix) || !fileName.endsWith(".jar")) return null
+    val loader = suffixMatch.groupValues[1]
+    val mid =
+        fileName.removePrefix(prefix).removeSuffix("-${loader}.jar")
+    val versionToken = "-$modVersion"
+    if (!mid.endsWith(versionToken)) return null
+    val mcTarget = mid.removeSuffix(versionToken)
+    return loader to mcTarget
+}
+
 val verifyTestServerNativeJars =
     tasks.register("verifyTestServerNativeJars") {
         group = "verification"
@@ -692,14 +887,7 @@ val verifyTestServerNativeJars =
             val modId =
                 (findProperty("chronos.mod.id") ?: "chronosbackups").toString().lowercase()
             val modVersion = (findProperty("chronos.mod.version") ?: "0.0.0").toString()
-            val versionToken = "-$modVersion-"
-            val jars =
-                libsDir.listFiles { f ->
-                    f.isFile &&
-                        f.name.endsWith(".jar") &&
-                        f.name.startsWith("$modId-") &&
-                        f.name.contains(versionToken)
-                } ?: emptyArray()
+            val jars = collectedChronosJars(libsDir, modId, modVersion)
             if (jars.isEmpty()) {
                 throw GradleException("No chronosbackups jars in ${libsDir.absolutePath}.")
             }
@@ -718,12 +906,144 @@ val verifyTestServerNativeJars =
         }
     }
 
+val verifyGoogleDriveJarContents =
+    tasks.register("verifyGoogleDriveJarContents") {
+        group = "verification"
+        description =
+            "Fails if collected jars are missing Google Drive packaging (JiJ / flattened / relocated) " +
+                "or Forge jars embed JPMS-conflicting packages (Guava/Gson/jsr305/commons)."
+        dependsOn(collectAllJars)
+        doLast {
+            val libsDir = layout.buildDirectory.dir("libs").get().asFile
+            if (!libsDir.isDirectory) {
+                throw GradleException("Missing ${libsDir.absolutePath}; run buildAll / collectAllJars first.")
+            }
+            val modId =
+                (findProperty("chronos.mod.id") ?: "chronosbackups").toString().lowercase()
+            val modVersion = (findProperty("chronos.mod.version") ?: "0.0.0").toString()
+            val jars = collectedChronosJars(libsDir, modId, modVersion).sortedBy { it.name }
+            if (jars.isEmpty()) {
+                throw GradleException("No chronosbackups jars in ${libsDir.absolutePath}.")
+            }
+
+            val nestedArtifacts =
+                listOf(
+                    "google-http-client-",
+                    "google-api-client-",
+                    "google-oauth-client-",
+                    "opencensus-api-",
+                    "grpc-api-",
+                )
+            val flatHttpInit = "com/google/api/client/http/HttpRequestInitializer.class"
+            val relocatedHttpInit =
+                "com/magicjinn/chronos/repack/google/api/client/http/HttpRequestInitializer.class"
+            val flatOpenCensusSetter =
+                "io/opencensus/trace/propagation/TextFormat\$Setter.class"
+            val flatGrpcContext = "io/grpc/Context.class"
+            // Forge already ships these. Embedding them splits JPMS packages on 1.17+.
+            val forgeForbiddenPrefixes =
+                listOf(
+                    "com/google/common/" to "Forge-provided Guava / failureaccess",
+                    "com/google/gson/" to "Forge-provided Gson",
+                    "javax/annotation/" to "jsr305; splits with server module",
+                    "com/google/errorprone/" to "error_prone_annotations",
+                    "com/google/j2objc/" to "j2objc-annotations",
+                    "org/apache/commons/" to "Forge-provided commons-codec/logging",
+                    "org/apache/http/" to "Forge-provided httpcomponents",
+                )
+
+            val problems = mutableListOf<String>()
+            for (jar in jars) {
+                val parsed = parseCollectedJar(modId, modVersion, jar.name)
+                if (parsed == null) {
+                    problems += "${jar.name}: could not parse loader/mcTarget from name"
+                    continue
+                }
+                val (loader, mcTarget) = parsed
+                val entries = zipEntryNames(jar)
+                val missing = mutableListOf<String>()
+
+                when (loader) {
+                    "fabric" -> {
+                        val nest = "META-INF/jars/"
+                        for (prefix in nestedArtifacts) {
+                            if (!nestedJarPresent(entries, nest, prefix)) {
+                                missing += "$nest$prefix*.jar"
+                            }
+                        }
+                        if (!nestedJarContainsClass(jar, nest, "grpc-api-", flatGrpcContext))
+                            missing += "${nest}grpc-api-*.jar!$flatGrpcContext"
+                    }
+                    "neoforge" -> {
+                        val nest = "META-INF/jarjar/"
+                        for (prefix in nestedArtifacts) {
+                            if (!nestedJarPresent(entries, nest, prefix)) {
+                                missing += "$nest$prefix*.jar"
+                            }
+                        }
+                        if (!nestedJarContainsClass(jar, nest, "grpc-api-", flatGrpcContext))
+                            missing += "${nest}grpc-api-*.jar!$flatGrpcContext"
+                    }
+                    "plugin" -> {
+                        if (flatHttpInit !in entries) missing += flatHttpInit
+                        if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
+                        if (flatGrpcContext !in entries) missing += flatGrpcContext
+                    }
+                    "forge" -> {
+                        val hasFlat = flatHttpInit in entries
+                        val hasRelocated = relocatedHttpInit in entries
+                        if (forgeMcTargetNeedsGoogleRelocate(mcTarget)) {
+                            when {
+                                hasRelocated -> Unit
+                                hasFlat ->
+                                    missing +=
+                                        "$relocatedHttpInit (still under com.google.*; ModLauncher will skip it)"
+                                else ->
+                                    missing +=
+                                        "Google Drive stack not packaged (need flattened+relocated $relocatedHttpInit)"
+                            }
+                            // OpenCensus / grpc stay under their original packages (not relocated).
+                            if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
+                            if (flatGrpcContext !in entries) missing += flatGrpcContext
+                        } else {
+                            if (!hasFlat) missing += flatHttpInit
+                            if (flatOpenCensusSetter !in entries) missing += flatOpenCensusSetter
+                            if (flatGrpcContext !in entries) missing += flatGrpcContext
+                        }
+                        for ((prefix, reason) in forgeForbiddenPrefixes) {
+                            if (entries.any { it.startsWith(prefix) }) {
+                                missing += "must not embed $prefix* ($reason)"
+                            }
+                        }
+                    }
+                    else -> problems += "${jar.name}: unknown loader '$loader'"
+                }
+
+                if (missing.isNotEmpty()) {
+                    problems += "${jar.name}: missing ${missing.joinToString(", ")}"
+                }
+            }
+
+            if (problems.isNotEmpty()) {
+                throw GradleException(
+                    "Google Drive jar content check failed (${problems.size}):\n" +
+                        problems.joinToString("\n") { "  - $it" },
+                )
+            }
+            logger.lifecycle(
+                "verifyGoogleDriveJarContents: OK (${jars.size} jars have Drive packaging).",
+            )
+        }
+    }
+
 tasks.register("buildAll") {
     group = "build"
     description =
-        "Runs :core:test, builds every included variant subproject, and collects final jars."
+        "Runs :core:test, builds every included variant subproject, collects jars, " +
+            "and verifies Google Drive packaging."
     dependsOn(":core:test")
     dependsOn(collectAllJars)
+    dependsOn(verifyGoogleDriveJarContents)
 }
 
 val prepareTestServers =
@@ -734,6 +1054,7 @@ val prepareTestServers =
         dependsOn(stageRustPrunerNative)
         dependsOn("buildAll")
         dependsOn(verifyTestServerNativeJars)
+        dependsOn(verifyGoogleDriveJarContents)
     }
 
 tasks.register("testServers") {

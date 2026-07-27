@@ -45,6 +45,14 @@ public final class Scheduler {
         return runtimeContext;
     }
 
+    /**
+     * Active world/runtime context, or {@code null} when no world session is
+     * running. Prefer this from cloud setup code that may run before a world loads.
+     */
+    public static BackupRuntimeContext tryGetRuntimeContext() {
+        return runtimeContext;
+    }
+
     public static void InitializeScheduler(BackupRuntimeContext context) {
 
         Backupper.clearShutdownRequest();

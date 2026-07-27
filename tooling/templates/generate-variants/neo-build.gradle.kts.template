@@ -33,12 +33,18 @@ dependencies {
     val googleDriveApiVer = rootProject.findProperty("chronos.google.api.services.drive.version") ?: "v3-rev20230822-2.0.0"
     val googleHttpClientVer = rootProject.findProperty("chronos.google.http.client.version") ?: "1.45.2"
     val googleAuthLibraryVer = rootProject.findProperty("chronos.google.auth.library.version") ?: "1.30.0"
+    val opencensusVer = rootProject.findProperty("chronos.opencensus.version") ?: "0.31.1"
+    val grpcApiVer = rootProject.findProperty("chronos.grpc.api.version") ?: "1.68.2"
     // Bundle Google Drive clients (NeoForge does not ship these). Exclude libs Minecraft already
     // provides with strictly pinned versions, otherwise compileClasspath cannot resolve.
     // jarJar does not nest transitives, so list the Drive stack explicitly.
+    // grpc-context is empty since 1.57. Nest grpc-api (where io.grpc.Context lives).
     fun org.gradle.api.artifacts.ExternalModuleDependency.excludeMinecraftProvided() {
         exclude(group = "com.google.guava")
         exclude(group = "com.google.code.gson")
+        exclude(group = "com.google.code.findbugs")
+        exclude(group = "com.google.errorprone")
+        exclude(group = "com.google.j2objc")
         exclude(group = "commons-codec")
         exclude(group = "org.apache.httpcomponents")
         exclude(group = "commons-logging")
@@ -55,6 +61,9 @@ dependencies {
             "com.google.http-client:google-http-client-apache-v2:$googleHttpClientVer",
             "com.google.auth:google-auth-library-oauth2-http:$googleAuthLibraryVer",
             "com.google.auth:google-auth-library-credentials:$googleAuthLibraryVer",
+            "io.opencensus:opencensus-api:$opencensusVer",
+            "io.opencensus:opencensus-contrib-http-util:$opencensusVer",
+            "io.grpc:grpc-api:$grpcApiVer",
         )
     for (coord in googleDriveCoords) {
         jarJar(

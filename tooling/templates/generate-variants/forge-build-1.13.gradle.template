@@ -51,6 +51,14 @@ configurations {
     chronosEmbedded {
         canBeResolved = true
         canBeConsumed = false
+        exclude group: 'com.google.guava'
+        exclude group: 'com.google.code.gson'
+        exclude group: 'com.google.code.findbugs'
+        exclude group: 'com.google.errorprone'
+        exclude group: 'com.google.j2objc'
+        exclude group: 'commons-codec'
+        exclude group: 'commons-logging'
+        exclude group: 'org.apache.httpcomponents'
     }
 }
 
@@ -80,6 +88,14 @@ tasks.withType(Jar).configureEach { t ->
         // Old Forge ASM cannot parse Multi-Release / module-info entries from embedded deps.
         t.exclude 'META-INF/versions/**'
         t.exclude '**/module-info.class'
+        // Forge ships Guava/Gson. Embedding them causes JPMS split packages on 1.17+.
+        t.exclude 'com/google/common/**'
+        t.exclude 'com/google/gson/**'
+        t.exclude 'javax/annotation/**'
+        t.exclude 'com/google/errorprone/**'
+        t.exclude 'com/google/j2objc/**'
+        t.exclude 'org/apache/commons/**'
+        t.exclude 'org/apache/http/**'
         t.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 }

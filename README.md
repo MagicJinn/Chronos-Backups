@@ -59,6 +59,8 @@ Chronos can upload finished backups to a remote cloud provider, then optionally 
 - `maxStoredBackups` also caps how many Chronos backups each enabled provider keeps per world (oldest removed first). Values below 1 disable automatic removal locally and remotely.
 - If `shouldKeepLocalBackups` is `false`, a backup is deleted from disk (only after it has been uploaded successfully).
 
+When multiple worlds would map to the same remote folder (e.g. two servers both named "world"), Chronos attempts to resolve this by assigning a unique alias in `chronos-alias.txt` instead of overwriting. This favors safety over storage, so orphaned remote data may remain. Watch the console when enabling cloud sync on multiple servers.
+
 ### Providers
 
 Currently supported: ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white). Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
