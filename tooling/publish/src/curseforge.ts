@@ -43,10 +43,14 @@ function preferVersionCandidates(candidates: VersionCandidate[]): VersionCandida
 }
 
 function preferPluginVersionCandidates(candidates: VersionCandidate[]): VersionCandidate[] {
-  const bukkitCandidates = candidates.filter(
+  // Never fall back to mod-line Minecraft ids. Those trigger CurseForge error 1009 on Bukkit projects.
+  return candidates.filter(
     (candidate) => candidate.gameVersionTypeID === CURSEFORGE_BUKKIT_GAME_VERSION_TYPE_ID,
   );
-  return bukkitCandidates.length > 0 ? bukkitCandidates : preferVersionCandidates(candidates);
+}
+
+function isBukkitVersionCandidate(candidate: VersionCandidate): boolean {
+  return candidate.gameVersionTypeID === CURSEFORGE_BUKKIT_GAME_VERSION_TYPE_ID;
 }
 
 function addCandidate(map: Map<string, VersionCandidate[]>, key: string, candidate: VersionCandidate): void {
@@ -95,8 +99,9 @@ function invalidDependencyId(errorBody: string): number | undefined {
 export function resolveCurseForgeGameVersions(
   supportedVersions: string[],
   validNames: ReadonlySet<string>,
+  options?: { fallbackToMajorMinor?: boolean },
 ): string[] {
-  const resolved = resolveSupportedGameVersions(supportedVersions, validNames);
+  const resolved = resolveSupportedGameVersions(supportedVersions, validNames, options);
   if (resolved.length === 0) {
     throw new Error(
       `No CurseForge game versions match: ${supportedVersions.join(", ")}`,
@@ -149,14 +154,23 @@ export class CurseForgeVersionResolver {
     this.loaded = true;
   }
 
-  resolve(supportedVersions: string[]): string[] {
+  resolve(supportedVersions: string[], isPlugin = false): string[] {
     if (!this.loaded) {
       throw new Error("CurseForgeVersionResolver.load() must be called first");
     }
-    return resolveCurseForgeGameVersions(
-      supportedVersions,
-      new Set(this.mcVersionCandidatesByName.keys()),
-    );
+
+    const validNames = isPlugin
+      ? new Set(
+          [...this.mcVersionCandidatesByName.entries()]
+            .filter(([, candidates]) => candidates.some(isBukkitVersionCandidate))
+            .map(([name]) => name),
+        )
+      : new Set(this.mcVersionCandidatesByName.keys());
+
+    return resolveCurseForgeGameVersions(supportedVersions, validNames, {
+      // Bukkit tags are often major.minor only (1.13, not 1.13.2).
+      fallbackToMajorMinor: isPlugin,
+    });
   }
 
   resolveGameVersionIdCombinations(names: string[], loaders: string[], isPlugin = false): number[][] {
@@ -331,14 +345,15 @@ export class CurseForgeVersionResolver {
 
   private resolvePluginGameVersionIdCombinations(names: string[]): number[][] {
     const mcLists = names.map((name) => {
-      const candidates = this.mcVersionCandidatesByName.get(name);
-      if (!candidates?.length) {
+      const candidates = preferPluginVersionCandidates(this.mcVersionCandidatesByName.get(name) ?? []);
+      if (!candidates.length) {
         throw new Error(
-          `CurseForge has no game version id for: ${name}. ` +
-            "Add supportedVersions in chronos-compile-groups.json or wait for CurseForge to list the version.",
+          `CurseForge has no Bukkit game version id for: ${name}. ` +
+            "CurseForge plugin uploads require gameVersionTypeID 1 entries " +
+            "(often major.minor only, e.g. 1.13 instead of 1.13.2).",
         );
       }
-      return preferPluginVersionCandidates(candidates);
+      return candidates;
     });
 
     const primaryMcId = (list: VersionCandidate[]): number => {
@@ -458,34 +473,59 @@ export async function uploadCurseForgeFile(
     request.loaders,
     request.isPlugin,
   );
+  const excludedIds = new Set<number>();
+  const attempted = new Set<string>();
   let lastError: Error | undefined;
 
-  for (const gameVersionIds of combinations) {
-    const metadata = {
-      changelog: request.changelog,
-      changelogType: "markdown",
-      displayName: request.displayName,
-      releaseType: "release",
-      gameVersions: gameVersionIds,
-      ...(relations ? { relations } : {}),
-    };
+  while (true) {
+    let attemptedThisRound = false;
 
-    try {
-      const id = await postCurseForgeUpload(
-        token,
-        request.userAgent,
-        request.projectId,
-        request.fileName,
-        request.filePath,
-        metadata,
-      );
-      return { id };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes('"errorCode":1009') || invalidDependencyId(message) === undefined) {
-        throw error;
+    for (const combination of combinations) {
+      const gameVersionIds = combination.filter((id) => !excludedIds.has(id));
+      if (gameVersionIds.length === 0) {
+        continue;
       }
-      lastError = error instanceof Error ? error : new Error(message);
+
+      const attemptKey = gameVersionIds.join(",");
+      if (attempted.has(attemptKey)) {
+        continue;
+      }
+      attempted.add(attemptKey);
+      attemptedThisRound = true;
+
+      const metadata = {
+        changelog: request.changelog,
+        changelogType: "markdown",
+        displayName: request.displayName,
+        releaseType: "release",
+        gameVersions: gameVersionIds,
+        ...(relations ? { relations } : {}),
+      };
+
+      try {
+        const id = await postCurseForgeUpload(
+          token,
+          request.userAgent,
+          request.projectId,
+          request.fileName,
+          request.filePath,
+          metadata,
+        );
+        return { id };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const badId = invalidDependencyId(message);
+        if (!message.includes('"errorCode":1009') || badId === undefined) {
+          throw error;
+        }
+        lastError = error instanceof Error ? error : new Error(message);
+        excludedIds.add(badId);
+        break;
+      }
+    }
+
+    if (!attemptedThisRound) {
+      break;
     }
   }
 

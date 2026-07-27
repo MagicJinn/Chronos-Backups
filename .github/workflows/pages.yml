@@ -2,6 +2,7 @@ name: Deploy privacy policy (GitHub Pages)
 
 on:
   push:
+    branches: [main]
     paths:
       - "docs/**"
       - "icon.png"

@@ -174,10 +174,11 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
         config.dryRun || !modrinthVersionResolver
           ? target.gameVersions
           : modrinthVersionResolver.resolve(target.gameVersions);
+      const isPlugin = config.platform.pluginLoaders.includes(parsed.loader);
       const curseforgeGameVersions =
         config.dryRun || !curseforgeResolver
           ? target.gameVersions
-          : curseforgeResolver.resolve(target.gameVersions);
+          : curseforgeResolver.resolve(target.gameVersions, isPlugin);
       const modrinthVersionsDiffer =
         modrinthGameVersions.length !== target.gameVersions.length ||
         modrinthGameVersions.some((version, index) => version !== target.gameVersions[index]);
@@ -226,7 +227,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
           changelog: config.changelog,
           loaders: target.publishLoaders,
           gameVersions: curseforgeGameVersions,
-          isPlugin: config.platform.pluginLoaders.includes(parsed.loader),
+          isPlugin,
           dependencies: config.platform.dependencies,
           userAgent: config.platform.userAgent,
           filePath,
