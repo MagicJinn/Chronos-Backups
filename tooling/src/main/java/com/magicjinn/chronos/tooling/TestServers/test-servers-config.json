@@ -3,6 +3,7 @@
         "Chronos is initializing...",
         "Scheduler is ready and on standby...",
         "Backupper is ready and on standby...",
+        "Google Drive classpath probe OK",
         "Done (",
         "RCON running on"
     ],
@@ -28,6 +29,7 @@
         "ClassNotFoundException: io.grpc",
         "java.lang.module.ResolutionException",
         "Modules chronosbackups and",
+        "Google Drive classpath probe failed",
         "Google Drive authorization failed",
         "Google Drive initialization failed",
         "Google Drive alias setup failed",

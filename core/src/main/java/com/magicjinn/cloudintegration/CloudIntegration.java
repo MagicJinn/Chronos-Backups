@@ -23,9 +23,17 @@ public interface CloudIntegration {
 
     /**
      * Called when a world session is available (alias / folder setup that
-     * needs a world name). Default: no-op.
+     * needs a world name).
      */
-    default void onWorldAvailable() {}
+    default void onWorldAvailable() {
+    }
+
+    /**
+     * Resolve provider packaging / classpath deps without auth.
+     * Used by testServers to catch missing JiJ / fat-jar classes
+     */
+    default void probeClasspath() {
+    }
 
     /**
      * Upload local Chronos backups missing remotely, trim remote to

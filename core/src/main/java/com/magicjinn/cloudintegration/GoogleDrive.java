@@ -32,6 +32,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.FileContent;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
@@ -79,6 +80,25 @@ public final class GoogleDrive implements CloudIntegration {
     public static final GoogleDrive INSTANCE = new GoogleDrive();
 
     private GoogleDrive() {
+    }
+
+    /**
+     * Force-resolve Drive HTTP / OpenCensus / gRPC classes without OAuth.
+     * Logs a fixed success line for testServers readyMarkers.
+     */
+    @Override
+    public void probeClasspath() {
+        ClassLoader cl = GoogleDrive.class.getClassLoader();
+        try {
+            // Compile-time type: Forge jar-relocator rewrites this to the repack name.
+            Class.forName(HttpRequestInitializer.class.getName(), true, cl);
+            Class.forName("io.opencensus.trace.propagation.TextFormat", true, cl);
+            Class.forName("io.grpc.Context", true, cl);
+
+            LOG.info("Google Drive classpath probe OK");
+        } catch (Throwable t) {
+            LOG.error("Google Drive classpath probe failed", t);
+        }
     }
 
     @Override
