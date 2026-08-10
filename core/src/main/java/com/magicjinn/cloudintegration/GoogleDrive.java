@@ -31,7 +31,9 @@ import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.googleapis.media.MediaHttpUploader;
 import com.google.api.client.http.FileContent;
+import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -67,6 +69,11 @@ public final class GoogleDrive implements CloudIntegration {
     private static final String USER_ID = "user";
     private static final int OAUTH_LOCAL_PORT = 8888;
     private static final String FOLDER_MIME = "application/vnd.google-apps.folder";
+    /** Default Google client timeouts (20s) are too short for large backup uploads. */
+    private static final int HTTP_CONNECT_TIMEOUT_MS = 60_000;
+    private static final int HTTP_READ_TIMEOUT_MS = 10 * 60_000;
+    /** Resumable upload chunk size (must be a multiple of {@link MediaHttpUploader#MINIMUM_CHUNK_SIZE}). */
+    private static final int UPLOAD_CHUNK_SIZE = 32 * MediaHttpUploader.MINIMUM_CHUNK_SIZE;
 
     private static final AtomicBoolean authInProgress = new AtomicBoolean(false);
     private static final AtomicBoolean syncCancelRequested = new AtomicBoolean(false);
@@ -252,17 +259,21 @@ public final class GoogleDrive implements CloudIntegration {
                 return;
             }
 
-            LOG.info("Google Drive uploading " + remoteName + " (" + Files.size(uploadFile) + " bytes)...");
+            long bytes = Files.size(uploadFile);
+            LOG.info("Google Drive uploading " + remoteName + " (" + bytes + " bytes)...");
 
             File meta = new File()
                     .setName(remoteName)
                     .setParents(Collections.singletonList(worldFolderId));
 
             FileContent content = new FileContent("application/zip", uploadFile.toFile());
-            File created = drive.files()
+            Drive.Files.Create create = drive.files()
                     .create(meta, content)
-                    .setFields("id, name")
-                    .execute();
+                    .setFields("id, name");
+            MediaHttpUploader uploader = create.getMediaHttpUploader();
+            uploader.setDirectUploadEnabled(false);
+            uploader.setChunkSize(UPLOAD_CHUNK_SIZE);
+            File created = create.execute();
 
             remoteByName.put(remoteName, new RemoteFile(created.getId(), remoteName));
             LOG.info("Google Drive uploaded " + remoteName);
@@ -651,9 +662,21 @@ public final class GoogleDrive implements CloudIntegration {
     private static Drive buildDriveService(Credential credential)
             throws GeneralSecurityException, IOException {
         NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        return new Drive.Builder(httpTransport, JSON_FACTORY, credential)
+        return new Drive.Builder(httpTransport, JSON_FACTORY, withUploadTimeouts(credential))
                 .setApplicationName(APPLICATION_NAME)
                 .build();
+    }
+
+    /** Credential plus long connect/read timeouts for multi-hundred-MB resumable uploads. */
+    private static HttpRequestInitializer withUploadTimeouts(final Credential credential) {
+        return new HttpRequestInitializer() {
+            @Override
+            public void initialize(HttpRequest request) throws IOException {
+                credential.initialize(request);
+                request.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
+                request.setReadTimeout(HTTP_READ_TIMEOUT_MS);
+            }
+        };
     }
 
     private static GoogleAuthorizationCodeFlow buildFlow(NetHttpTransport httpTransport)
