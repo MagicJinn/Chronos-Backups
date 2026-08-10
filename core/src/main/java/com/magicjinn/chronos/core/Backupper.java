@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
@@ -30,7 +29,8 @@ import com.magicjinn.cloudintegration.CloudSync;
  * <p>
  * Minecraft-specific work (world flush, save pause/resume, chat) runs on the
  * server thread. Copy, prune, zip, and retention trimming run on a dedicated
- * worker thread while {@link #tickBackupTracker()} monitors progress each tick.
+ * worker thread. {@link #tickBackupTracker()} restores autosaves and can
+ * finalize on each tick. The worker may also finalize when ticks are frozen.
  */
 public final class Backupper {
     private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
@@ -52,7 +52,7 @@ public final class Backupper {
 
     /**
      * Whether a backup run is in progress (from {@link #tryBeginBackup} until
-     * {@link #tickBackupTracker} finishes it).
+     * finalize clears the claim).
      */
     private static final AtomicBoolean backupRunActive = new AtomicBoolean(false);
 
@@ -65,6 +65,12 @@ public final class Backupper {
     private static volatile InFlightBackup inFlightBackup;
     private static volatile SpeedtestSession activeSpeedtest;
     private static volatile PendingBackupBegin pendingBackupBegin;
+    /**
+     * Autosave restore deferred when finalize ran off the server thread (e.g. while
+     * pause-when-empty froze ticks). Drained on the next server-thread Chronos
+     * entry.
+     */
+    private static volatile PendingAutosaveRestore pendingAutosaveRestore;
 
     static boolean isShutdownRequested() {
         return shutdownRequested || Thread.currentThread().isInterrupted();
@@ -109,7 +115,6 @@ public final class Backupper {
             pendingBackupBegin = null;
             InFlightBackup run = inFlightBackup;
             if (run != null) {
-                run.proceedAfterSavesRestored.countDown();
                 Thread worker = run.workerThread;
                 if (worker != null) {
                     worker.interrupt();
@@ -234,6 +239,7 @@ public final class Backupper {
         inFlightBackup = null;
         activeSpeedtest = null;
         pendingBackupBegin = null;
+        pendingAutosaveRestore = null;
     }
 
     public static void InitializeBackupper() {
@@ -260,7 +266,8 @@ public final class Backupper {
     /**
      * Starts a backup on the current (server) thread: validates paths, flushes the
      * world, pauses automatic saves, then hands copy/prune/zip work to a worker
-     * thread. Completion is handled by {@link #tickBackupTracker()}.
+     * thread. Completion is handled by {@link #tickBackupTracker()} or by the
+     * worker when ticks are frozen (pause-when-empty).
      *
      * @return {@code true} when backup work was started
      */
@@ -440,17 +447,18 @@ public final class Backupper {
             worker.start();
             return true;
         } catch (Throwable t) {
-            finalizeInFlightBackup(run, t);
+            tryFinalizeInFlightBackup(run, t, false);
             return false;
         }
     }
 
     /**
-     * Monitors the active backup worker from the server thread. Restores automatic
-     * saves after the cache copy finishes, then completes the run when the worker
-     * exits.
+     * Server-thread progress for in-flight backups and deferred autosave restore.
+     * Safe to call from Chronos commands while the server is empty-paused.
      */
     public static void tickBackupTracker() {
+        drainPendingAutosaveRestore();
+
         InFlightBackup run = inFlightBackup;
         if (run == null) {
             return;
@@ -464,14 +472,28 @@ public final class Backupper {
             }
             run.attemptedSavingPause = false;
             run.savesRestoredOnMainThread = true;
-            run.proceedAfterSavesRestored.countDown();
         }
 
         if (!run.workerFinished) {
             return;
         }
 
-        finalizeInFlightBackup(run, run.workerError);
+        tryFinalizeInFlightBackup(run, run.workerError, false);
+    }
+
+    private static void drainPendingAutosaveRestore() {
+        PendingAutosaveRestore pending = pendingAutosaveRestore;
+        if (pending == null) {
+            return;
+        }
+        if (!pending.restoreLogged) {
+            pending.context.logInfo("Chronos backups: restoring automatic saves...");
+            pending.restoreLogged = true;
+        }
+        if (!pending.worldController.preparePauseSaves(pending.serverHandle, false)) {
+            return;
+        }
+        pendingAutosaveRestore = null;
     }
 
     private static void pruneSnapshotSaveRoots(InFlightBackup run, Path snapshotRoot) throws IOException {
@@ -526,13 +548,6 @@ public final class Backupper {
 
             run.copyComplete = true;
 
-            try {
-                run.proceedAfterSavesRestored.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new InterruptedIOException("Backup worker interrupted waiting for save restore");
-            }
-
             if (shouldAbortBackupWork()) {
                 throw new InterruptedIOException("Backup aborted");
             }
@@ -584,11 +599,28 @@ public final class Backupper {
             run.workerError = t;
         } finally {
             run.workerFinished = true;
-            run.proceedAfterSavesRestored.countDown();
+            // Prefer completing even when pause-when-empty has frozen ticks.
+            tryFinalizeInFlightBackup(run, run.workerError, true);
         }
     }
 
-    private static void finalizeInFlightBackup(InFlightBackup run, Throwable startupFailure) {
+    /**
+     * Claims exclusive finalize ownership for {@code run}.
+     * {@code deferAutosaveRestore}
+     * must be true when calling from the backup worker so we never block on
+     * {@code executeBlocking} while the server is empty-paused.
+     */
+    private static boolean tryFinalizeInFlightBackup(
+            InFlightBackup run, Throwable startupFailure, boolean deferAutosaveRestore) {
+        if (!run.finalizeClaimed.compareAndSet(false, true)) {
+            return false;
+        }
+        finalizeInFlightBackup(run, startupFailure, deferAutosaveRestore);
+        return true;
+    }
+
+    private static void finalizeInFlightBackup(
+            InFlightBackup run, Throwable startupFailure, boolean deferAutosaveRestore) {
         SpeedtestSession speedtest = activeSpeedtest;
         if (speedtest != null && speedtest.waitingForBackup) {
             speedtest.lastBackupSucceeded = run.backupFinishedSuccessfully;
@@ -634,8 +666,15 @@ public final class Backupper {
                 }
             }
         } finally {
-            if (run.attemptedSavingPause && run.worldController != null) {
-                run.worldController.setWorldSavingDisabled(run.serverHandle, false);
+            if (run.attemptedSavingPause && run.worldController != null && !run.savesRestoredOnMainThread) {
+                if (deferAutosaveRestore) {
+                    pendingAutosaveRestore = new PendingAutosaveRestore(
+                            run.worldController, run.serverHandle, run.context);
+                } else {
+                    run.worldController.setWorldSavingDisabled(run.serverHandle, false);
+                    run.savesRestoredOnMainThread = true;
+                    run.attemptedSavingPause = false;
+                }
             }
             if (!backupFinishedSuccessfully) {
                 if (run.zipOutputPath != null) {
@@ -714,12 +753,28 @@ public final class Backupper {
         boolean attemptedSavingPause;
         volatile boolean copyComplete;
         volatile boolean savesRestoredOnMainThread;
-        final CountDownLatch proceedAfterSavesRestored = new CountDownLatch(1);
+        final AtomicBoolean finalizeClaimed = new AtomicBoolean(false);
         volatile boolean workerFinished;
         volatile boolean backupFinishedSuccessfully;
         volatile boolean announceUserCancelInChat;
         volatile Throwable workerError;
         Thread workerThread;
+    }
+
+    private static final class PendingAutosaveRestore {
+        final BackupWorldController worldController;
+        final Object serverHandle;
+        final BackupRuntimeContext context;
+        boolean restoreLogged;
+
+        PendingAutosaveRestore(
+                BackupWorldController worldController,
+                Object serverHandle,
+                BackupRuntimeContext context) {
+            this.worldController = worldController;
+            this.serverHandle = serverHandle;
+            this.context = context;
+        }
     }
 
     private static final class SpeedtestSession {
@@ -927,7 +982,6 @@ public final class Backupper {
 
         InFlightBackup run = inFlightBackup;
         if (run != null) {
-            run.proceedAfterSavesRestored.countDown();
             Thread worker = run.workerThread;
             if (worker != null) {
                 worker.interrupt();
