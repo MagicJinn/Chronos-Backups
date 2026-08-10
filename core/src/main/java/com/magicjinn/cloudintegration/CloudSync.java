@@ -182,7 +182,7 @@ public final class CloudSync {
                 LOG.info("Cloud sync finished for " + cloud.getDisplayName() + ".");
             } catch (Exception e) {
                 allOk = false;
-                LOG.error("Cloud sync failed for " + cloud.getDisplayName() + ": " + e.getMessage(), e);
+                LOG.error(shortFailure(cloud.getDisplayName(), e));
             }
         }
 
@@ -192,6 +192,28 @@ public final class CloudSync {
         }
 
         return allOk;
+    }
+
+    /**
+     * Shorten the stack trace to not take up as much of the log when a cloud sync
+     * fails
+     */
+    private static String shortFailure(String displayName, Exception e) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Cloud sync failed for ").append(displayName).append(": ");
+        sb.append(e.getClass().getSimpleName());
+        if (e.getMessage() != null && !e.getMessage().isEmpty())
+            sb.append(": ").append(e.getMessage());
+
+        int kept = 0;
+        StackTraceElement[] stack = e.getStackTrace();
+        for (int i = 0; i < stack.length && kept < 3; i++) {
+            if (!stack[i].getClassName().startsWith("com.magicjinn."))
+                continue;
+            sb.append('\n').append("\tat ").append(stack[i]);
+            kept++;
+        }
+        return sb.toString();
     }
 
     private static boolean anyReady() {
