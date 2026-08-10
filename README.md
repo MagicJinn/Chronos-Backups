@@ -63,7 +63,7 @@ When multiple worlds would map to the same remote folder (e.g. two servers both 
 
 ### Providers
 
-Currently supported: ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white). Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.)
+Currently supported: ![Google Drive](https://img.shields.io/badge/Google%20Drive-4285F4?logo=googledrive&logoColor=white). Enable it with `googleDriveEnabled = true`, restart, then follow the authorization URL printed in the console. Sign in once, tokens are stored on that machine under `google-drive-tokens/`. (Anyone with access to this token will be able to upload and delete backups from your Google Drive. They will not be able to access any other files in your Google Drive.) If you cannot open a browser on the server (for example a headless console), complete the OAuth flow on a local machine, then copy the `google-drive-tokens/` folder to the server.
 
 Google Drive was chosen because it is the most popular cloud provider, and has the most generous free tier, with 15GB of storage. OneDrive and Dropbox are planned. They are not available yet.
 
