@@ -24,10 +24,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: microsoft
           java-version: "25"
@@ -47,7 +47,7 @@ jobs:
           CHRONOS_VARIANT_GENERATION: "skip"
 
       - name: Upload host native rust-pruner output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-pruner-host-native-${{ matrix.os }}
           path: core/native/rust-pruner/target/*/release/*
@@ -58,17 +58,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: microsoft
           java-version: "25"
           cache: gradle
 
       - name: Download rust native artifacts from all OS jobs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: rust-pruner-host-native-*
           merge-multiple: true
@@ -89,7 +89,7 @@ jobs:
         run: ./gradlew verifyGoogleDriveJarContents -PchronosRustSkipBuild=true --no-daemon
 
       - name: Upload built jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chronos-build-jars
           path: build/libs/*.jar
