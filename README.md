@@ -73,7 +73,7 @@ Chronos prioritizes aged world data, chunks that do not yet count as "old enough
 
 ## Supported versions
 
-All currently supported versions are listed below.
+All currently supported versions are listed below. Chronos is committed to never drop support for a version.
 
 | Minecraft    | Support       | Loader(s)                                                           | Backup | Config       | Notes                                                                                                                                  |
 |--------------|---------------|---------------------------------------------------------------------|--------|--------------|----------------------------------------------------------------------------------------------------------------------------------------|
