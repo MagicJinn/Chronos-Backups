@@ -4,11 +4,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import com.magicjinn.chronos.core.Backupper;
-import com.magicjinn.chronos.shell.ChronosConstants;
+import com.magicjinn.chronos.core.ChronosLogger;
 
 /**
  * Schedules cloud {@link CloudIntegration#synchronize()} work off the server
@@ -20,8 +17,6 @@ import com.magicjinn.chronos.shell.ChronosConstants;
  * exponential backoff (30s → 1m → 2m → 5m → 15m cap)
  */
 public final class CloudSync {
-    private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
-
     /** Backoff steps after consecutive sync failures (in milliseconds) */
     private static final long[] FAILURE_BACKOFF_MS = {
             30_000L,
@@ -151,7 +146,7 @@ public final class CloudSync {
                 long backoff = backoffMs(failureCount);
                 nextAttemptEpochMs = System.currentTimeMillis() + backoff;
                 pending.set(true);
-                LOG.info("Cloud sync will retry in " + (backoff / 1000L) + " s.");
+                ChronosLogger.info("Cloud sync will retry in " + (backoff / 1000L) + " s.");
             }
         }
     }
@@ -171,18 +166,18 @@ public final class CloudSync {
 
             if (!cloud.isReady()) {
                 // If enabled, but not ready, skip the sync
-                LOG.info("Cloud sync skipped for " + cloud.getDisplayName() + " (not ready yet).");
+                ChronosLogger.info("Cloud sync skipped for " + cloud.getDisplayName() + " (not ready yet).");
                 allOk = false;
                 continue;
             }
             anyAttempted = true;
             try {
-                LOG.info("Cloud sync starting for " + cloud.getDisplayName() + "...");
+                ChronosLogger.info("Cloud sync starting for " + cloud.getDisplayName() + "...");
                 cloud.synchronize();
-                LOG.info("Cloud sync finished for " + cloud.getDisplayName() + ".");
+                ChronosLogger.info("Cloud sync finished for " + cloud.getDisplayName() + ".");
             } catch (Exception e) {
                 allOk = false;
-                LOG.error(shortFailure(cloud.getDisplayName(), e));
+                ChronosLogger.error(shortFailure(cloud.getDisplayName(), e));
             }
         }
 

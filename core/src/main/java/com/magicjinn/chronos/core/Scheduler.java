@@ -1,7 +1,6 @@
 package com.magicjinn.chronos.core;
 
 import java.time.Instant;
-import java.util.logging.Logger;
 import com.magicjinn.chronos.core.config.Config;
 
 /**
@@ -21,8 +20,6 @@ public final class Scheduler {
         /** A backup or speedtest is already running. */
         ALREADY_RUNNING
     }
-
-    private static final Logger LOG = Logger.getLogger(Scheduler.class.getName());
 
     private static BackupRuntimeContext runtimeContext;
 
@@ -163,6 +160,6 @@ public final class Scheduler {
             return;
         }
 
-        LOG.severe(message);
+        ChronosLogger.error(message);
     }
 }

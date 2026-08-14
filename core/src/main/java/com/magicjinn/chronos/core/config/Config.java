@@ -8,10 +8,9 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Logger;
-
 import com.electronwill.nightconfig.core.file.FileConfig;
 import com.electronwill.nightconfig.toml.TomlFormat;
+import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.Core;
 
 /**
@@ -19,8 +18,6 @@ import com.magicjinn.chronos.core.Core;
  * classpath for all platforms).
  */
 public final class Config {
-    private static final Logger LOG = Logger.getLogger(Config.class.getName());
-
     public static ModConfig modConfig;
 
     private static final ModConfig BUILTIN_DEFAULTS = new ModConfig();
@@ -49,7 +46,7 @@ public final class Config {
             }
             return Files.size(configPath) == 0;
         } catch (IOException e) {
-            LOG.warning("Could not inspect " + CONFIG_FILE_NAME + ", will try to write defaults: " + e.getMessage());
+            ChronosLogger.warn("Could not inspect " + CONFIG_FILE_NAME + ", will try to write defaults: " + e.getMessage());
             return true;
         }
     }
@@ -65,7 +62,7 @@ public final class Config {
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception e) {
-            LOG.warning("Could not write " + CONFIG_FILE_NAME + " (using in-memory values): " + e.getMessage());
+            ChronosLogger.warn("Could not write " + CONFIG_FILE_NAME + " (using in-memory values): " + e.getMessage());
         }
     }
 
@@ -75,13 +72,13 @@ public final class Config {
             ModConfig out = ChronosTomlSpec.load(cfg, defaults);
             int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
             if (fileVersion != ChronosTomlSpec.CONFIG_VERSION) {
-                LOG.info("Updating " + CONFIG_FILE_NAME + " from format v" + fileVersion + " to v"
+                ChronosLogger.info("Updating " + CONFIG_FILE_NAME + " from format v" + fileVersion + " to v"
                         + ChronosTomlSpec.CONFIG_VERSION);
                 writeTomlDocument(configPath, out);
             }
             return out;
         } catch (Exception e) {
-            LOG.severe("Failed to load " + CONFIG_FILE_NAME + ", using defaults: " + e.getMessage());
+            ChronosLogger.error("Failed to load " + CONFIG_FILE_NAME + ", using defaults: " + e.getMessage());
             return defaults;
         }
     }

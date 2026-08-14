@@ -12,16 +12,6 @@ final class PaperShellMessenger implements ShellMessenger {
     }
 
     @Override
-    public void logInfo(String message) {
-        plugin.getLogger().info(message);
-    }
-
-    @Override
-    public void logError(String message) {
-        plugin.getLogger().severe(message);
-    }
-
-    @Override
     public void sendChat(String command) {
         if (command == null || command.trim().isEmpty()) {
             return;

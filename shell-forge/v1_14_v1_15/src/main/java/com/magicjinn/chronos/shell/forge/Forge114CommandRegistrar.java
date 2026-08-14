@@ -1,5 +1,6 @@
 package com.magicjinn.chronos.shell.forge;
 
+import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 import com.magicjinn.chronos.shell.ChronosBrigadier;
 import com.magicjinn.chronos.shell.ChronosCommandActions;
@@ -16,8 +17,6 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Forge 1.14-1.15: RCON seem to run Brigadier off the server thread (?).
@@ -26,7 +25,6 @@ import org.apache.logging.log4j.Logger;
  * deadlocks when the server thread is already busy).
  */
 final class Forge114CommandRegistrar implements ShellCommandRegistrar {
-    private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
     private static final String SERVER_THREAD_NAME = "Server thread";
 
     @Override
@@ -113,9 +111,9 @@ final class Forge114CommandRegistrar implements ShellCommandRegistrar {
                     try {
                         action.run(ctx);
                     } catch (CommandSyntaxException e) {
-                        LOG.error("Chronos command failed on server thread: {}", e.getMessage());
+                        ChronosLogger.error("Chronos command failed on server thread: " + e.getMessage());
                     } catch (RuntimeException e) {
-                        LOG.error("Chronos command failed on server thread", e);
+                        ChronosLogger.error("Chronos command failed on server thread", e);
                     }
                 });
         return Command.SINGLE_SUCCESS;

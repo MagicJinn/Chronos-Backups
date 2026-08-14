@@ -27,6 +27,7 @@ dependencies {
     implementation("com.google.code.gson:gson:$gsonVersion")
 
     compileOnly("org.apache.logging.log4j:log4j-api:2.24.3")
+    testRuntimeOnly("org.apache.logging.log4j:log4j-core:2.24.3")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

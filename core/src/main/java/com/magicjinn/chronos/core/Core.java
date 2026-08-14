@@ -6,19 +6,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.magicjinn.chronos.core.config.Config;
-import com.magicjinn.chronos.shell.ChronosConstants;
 import com.magicjinn.cloudintegration.CloudIntegration;
 import com.magicjinn.cloudintegration.CloudSync;
 import com.magicjinn.cloudintegration.Dropbox;
 import com.magicjinn.cloudintegration.GoogleDrive;
 import com.magicjinn.cloudintegration.OneDrive;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class Core {
     public static Path RunningDirectory;
-    private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
     private static List<CloudIntegration> cloudIntegrations;
 
     /**
@@ -48,7 +43,7 @@ public class Core {
         try {
             into.add(supplier.get());
         } catch (NoClassDefFoundError | ExceptionInInitializerError e) {
-            LOG.error("Skipping a cloud integration (dependency missing from the mod jar)", e);
+            ChronosLogger.error("Skipping a cloud integration (dependency missing from the mod jar)", e);
         }
     }
 
@@ -106,7 +101,7 @@ public class Core {
         try {
             Scheduler.tickScheduler();
         } catch (Exception e) {
-            LOG.error("Error ticking scheduler: " + e.getMessage());
+            ChronosLogger.error("Error ticking scheduler: " + e.getMessage());
             e.printStackTrace();
         }
     }
