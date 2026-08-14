@@ -140,12 +140,12 @@ public final class Backupper {
      */
     public static void beginSpeedtestSession(BackupRuntimeContext context, int seconds) {
         if (context == null) {
-            ChronosLogger.warn("speedtest skipped: runtime context is unavailable.");
+            ChronosLogger.warn("Speedtest skipped: runtime context is unavailable.");
             speedtestSessionActive.set(false);
             return;
         }
         if (!speedtestSessionActive.get()) {
-            ChronosLogger.warn("speedtest skipped: session was not claimed.");
+            ChronosLogger.warn("Speedtest skipped: session was not claimed.");
             return;
         }
         backupCancelRequested = false;
