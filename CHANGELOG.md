@@ -12,6 +12,7 @@ This page documents the changes and fixes made in Chronos Backups, compared to t
 - - Add `shouldKeepLocalBackups` so uploads can leave or remove the local copy after a successful sync
 - Changed `maxStoredBackups` to only delete Chronos-named backup files when trimming (manually placed files in the backup folder are left alone)
 - Fixed a crash if a world name contained invalid characters (such as `:`)
+- Improve log formatting during backups so progress messages appear consistently in the server log
 
 ## 1.0.1
 
