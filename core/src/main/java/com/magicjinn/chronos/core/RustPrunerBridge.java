@@ -127,6 +127,21 @@ final class RustPrunerBridge {
         return Backupper.shouldAbortBackupWork();
     }
 
+    @SuppressWarnings("unused")
+    private static void logNativeInfo(String message) {
+        ChronosLogger.info(message);
+    }
+
+    @SuppressWarnings("unused")
+    private static void logNativeWarn(String message) {
+        ChronosLogger.warn(message);
+    }
+
+    @SuppressWarnings("unused")
+    private static void logNativeError(String message) {
+        ChronosLogger.error(message);
+    }
+
     private static void ensureLoaded() throws IOException {
         if (loaded) {
             return;

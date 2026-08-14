@@ -75,6 +75,7 @@ pub fn run(world_name: Option<&str>) -> i32 {
         snapshot.path.clone(),
         DEFAULT_PRUNE_SECONDS,
         0,
+        &mut |message| println!("{message}"),
     ) {
         eprintln!("Error: failed to prune world snapshot: {err}");
         return 1;

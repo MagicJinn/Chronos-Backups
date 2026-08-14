@@ -15,6 +15,7 @@ const DIMENSIONS_FOLDER_NAME: &str = "dimensions";
 const REGION_FOLDER_NAME: &str = "region";
 const ENTITIES_FOLDER_NAME: &str = "entities";
 const POI_FOLDER_NAME: &str = "poi";
+const LOG_PREFIX: &str = "Chronos backups: ";
 
 const INHABITED_TIME_TAG_NAME: &str = "InhabitedTime";
 const MIN_ANVIL_REGION_FILE_BYTES: u64 = 8192;
@@ -45,13 +46,14 @@ pub fn prune_world(
     inhabited_time_seconds_required: u64,
     max_worker_threads: usize,
     zip_sink: Option<Arc<ZipStreamSink>>,
+    log_info: &mut dyn FnMut(&str),
 ) -> Result<(), std::io::Error> {
     if !world_folder.is_dir() {
         return Ok(());
     }
 
     if inhabited_time_seconds_required == 0 {
-        println!("Pruned 0 chunks");
+        log_info(&format!("{LOG_PREFIX}pruned 0 chunks"));
         return Ok(());
     }
     let inhabited_time_ticks_required = inhabited_time_seconds_required * 20;
@@ -59,11 +61,11 @@ pub fn prune_world(
     let data_folders = get_data_folders(&world_folder)?;
 
     let worker_threads = resolve_pruner_threads(max_worker_threads);
-    println!(
-        "Using {} worker thread{} for pruning",
+    log_info(&format!(
+        "{LOG_PREFIX}using {} worker thread{} for pruning",
         worker_threads,
         if worker_threads == 1 { "" } else { "s" }
-    );
+    ));
 
     let mut region_jobs: Vec<(PathBuf, Arc<Path>, Arc<Path>)> = Vec::new();
 
@@ -148,7 +150,7 @@ pub fn prune_world(
             Err(err) => return Err(err),
         }
     }
-    println!("Pruned {} chunks", pruned_chunks);
+    log_info(&format!("{LOG_PREFIX}pruned {pruned_chunks} chunks"));
 
     // If we get here, we successfully pruned the world
     return Ok(());
