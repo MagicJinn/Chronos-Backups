@@ -4,14 +4,20 @@ on:
   push:
     branches: [main]
     paths-ignore:
+      - "*.md"
       - "**/*.md"
+      - "*.html"
       - "**/*.html"
+      - "*.css"
       - "**/*.css"
       - "tooling/publish/**"
   pull_request:
     paths-ignore:
+      - "*.md"
       - "**/*.md"
+      - "*.html"
       - "**/*.html"
+      - "*.css"
       - "**/*.css"
       - "tooling/publish/**"
 
