@@ -1,5 +1,33 @@
 {
   "generateVariants": {
+    "loaders": [
+      {
+        "variantPrefix": "fabric",
+        "configKey": "fabricConfig",
+        "collectedKey": "fabric"
+      },
+      {
+        "variantPrefix": "neoforge",
+        "configKey": "neoForgeConfig",
+        "collectedKey": "neoforge"
+      },
+      {
+        "variantPrefix": "neoforge",
+        "configKey": "neoForgeEarlyConfig",
+        "collectedKey": "neoforge",
+        "slugSuffix": "_early"
+      },
+      {
+        "variantPrefix": "forge",
+        "configKey": "forgeConfig",
+        "collectedKey": "forge"
+      },
+      {
+        "variantPrefix": "paper",
+        "configKey": "pluginConfig",
+        "collectedKey": "plugin"
+      }
+    ],
     "templateFiles": {
       "fabricBuildGradle": "fabric-build.gradle.template",
       "fabricModJson": "fabric-mod.json.template",
