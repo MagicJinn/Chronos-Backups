@@ -1,3 +1,4 @@
+import groovy.json.JsonSlurper
 import java.io.File
 import org.gradle.internal.os.OperatingSystem
 
@@ -25,6 +26,36 @@ apply(from = "gradle/chronos-unimined-retry.gradle")
 include(":core")
 include(":tooling")
 
+val compileGroupsFile = file("gradle/chronos-compile-groups.json")
+if (!compileGroupsFile.exists()) {
+    throw GradleException("Missing ${compileGroupsFile.path}. Run: ./gradlew generateVariants")
+}
+
+@Suppress("UNCHECKED_CAST")
+val chronosVariantPrefixes: List<String> = run {
+    val root = JsonSlurper().parseText(compileGroupsFile.readText()) as Map<String, Any>
+    val gv = root["generateVariants"] as? Map<*, *>
+        ?: throw GradleException("${compileGroupsFile.path} must define generateVariants")
+    val loaders = gv["loaders"] as? List<*>
+        ?: throw GradleException("${compileGroupsFile.path} must define generateVariants.loaders")
+    val prefixes = loaders.map { raw ->
+        val m = raw as? Map<*, *>
+            ?: throw GradleException("generateVariants.loaders entries must be objects")
+        m["variantPrefix"]?.toString()?.takeIf { it.isNotBlank() }
+            ?: throw GradleException("generateVariants.loaders entry missing variantPrefix")
+    }.distinct()
+    if (prefixes.isEmpty()) {
+        throw GradleException("generateVariants.loaders must not be empty")
+    }
+    prefixes
+}
+
+fun isChronosVariantProjectName(name: String): Boolean =
+    chronosVariantPrefixes.any { name.startsWith("$it-") }
+
+fun isChronosForgeVariantProjectName(name: String): Boolean =
+    chronosVariantPrefixes.contains("forge") && name.startsWith("forge-")
+
 val requestedTasks = gradle.startParameter.taskNames
 
 fun taskBareName(taskName: String): String = taskName.substringAfterLast(':')
@@ -50,14 +81,7 @@ fun taskNeedsVariantsRoot(taskName: String): Boolean {
 
 fun taskTargetsVariantProject(taskName: String): Boolean {
     val projectName = taskProjectName(taskName) ?: return false
-    return projectName.startsWith("fabric-") ||
-        projectName.startsWith("fabric-line-") ||
-        projectName.startsWith("forge-") ||
-        projectName.startsWith("forge-line-") ||
-        projectName.startsWith("neoforge-") ||
-        projectName.startsWith("neoforge-line-") ||
-        projectName.startsWith("paper-") ||
-        projectName.startsWith("paper-line-")
+    return isChronosVariantProjectName(projectName)
 }
 
 fun taskRequiresExistingVariants(taskName: String): Boolean {
@@ -122,11 +146,6 @@ if (!chronosVariantGenerationSkipRequested() && !cleanVariantsRequested && varia
     runGenerateVariantsBootstrap()
 }
 
-val compileGroupsFile = file("gradle/chronos-compile-groups.json")
-if (!compileGroupsFile.exists()) {
-    throw GradleException("Missing ${compileGroupsFile.path}. Run: ./gradlew generateVariants")
-}
-
 fun File.directoriesSorted(): List<File> =
     listFiles()?.filter { it.isDirectory }?.sortedBy { it.name } ?: emptyList()
 
@@ -146,10 +165,10 @@ if (!variantsRoot.isDirectory) {
     for (groupDir in variantsRoot.directoriesSorted()) {
         for (projectDir in groupDir.directoriesSorted()) {
             val name = projectDir.name
-            if (name.startsWith("fabric-") || name.startsWith("fabric-line-") || name.startsWith("neoforge-") || name.startsWith("forge-") || name.startsWith("paper-") || name.startsWith("paper-line-")) {
+            if (isChronosVariantProjectName(name)) {
                 include(":$name")
                 project(":$name").projectDir = projectDir
-                if (name.startsWith("forge-line-") || name.startsWith("forge-")) {
+                if (isChronosForgeVariantProjectName(name)) {
                     includesForgeLine = true
                 }
             }

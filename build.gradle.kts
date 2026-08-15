@@ -404,13 +404,53 @@ val prepareBuildIcon by tasks.registering {
 
 // Per line slug: optional `jarTargetLabel` (group-wide fallback for collectAllJars).
 @Suppress("UNCHECKED_CAST")
-val jarTargetLabelByLineSlug: Map<String, String> = run {
+val chronosCompileGroupsRoot: Map<String, Any> = run {
     val f = layout.projectDirectory.file("gradle/chronos-compile-groups.json").asFile
-    if (!f.exists()) {
-        return@run emptyMap()
+    require(f.exists()) { "Missing ${f.path}" }
+    JsonSlurper().parseText(f.readText()) as Map<String, Any>
+}
+
+data class ChronosLoaderSpec(
+    val variantPrefix: String,
+    val configKey: String,
+    val collectedKey: String,
+    val slugSuffix: String,
+)
+
+@Suppress("UNCHECKED_CAST")
+val chronosLoaderSpecs: List<ChronosLoaderSpec> = run {
+    val gv = chronosCompileGroupsRoot["generateVariants"] as? Map<*, *>
+        ?: error("gradle/chronos-compile-groups.json must define generateVariants")
+    val loaders = gv["loaders"] as? List<*>
+        ?: error("gradle/chronos-compile-groups.json must define generateVariants.loaders")
+    val out = loaders.map { raw ->
+        val m = raw as? Map<*, *> ?: error("generateVariants.loaders entries must be objects")
+        val variantPrefix = m["variantPrefix"]?.toString()?.takeIf { it.isNotBlank() }
+            ?: error("generateVariants.loaders entry missing variantPrefix")
+        val configKey = m["configKey"]?.toString()?.takeIf { it.isNotBlank() }
+            ?: error("generateVariants.loaders entry missing configKey")
+        val collectedKey = m["collectedKey"]?.toString()?.takeIf { it.isNotBlank() }
+            ?: error("generateVariants.loaders entry missing collectedKey")
+        ChronosLoaderSpec(variantPrefix, configKey, collectedKey, m["slugSuffix"]?.toString() ?: "")
     }
-    val root = JsonSlurper().parseText(f.readText()) as Map<String, Any>
-    val groups = root["groups"] as? List<*> ?: return@run emptyMap()
+    require(out.isNotEmpty()) { "generateVariants.loaders must not be empty" }
+    out
+}
+
+val collectedKeyByVariantPrefix: Map<String, String> =
+    chronosLoaderSpecs.associate { it.variantPrefix to it.collectedKey }
+
+val chronosVariantPrefixAlt: String =
+    chronosLoaderSpecs.map { it.variantPrefix }.distinct()
+        .sortedByDescending { it.length }
+        .joinToString("|") { Regex.escape(it) }
+
+val variantLineNameRegex = Regex("^($chronosVariantPrefixAlt)-line-(.+)$")
+val variantBareNameRegex = Regex("^($chronosVariantPrefixAlt)-(.+)$")
+
+@Suppress("UNCHECKED_CAST")
+val jarTargetLabelByLineSlug: Map<String, String> = run {
+    val groups = chronosCompileGroupsRoot["groups"] as? List<*> ?: return@run emptyMap()
     val out = mutableMapOf<String, String>()
     for (g in groups) {
         val gm = g as? Map<*, *> ?: continue
@@ -426,12 +466,7 @@ val jarTargetLabelByLineSlug: Map<String, String> = run {
 
 @Suppress("UNCHECKED_CAST")
 val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
-    val f = layout.projectDirectory.file("gradle/chronos-compile-groups.json").asFile
-    if (!f.exists()) {
-        return@run emptyMap()
-    }
-    val root = JsonSlurper().parseText(f.readText()) as Map<String, Any>
-    val groups = root["groups"] as? List<*> ?: return@run emptyMap()
+    val groups = chronosCompileGroupsRoot["groups"] as? List<*> ?: return@run emptyMap()
     val out = mutableMapOf<String, MutableMap<String, String>>()
     fun putTag(loader: String, slug: String, tag: String) {
         out.getOrPut(loader) { mutableMapOf() }[slug] = tag
@@ -442,16 +477,9 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
         if (pfx.isEmpty()) continue
         val primary = pfx.map { it.toString() }.minByOrNull { it.length } ?: continue
         val slug = primary.replace(".", "_")
-        listOf(
-            // TODO softcode these
-            Triple("fabric", "fabricConfig", slug),
-            Triple("neoforge", "neoForgeConfig", slug),
-            Triple("neoforge", "neoForgeEarlyConfig", slug + "_early"),
-            Triple("forge", "forgeConfig", slug),
-            Triple("plugin", "pluginConfig", slug),
-        ).forEach { (loader, configKey, tagSlug) ->
-            (gm[configKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
-                putTag(loader, tagSlug, it)
+        for (spec in chronosLoaderSpecs) {
+            (gm[spec.configKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
+                putTag(spec.collectedKey, slug + spec.slugSuffix, it)
             }
         }
     }
@@ -731,18 +759,17 @@ tasks.register("cleanUniminedCache") {
     }
 }
 
-// TODO find a way to handle this better
 fun normalizeCollectedLoader(loader: String): String =
-    if (loader == "paper") "plugin" else loader
+    collectedKeyByVariantPrefix[loader] ?: loader
 
 fun collectedJarPrefix(variantProjectName: String): String {
-    val lineMatch = Regex("""^(fabric|forge|neoforge|paper)-line-(.+)$""").matchEntire(variantProjectName) // TODO softcode these
+    val lineMatch = variantLineNameRegex.matchEntire(variantProjectName)
     if (lineMatch != null) {
         val loader = normalizeCollectedLoader(lineMatch.groupValues[1])
         val slug = lineMatch.groupValues[2]
         return "$loader-${variantSlugToVersionLabel(loader, slug)}"
     }
-    val bareMatch = Regex("""^(fabric|forge|neoforge|paper)-(.+)$""").matchEntire(variantProjectName) // TODO softcode these
+    val bareMatch = variantBareNameRegex.matchEntire(variantProjectName)
     if (bareMatch != null) {
         val loader = normalizeCollectedLoader(bareMatch.groupValues[1])
         val slug = bareMatch.groupValues[2]

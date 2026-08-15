@@ -24,12 +24,16 @@ public final class GenerateVariants {
     private static final Path ROOT = locateRepoRoot();
     private static final Path GROUPS_FILE = ROOT.resolve("gradle/chronos-compile-groups.json");
     private static final Path TEMPLATES_DIR = ROOT.resolve("tooling/templates/generate-variants");
+    private static final Map<String, Object> GENERATE_VARIANTS = readGenerateVariants();
     private static final Map<String, String> TEMPLATE_FILES = readTemplateFiles();
+    private static final List<LoaderSpec> LOADERS = readLoaders();
     private static final Path VARIANTS_ROOT = ROOT.resolve("variants");
     private static final Map<String, String> TEMPLATES = readTemplates();
     private static final Path JAVA_MATRIX_FILE = ROOT.resolve("gradle/chronos-java-matrix.json");
     private static final ChronosJavaMatrix JAVA_MATRIX = loadJavaMatrix(JAVA_MATRIX_FILE);
     private static final Path FORGE_PACK_FORMAT_FILE = ROOT.resolve("gradle/chronos-forge-pack-format.json");
+    private static final Path SHELL_SLICES_FILE = ROOT.resolve("gradle/chronos-shell-slices.json");
+    private static final FabricRegistrarSlices FABRIC_REGISTRAR_SLICES = readFabricRegistrarSlices();
     private static final ForgePackFormatMatrix FORGE_PACK_FORMAT = loadForgePackFormat(FORGE_PACK_FORMAT_FILE);
 
     private GenerateVariants() {
@@ -56,53 +60,15 @@ public final class GenerateVariants {
             if (!shouldBuildGroup(g))
                 continue;
             String gid = str(g.get("id"));
-            if (g.containsKey("fabricConfig")) {
-                Map<String, Object> fu = castMap(g.get("fabricConfig"));
-                String line = primaryLinePrefix(g);
-                String projectName = "fabric-line-" + line.replace(".", "_");
-                Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
-                String fabricMcDepOverride = str(fu.get("minecraftDep"));
-                writeFabricProject(dir, gid, str(fu.get("referenceMinecraft")), str(fu.get("fabricLoader")),
-                        str(fu.get("fabricApi")), loomVersion,
-                        fabricMcDepOverride.isBlank() ? null : fabricMcDepOverride, fu);
-                validPaths.add(dir);
-                generated++;
-            }
-            for (String neoKey : List.of("neoForgeEarlyConfig", "neoForgeConfig")) {
-                if (!g.containsKey(neoKey)) {
+            String lineSlug = primaryLinePrefix(g).replace(".", "_");
+            for (LoaderSpec loader : LOADERS) {
+                if (!g.containsKey(loader.configKey()))
                     continue;
-                }
-                Map<String, Object> nu = castMap(g.get(neoKey));
-                String line = primaryLinePrefix(g).replace(".", "_");
-                String projectName = "neoForgeEarlyConfig".equals(neoKey)
-                        ? "neoforge-line-" + line + "_early"
-                        : "neoforge-line-" + line;
-                Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
-                String neoMcRange = nu.get("minecraftRange") != null ? str(nu.get("minecraftRange")) : null;
-                if (neoMcRange != null && neoMcRange.isBlank()) {
-                    neoMcRange = null;
-                }
-                writeNeoProject(dir, gid, str(nu.get("referenceMinecraft")), str(nu.get("neoForge")), neoforgeModdev,
-                        neoMcRange, nu);
-                validPaths.add(dir);
-                generated++;
-            }
-            if (g.containsKey("forgeConfig")) {
-                Map<String, Object> fu = castMap(g.get("forgeConfig"));
-                String line = primaryLinePrefix(g);
-                String projectName = "forge-line-" + line.replace(".", "_");
-                Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
-                writeForgeProject(dir, gid, str(fu.get("referenceMinecraft")), str(fu.get("forge")), fu);
-                validPaths.add(dir);
-                generated++;
-            }
-            if (g.containsKey("pluginConfig")) {
-                Map<String, Object> pu = castMap(g.get("pluginConfig"));
-                String line = primaryLinePrefix(g);
-                String projectName = "paper-line-" + line.replace(".", "_");
-                Path dir = VARIANTS_ROOT.resolve(gid).resolve(projectName);
-                writePaperProject(dir, gid, str(pu.get("referenceMinecraft")), paperweightVersion, runPaperVersion,
-                        pu);
+
+                Map<String, Object> config = castMap(g.get(loader.configKey()));
+                Path dir = VARIANTS_ROOT.resolve(gid).resolve(loader.projectName(lineSlug));
+                writeLoaderProject(loader, dir, gid, config, loomVersion, neoforgeModdev, paperweightVersion,
+                        runPaperVersion);
                 validPaths.add(dir);
                 generated++;
             }
@@ -731,22 +697,13 @@ public final class GenerateVariants {
 
     /**
      * Picks the {@code FabricCommandRegistrar} source slice (Fabric command API v1
-     * vs v2, {@code sendSuccess} overloads).
-     * TODO. Softcode this
+     * vs v2, {@code sendSuccess} overloads) from
+     * {@code gradle/chronos-shell-slices.json} {@code fabricRegistrar}.
      */
     private static void putFabricRegistrarSourceDirLines(Map<String, String> values, String mc) {
         int minor = minecraftMinorLine(mc);
-        String slice;
-        if (minor >= 14 && minor <= 18) {
-            slice = "    rootProject.file('shell-fabric/v1_14-v1_18/src/main/java'),";
-        } else if (minor == 19) {
-            slice = "    rootProject.file('shell-fabric/v1_19-v1_20/src/main/java'),\n"
-                    + "    rootProject.file('shell-fabric/v1_19/src/main/java'),";
-        } else {
-            slice = "    rootProject.file('shell-fabric/v1_19-v1_20/src/main/java'),\n"
-                    + "    rootProject.file('shell-fabric/v1_20/src/main/java'),";
-        }
-        values.put("fabricRegistrarSliceGroovy", slice);
+        values.put("fabricRegistrarSliceGroovy", FABRIC_REGISTRAR_SLICES.groovySliceSrcDirs(minor, mc));
+        values.put("fabricCommonSourceGroovy", FABRIC_REGISTRAR_SLICES.groovyCommonSrcDir());
     }
 
     /**
@@ -844,11 +801,8 @@ public final class GenerateVariants {
                 try (var dirs = Files.list(groupDir)) {
                     for (Path child : (Iterable<Path>) dirs::iterator) {
                         String name = child.getFileName().toString();
-                        if ((name.startsWith("fabric-") || name.startsWith("neoforge-") || name.startsWith("forge-")
-                                || name.startsWith("paper-"))
-                                && !validPaths.contains(child)) {
+                        if (isVariantProjectName(name) && !validPaths.contains(child))
                             deleteTree(child);
-                        }
                     }
                 }
             }
@@ -893,8 +847,7 @@ public final class GenerateVariants {
         return GSON.fromJson(Files.readString(file), type);
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, String> readTemplateFiles() {
+    private static Map<String, Object> readGenerateVariants() {
         try {
             if (!Files.isRegularFile(GROUPS_FILE)) {
                 throw new IllegalStateException("Missing matrix file under gradle/: chronos-compile-groups.json");
@@ -902,31 +855,144 @@ public final class GenerateVariants {
             Map<String, Object> root = readObject(GROUPS_FILE);
             Object gvObj = root.get("generateVariants");
             if (!(gvObj instanceof Map)) {
-                throw new IllegalStateException(GROUPS_FILE + " must define generateVariants.templateFiles");
+                throw new IllegalStateException(GROUPS_FILE + " must define generateVariants");
             }
-            Map<String, Object> gv = (Map<String, Object>) gvObj;
-            Object tfObj = gv.get("templateFiles");
-            if (!(tfObj instanceof Map)) {
-                throw new IllegalStateException(
-                        GROUPS_FILE + " must define generateVariants.templateFiles as a JSON object");
-            }
-            Map<String, Object> tf = (Map<String, Object>) tfObj;
-            Map<String, String> out = new HashMap<>();
-            for (Map.Entry<String, Object> e : tf.entrySet()) {
-                String v = str(e.getValue());
-                if (v.isBlank()) {
-                    throw new IllegalStateException("generateVariants.templateFiles[\"" + e.getKey()
-                            + "\"] must be non-blank in " + GROUPS_FILE);
-                }
-                out.put(e.getKey(), v);
-            }
-            if (out.isEmpty()) {
-                throw new IllegalStateException("generateVariants.templateFiles must not be empty in " + GROUPS_FILE);
-            }
-            return Map.copyOf(out);
+            return castMap(gvObj);
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to read " + GROUPS_FILE, ex);
         }
+    }
+
+    private static Map<String, String> readTemplateFiles() {
+        Object tfObj = GENERATE_VARIANTS.get("templateFiles");
+        if (!(tfObj instanceof Map)) {
+            throw new IllegalStateException(
+                    GROUPS_FILE + " must define generateVariants.templateFiles as a JSON object");
+        }
+        Map<String, Object> tf = castMap(tfObj);
+        Map<String, String> out = new HashMap<>();
+        for (Map.Entry<String, Object> e : tf.entrySet()) {
+            String v = str(e.getValue());
+            if (v.isBlank())
+                throw new IllegalStateException("generateVariants.templateFiles[\"" + e.getKey()
+                        + "\"] must be non-blank in " + GROUPS_FILE);
+
+            out.put(e.getKey(), v);
+        }
+        if (out.isEmpty())
+            throw new IllegalStateException("generateVariants.templateFiles must not be empty in " + GROUPS_FILE);
+
+        return Map.copyOf(out);
+    }
+
+    private static List<LoaderSpec> readLoaders() {
+        List<Map<String, Object>> rows = castList(GENERATE_VARIANTS.get("loaders"));
+        if (rows.isEmpty()) {
+            throw new IllegalStateException(GROUPS_FILE + " must define generateVariants.loaders");
+        }
+        List<LoaderSpec> out = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            String variantPrefix = str(row.get("variantPrefix"));
+            String configKey = str(row.get("configKey"));
+            String collectedKey = str(row.get("collectedKey"));
+            if (variantPrefix.isBlank() || configKey.isBlank() || collectedKey.isBlank())
+                throw new IllegalStateException(
+                        GROUPS_FILE + " generateVariants.loaders entries need variantPrefix, configKey, collectedKey");
+
+            out.add(new LoaderSpec(variantPrefix, configKey, collectedKey, str(row.get("slugSuffix"))));
+        }
+        return List.copyOf(out);
+    }
+
+    private static FabricRegistrarSlices readFabricRegistrarSlices() {
+        try {
+            if (!Files.isRegularFile(SHELL_SLICES_FILE))
+                throw new IllegalStateException("Missing shell slices file: " + SHELL_SLICES_FILE);
+
+            Map<String, Object> root = readObject(SHELL_SLICES_FILE);
+            Map<String, Object> raw = castMap(root.get("fabricRegistrar"));
+            String moduleRoot = stripSlashes(str(raw.get("moduleRoot")));
+            String sourceSubdir = stripSlashes(str(raw.get("sourceSubdir")));
+            if (moduleRoot.isBlank() || sourceSubdir.isBlank())
+                throw new IllegalStateException(
+                        SHELL_SLICES_FILE + " fabricRegistrar needs moduleRoot and sourceSubdir");
+
+            List<SliceRule> rules = new ArrayList<>();
+            for (Map<String, Object> row : castList(raw.get("rules"))) {
+                List<String> slices = strList(row.get("slices")).stream()
+                        .map(GenerateVariants::stripSlashes)
+                        .filter(s -> !s.isBlank())
+                        .toList();
+                if (slices.isEmpty())
+                    throw new IllegalStateException(
+                            SHELL_SLICES_FILE + " fabricRegistrar.rules need a non-empty slices array");
+
+                rules.add(new SliceRule(optionalInt(row.get("minorMin")), optionalInt(row.get("minorMax")),
+                        optionalInt(row.get("minorEquals")), slices));
+            }
+            if (rules.isEmpty())
+                throw new IllegalStateException(SHELL_SLICES_FILE + " fabricRegistrar.rules must not be empty");
+
+            return new FabricRegistrarSlices(moduleRoot, sourceSubdir, List.copyOf(rules));
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to read " + SHELL_SLICES_FILE, ex);
+        }
+    }
+
+    private static void writeLoaderProject(LoaderSpec loader, Path dir, String gid, Map<String, Object> config,
+            String loomVersion, String neoforgeModdev, String paperweightVersion, String runPaperVersion)
+            throws IOException {
+        String mc = str(config.get("referenceMinecraft"));
+        switch (loader.variantPrefix()) {
+            case "fabric" -> {
+                String fabricMcDepOverride = str(config.get("minecraftDep"));
+                writeFabricProject(dir, gid, mc, str(config.get("fabricLoader")), str(config.get("fabricApi")),
+                        loomVersion, fabricMcDepOverride.isBlank() ? null : fabricMcDepOverride, config);
+            }
+            case "neoforge" -> {
+                String neoMcRange = str(config.get("minecraftRange"));
+                writeNeoProject(dir, gid, mc, str(config.get("neoForge")), neoforgeModdev,
+                        neoMcRange.isBlank() ? null : neoMcRange, config);
+            }
+            case "forge" -> writeForgeProject(dir, gid, mc, str(config.get("forge")), config);
+            case "paper" -> writePaperProject(dir, gid, mc, paperweightVersion, runPaperVersion, config);
+            default -> throw new IllegalStateException(
+                    "Unknown generateVariants.loaders variantPrefix \"" + loader.variantPrefix() + "\" in "
+                            + GROUPS_FILE);
+        }
+    }
+
+    private static boolean isVariantProjectName(String name) {
+        for (LoaderSpec loader : LOADERS) {
+            if (name.startsWith(loader.variantPrefix() + "-"))
+                return true;
+        }
+        return false;
+    }
+
+    private static String stripSlashes(String value) {
+        String out = value.replace('\\', '/');
+        while (out.startsWith("/")) {
+            out = out.substring(1);
+        }
+        while (out.endsWith("/")) {
+            out = out.substring(0, out.length() - 1);
+        }
+        return out;
+    }
+
+    private static Integer optionalInt(Object value) {
+        if (value instanceof Number n)
+            return n.intValue();
+
+        if (value instanceof String s && !s.isBlank()) {
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private static Map<String, String> readTemplates() {
@@ -1063,6 +1129,50 @@ public final class GenerateVariants {
             }
         }
         return defaultValue;
+    }
+
+    private record LoaderSpec(String variantPrefix, String configKey, String collectedKey, String slugSuffix) {
+        private String projectName(String lineSlug) {
+            return variantPrefix + "-line-" + lineSlug + slugSuffix;
+        }
+    }
+
+    private record SliceRule(Integer minorMin, Integer minorMax, Integer minorEquals, List<String> slices) {
+        private boolean matches(int minor) {
+            if (minorEquals != null)
+                return minor == minorEquals;
+
+            if (minorMin != null && minor < minorMin)
+                return false;
+
+            if (minorMax != null && minor > minorMax)
+                return false;
+
+            return minorMin != null || minorMax != null;
+        }
+    }
+
+    private record FabricRegistrarSlices(String moduleRoot, String sourceSubdir, List<SliceRule> rules) {
+        private String groovySliceSrcDirs(int minor, String mc) {
+            for (SliceRule rule : rules) {
+                if (rule.matches(minor)) {
+                    return String.join("\n", rule.slices().stream().map(this::groovySrcDir).toList());
+                }
+            }
+            throw new IllegalStateException(
+                    "No fabricRegistrar rule in " + SHELL_SLICES_FILE + " matched Minecraft " + mc + " (minor " + minor
+                            + ")");
+        }
+
+        private String groovyCommonSrcDir() {
+            return groovySrcDir(null);
+        }
+
+        private String groovySrcDir(String slice) {
+            String path = slice == null || slice.isBlank() ? moduleRoot + "/" + sourceSubdir
+                    : moduleRoot + "/" + slice + "/" + sourceSubdir;
+            return "    rootProject.file('" + path + "'),";
+        }
     }
 
     private record PatchThreshold(int patchMaxInclusive, int packFormat) {

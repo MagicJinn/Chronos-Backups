@@ -1,0 +1,30 @@
+{
+  "description": "Minecraft-line source slices for GenerateVariants. fabricRegistrar picks FabricCommandRegistrar dirs by MC minor.",
+  "fabricRegistrar": {
+    "moduleRoot": "shell-fabric",
+    "sourceSubdir": "src/main/java",
+    "rules": [
+      {
+        "minorMin": 14,
+        "minorMax": 18,
+        "slices": [
+          "v1_14-v1_18"
+        ]
+      },
+      {
+        "minorEquals": 19,
+        "slices": [
+          "v1_19-v1_20",
+          "v1_19"
+        ]
+      },
+      {
+        "minorMin": 20,
+        "slices": [
+          "v1_19-v1_20",
+          "v1_20"
+        ]
+      }
+    ]
+  }
+}

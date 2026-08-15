@@ -4,12 +4,10 @@ import com.magicjinn.chronos.core.ChatCommandStyle;
 import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.shell.ChronosConstants;
 import com.magicjinn.chronos.shell.HookBridge;
-import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.java.JavaPlugin;
 

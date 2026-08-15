@@ -57,6 +57,7 @@ final class Forge114Reflect {
         throw new IllegalStateException("Cannot resolve Minecraft server run directory");
     }
 
+    @SuppressWarnings("unused")
     private static Path toAbsolutePath(Object root) {
         if (root instanceof Path) {
             return ((Path) root).toAbsolutePath().normalize();
@@ -67,6 +68,7 @@ final class Forge114Reflect {
         return null;
     }
 
+    @SuppressWarnings("unused")
     private static Object readField(Object target, String[] names) {
         for (String name : names) {
             for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
@@ -408,6 +410,7 @@ final class Forge114Reflect {
         return null;
     }
 
+    @SuppressWarnings("unused")
     private static Method firstMethod(Class<?> type, String[] names, Class<?>... params) {
         for (String name : names) {
             Method method = findMethod(type, name, params);
@@ -461,6 +464,7 @@ final class Forge114Reflect {
         }
     }
 
+    @SuppressWarnings("unused")
     private static RuntimeException unwrap(ExecutionException e) {
         Throwable cause = e.getCause();
         if (cause instanceof RuntimeException) {

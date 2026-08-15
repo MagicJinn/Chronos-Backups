@@ -15,7 +15,6 @@ public final class CompileGroupLoaders {
         return !resolveLoaderKeys(config).isEmpty();
     }
 
-    @SuppressWarnings("unchecked")
     public static List<String> resolveLoaderKeys(Map<String, Object> config) {
         Object keys = config.get("loaderKeys");
         if (keys instanceof List<?> list) {
