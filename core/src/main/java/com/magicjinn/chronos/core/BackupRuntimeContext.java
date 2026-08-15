@@ -2,15 +2,12 @@ package com.magicjinn.chronos.core;
 
 import java.nio.file.Path;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 
 /**
  * Runtime information needed to resolve backup targets.
  */
 public final class BackupRuntimeContext {
     public static final String CHAT_PREFIX = "[Chronos] ";
-
-    private static final Logger LOG = Logger.getLogger(BackupRuntimeContext.class.getName());
 
     private final ServerEnvironment environment;
     private final Object serverHandle;
@@ -83,7 +80,7 @@ public final class BackupRuntimeContext {
             logInfoSink.accept(message);
             return;
         }
-        LOG.info(message);
+        ChronosLogger.info(message);
     }
 
     public void logError(String message) {
@@ -91,7 +88,7 @@ public final class BackupRuntimeContext {
             logErrorSink.accept(message);
             return;
         }
-        LOG.severe(message);
+        ChronosLogger.error(message);
     }
 
     public void sendChat(String message) {

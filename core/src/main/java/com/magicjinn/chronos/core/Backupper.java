@@ -16,13 +16,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
 import com.magicjinn.chronos.core.config.CompressionMethod;
 import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.cloudintegration.CloudSync;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Version-agnostic backup implementation.
@@ -33,8 +31,6 @@ import com.magicjinn.cloudintegration.CloudSync;
  * finalize on each tick. The worker may also finalize when ticks are frozen.
  */
 public final class Backupper {
-    private static final Logger LOG = Logger.getLogger(Backupper.class.getName());
-
     private static final String CACHE_FOLDER_NAME = ".cache";
 
     private static Path chronosFolder;
@@ -144,12 +140,12 @@ public final class Backupper {
      */
     public static void beginSpeedtestSession(BackupRuntimeContext context, int seconds) {
         if (context == null) {
-            LOG.warning("speedtest skipped: runtime context is unavailable.");
+            ChronosLogger.warn("Speedtest skipped: runtime context is unavailable.");
             speedtestSessionActive.set(false);
             return;
         }
         if (!speedtestSessionActive.get()) {
-            LOG.warning("speedtest skipped: session was not claimed.");
+            ChronosLogger.warn("Speedtest skipped: session was not claimed.");
             return;
         }
         backupCancelRequested = false;
@@ -256,11 +252,11 @@ public final class Backupper {
                 // It's OK to silently ignore if unsupported (non-Windows, etc)
             }
         } catch (IOException e) {
-            LOG.severe("Failed to create chronos folder: " + e.getMessage());
+            ChronosLogger.error("Failed to create chronos folder: " + e.getMessage());
             return;
         }
 
-        LOG.info("Backupper is ready and on standby...");
+        ChronosLogger.info("Backupper is ready and on standby...");
     }
 
     /**
@@ -273,7 +269,7 @@ public final class Backupper {
      */
     public static boolean tryBeginBackup(BackupRuntimeContext context) {
         if (context == null) {
-            LOG.warning("Backupper skipped: runtime context is unavailable.");
+            ChronosLogger.warn("Backupper skipped: runtime context is unavailable.");
             return false;
         }
         if (isShutdownRequested()) {
@@ -371,7 +367,7 @@ public final class Backupper {
                     case START:
                         if (!backupRunActive.compareAndSet(false, true)) {
                             String message = "Backup skipped: another backup is already running.";
-                            LOG.warning(message);
+                            ChronosLogger.warn(message);
                             context.sendChat(message);
                             clearPendingBackupBegin();
                             return false;
@@ -995,7 +991,7 @@ public final class Backupper {
         try {
             deleteDirectory(cacheFolder);
         } catch (IOException e) {
-            LOG.severe("Failed to delete cache folder: " + e.getMessage());
+            ChronosLogger.error("Failed to delete cache folder: " + e.getMessage());
         }
     }
 }

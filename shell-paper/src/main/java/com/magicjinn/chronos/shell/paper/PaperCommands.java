@@ -1,5 +1,6 @@
 package com.magicjinn.chronos.shell.paper;
 
+import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.shell.ChronosCommandLiterals;
 import com.magicjinn.chronos.shell.LegacyCommandSupport;
 import java.util.ArrayList;
@@ -23,11 +24,10 @@ final class PaperCommands implements CommandExecutor, TabCompleter {
     void register() {
         PluginCommand command = plugin.getCommand(ChronosCommandLiterals.ROOT);
         if (command == null) {
-            plugin.getLogger()
-                    .severe(
-                            "Missing plugin.yml command entry \""
-                                    + ChronosCommandLiterals.ROOT
-                                    + "\".");
+            ChronosLogger.error(
+                    "Missing plugin.yml command entry \""
+                            + ChronosCommandLiterals.ROOT
+                            + "\".");
             return;
         }
         command.setExecutor(plugin);

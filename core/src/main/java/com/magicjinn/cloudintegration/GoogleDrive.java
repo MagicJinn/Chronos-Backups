@@ -22,9 +22,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -45,6 +42,7 @@ import com.google.api.services.drive.model.File;
 import com.google.api.services.drive.model.FileList;
 import com.magicjinn.chronos.core.BackupRuntimeContext;
 import com.magicjinn.chronos.core.ChronosBackupArtifacts;
+import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.config.Config;
@@ -52,8 +50,6 @@ import com.magicjinn.chronos.shell.ChronosConstants;
 
 /** Google Drive integration using OAuth2 and Google Drive API. */
 public final class GoogleDrive implements CloudIntegration {
-    private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
-
     private static final String APPLICATION_NAME = ChronosConstants.NAME;
     private static final String REMOTE_ROOT_FOLDER_NAME = ChronosConstants.NAME;
     /**
@@ -102,9 +98,9 @@ public final class GoogleDrive implements CloudIntegration {
             Class.forName("io.opencensus.trace.propagation.TextFormat", true, cl);
             Class.forName("io.grpc.Context", true, cl);
 
-            LOG.info("Google Drive classpath probe OK");
+            ChronosLogger.info("Google Drive classpath probe OK");
         } catch (Throwable t) {
-            LOG.error("Google Drive classpath probe failed", t);
+            ChronosLogger.error("Google Drive classpath probe failed", t);
         }
     }
 
@@ -131,7 +127,7 @@ public final class GoogleDrive implements CloudIntegration {
     @Override
     public void initialize() {
         if (!Config.isGoogleDriveEnabled()) {
-            LOG.info("Google Drive is disabled in config.");
+            ChronosLogger.info("Google Drive is disabled in config.");
             return;
         }
         try {
@@ -139,17 +135,17 @@ public final class GoogleDrive implements CloudIntegration {
             if (existing != null) {
                 drive = buildDriveService(existing);
                 ready = true;
-                LOG.info("Google Drive authorized from stored tokens.");
+                ChronosLogger.info("Google Drive authorized from stored tokens.");
                 tryEnsureWorldFolderAliasSetup();
                 CloudSync.requestSync();
                 return;
             }
-            LOG.info(
+            ChronosLogger.info(
                     "Google Drive enabled with no linked account. "
                             + "Starting authorization. A URL will be printed below.");
             startInteractiveAuthorizationAsync();
         } catch (Exception e) {
-            LOG.error("Google Drive initialization failed: " + e.getMessage(), e);
+            ChronosLogger.error("Google Drive initialization failed: " + e.getMessage(), e);
         }
     }
 
@@ -161,13 +157,13 @@ public final class GoogleDrive implements CloudIntegration {
             throw new IOException("Google Drive is not ready");
 
         if (!ensureWorldFolderAliasSetup()) {
-            LOG.info("Google Drive sync deferred until a world is loaded (alias setup).");
+            ChronosLogger.info("Google Drive sync deferred until a world is loaded (alias setup).");
             return;
         }
 
         Path backupRoot = Core.RunningDirectory.resolve(Config.getBackupFolderName());
         if (!Files.isDirectory(backupRoot)) {
-            LOG.info("Google Drive sync: no local backup folder at " + backupRoot);
+            ChronosLogger.info("Google Drive sync: no local backup folder at " + backupRoot);
             return;
         }
 
@@ -255,12 +251,12 @@ public final class GoogleDrive implements CloudIntegration {
                 zipDirectory(local, tempZip);
                 uploadFile = tempZip;
             } else if (!Files.isRegularFile(local)) {
-                LOG.warn("Google Drive sync: skipping non-file backup " + local);
+                ChronosLogger.warn("Google Drive sync: skipping non-file backup " + local);
                 return;
             }
 
             long bytes = Files.size(uploadFile);
-            LOG.info("Google Drive uploading " + remoteName + " (" + bytes + " bytes)...");
+            ChronosLogger.info("Google Drive uploading " + remoteName + " (" + bytes + " bytes)...");
 
             File meta = new File()
                     .setName(remoteName)
@@ -276,7 +272,7 @@ public final class GoogleDrive implements CloudIntegration {
             File created = create.execute();
 
             remoteByName.put(remoteName, new RemoteFile(created.getId(), remoteName));
-            LOG.info("Google Drive uploaded " + remoteName);
+            ChronosLogger.info("Google Drive uploaded " + remoteName);
         } finally {
             if (tempZip != null)
                 Files.deleteIfExists(tempZip);
@@ -290,14 +286,14 @@ public final class GoogleDrive implements CloudIntegration {
             Files.deleteIfExists(local);
         }
 
-        LOG.info("Google Drive sync: removed local backup after upload: " + local.getFileName());
+        ChronosLogger.info("Google Drive sync: removed local backup after upload: " + local.getFileName());
     }
 
     private void deleteRemoteFile(RemoteFile file, Map<String, RemoteFile> remoteByName)
             throws IOException {
         drive.files().delete(file.id).execute();
         remoteByName.remove(file.name);
-        LOG.info("Google Drive deleted oldest remote backup: " + file.name);
+        ChronosLogger.info("Google Drive deleted oldest remote backup: " + file.name);
     }
 
     private static RemoteFile oldestRemote(Map<String, RemoteFile> remoteByName) {
@@ -393,7 +389,7 @@ public final class GoogleDrive implements CloudIntegration {
                 .create(meta)
                 .setFields("id")
                 .execute();
-        LOG.info("Google Drive created folder: " + name);
+        ChronosLogger.info("Google Drive created folder: " + name);
         return created.getId();
     }
 
@@ -408,7 +404,7 @@ public final class GoogleDrive implements CloudIntegration {
         BackupRuntimeContext context = Scheduler.tryGetRuntimeContext();
         if (context == null) {
             aliasSetupPending.set(true);
-            LOG.info(
+            ChronosLogger.info(
                     "Google Drive alias setup deferred until a world is loaded.");
             return;
         }
@@ -416,7 +412,7 @@ public final class GoogleDrive implements CloudIntegration {
             INSTANCE.ensureWorldFolderAliasSetup(context.getWorldName());
         } catch (Exception e) {
             aliasSetupPending.set(true);
-            LOG.error("Google Drive alias setup failed: " + e.getMessage(), e);
+            ChronosLogger.error("Google Drive alias setup failed: " + e.getMessage(), e);
         }
     }
 
@@ -471,19 +467,19 @@ public final class GoogleDrive implements CloudIntegration {
             String alias = CloudBackupAlias.pickAlias(existing, worldName);
             CloudBackupAlias.writeAlias(alias);
             if (alias.isEmpty()) {
-                LOG.info(
+                ChronosLogger.info(
                         "Google Drive world folder alias: none (using "
                                 + ChronosBackupArtifacts.sanitizeWorldDirName(worldName)
                                 + ")");
             } else {
-                LOG.info("Google Drive world folder alias reserved: " + alias);
+                ChronosLogger.info("Google Drive world folder alias reserved: " + alias);
             }
         }
 
         String remoteFolder = CloudBackupAlias.remoteFolderName(worldName);
         findOrCreateFolder(rootFolderId, remoteFolder);
         aliasSetupPending.set(false);
-        LOG.info("Google Drive ensured remote world folder: " + remoteFolder);
+        ChronosLogger.info("Google Drive ensured remote world folder: " + remoteFolder);
     }
 
     private Set<String> listChildFolderNames(String parentId) throws IOException {
@@ -595,17 +591,17 @@ public final class GoogleDrive implements CloudIntegration {
         AuthorizationCodeInstalledApp.Browser consoleBrowser = new AuthorizationCodeInstalledApp.Browser() {
             @Override
             public void browse(String url) {
-                LOG.info(ChronosConstants.DIVIDER);
-                LOG.info("Google Drive authorization");
-                LOG.info("Open this URL in a browser, sign in, and allow Chronos Backups:");
-                LOG.info(url);
-                LOG.info(ChronosConstants.DIVIDER);
+                ChronosLogger.info(ChronosConstants.DIVIDER);
+                ChronosLogger.info("Google Drive authorization");
+                ChronosLogger.info("Open this URL in a browser, sign in, and allow Chronos Backups:");
+                ChronosLogger.info(url);
+                ChronosLogger.info(ChronosConstants.DIVIDER);
             }
         };
         Credential credential = new AuthorizationCodeInstalledApp(flow, receiver, consoleBrowser).authorize(USER_ID);
         drive = buildDriveService(credential);
         ready = true;
-        LOG.info("Google Drive authorization completed successfully.");
+        ChronosLogger.info("Google Drive authorization completed successfully.");
         tryEnsureWorldFolderAliasSetup();
         CloudSync.requestSync();
         return drive;
@@ -617,7 +613,7 @@ public final class GoogleDrive implements CloudIntegration {
      */
     public static boolean startInteractiveAuthorizationAsync() {
         if (!authInProgress.compareAndSet(false, true)) {
-            LOG.info("Google Drive OAuth is already in progress.");
+            ChronosLogger.info("Google Drive OAuth is already in progress.");
             return false;
         }
         Thread worker = new Thread(
@@ -627,7 +623,7 @@ public final class GoogleDrive implements CloudIntegration {
                         try {
                             authorizeInteractively();
                         } catch (Exception e) {
-                            LOG.error(
+                            ChronosLogger.error(
                                     "Google Drive authorization failed: " + e.getMessage(), e);
                         } finally {
                             authInProgress.set(false);

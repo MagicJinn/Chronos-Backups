@@ -1,33 +1,19 @@
 package com.magicjinn.chronos.shell.mojmap.common;
 
+import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.ShellMessenger;
-import com.magicjinn.chronos.shell.ChronosConstants;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.function.Supplier;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /** Logging and chat for Mojmap servers (Fabric / NeoForge) using Brigadier dispatch. */
 public final class MojmapShellMessenger implements ShellMessenger {
-    private static final Logger LOG = LogManager.getLogger(ChronosConstants.LOG_NAME);
-
     private final Supplier<MinecraftServer> server;
 
     public MojmapShellMessenger(Supplier<MinecraftServer> server) {
         this.server = server;
-    }
-
-    @Override
-    public void logInfo(String message) {
-        LOG.info(message);
-    }
-
-    @Override
-    public void logError(String message) {
-        LOG.error(message);
     }
 
     @Override
@@ -40,7 +26,7 @@ public final class MojmapShellMessenger implements ShellMessenger {
         try {
             mcServer.getCommands().getDispatcher().execute(parsed);
         } catch (CommandSyntaxException e) {
-            LOG.error("Failed to execute chat command: " + e.getMessage());
+            ChronosLogger.error("Failed to execute chat command: " + e.getMessage());
         }
     }
 }

@@ -4,6 +4,7 @@
 //! Copy files in parallel using rayon
 //! Zip the snapshot using rawzip, and instead of writing back to disk (cache) we stream the pruned files directly into the zip
 
+mod jni_log;
 mod pruner;
 mod snapshot_zip;
 mod world_copy;
@@ -11,6 +12,7 @@ mod world_copy;
 #[cfg(feature = "world-test")]
 mod world_test;
 
+use crate::jni_log::{log_error, log_info};
 use std::io::ErrorKind;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -26,11 +28,15 @@ pub fn run_prune_world_test(world_name: Option<&str>) -> i32 {
     world_test::run(world_name)
 }
 
-pub fn prune_world_folder(
+pub fn prune_world_folder<F>(
     world_folder: PathBuf,
     inhabited_time_seconds_required: u64,
     max_worker_threads: usize,
-) -> Result<(), std::io::Error> {
+    mut log_info: F,
+) -> Result<(), std::io::Error>
+where
+    F: FnMut(&str),
+{
     if inhabited_time_seconds_required == 0 {
         return Ok(());
     }
@@ -39,6 +45,7 @@ pub fn prune_world_folder(
         inhabited_time_seconds_required,
         max_worker_threads,
         None,
+        &mut log_info,
     )
 }
 
@@ -51,6 +58,29 @@ fn prune_world_to_zip_impl(
     clazz: &JClass,
     poll_mid: JStaticMethodID,
 ) -> jint {
+    let run_prune = inhabited_time_seconds_required > 0;
+
+    let sink = match snapshot_zip::ZipStreamSink::create(world_folder.clone(), zip_path) {
+        Ok(s) => Arc::new(s),
+        Err(err) => {
+            log_error(env, clazz, &format!("Chronos backups: failed to create zip output: {err}"));
+            return 1;
+        }
+    };
+
+    if run_prune {
+        if let Err(err) = pruner::prune_world(
+            world_folder.clone(),
+            inhabited_time_seconds_required,
+            max_worker_threads,
+            Some(sink.clone()),
+            &mut |message| log_info(env, clazz, message),
+        ) {
+            log_error(env, clazz, &format!("Chronos backups: failed to prune world: {err}"));
+            return 1;
+        }
+    }
+
     let mut poll_abort = || unsafe {
         match env.call_static_method_unchecked(
             clazz,
@@ -66,40 +96,18 @@ fn prune_world_to_zip_impl(
         }
     };
 
-    let run_prune = inhabited_time_seconds_required > 0;
-
-    let sink = match snapshot_zip::ZipStreamSink::create(world_folder.clone(), zip_path) {
-        Ok(s) => Arc::new(s),
-        Err(err) => {
-            eprintln!("Error: failed to create zip output: {err}");
-            return 1;
-        }
-    };
-
-    if run_prune {
-        if let Err(err) = pruner::prune_world(
-            world_folder.clone(),
-            inhabited_time_seconds_required,
-            max_worker_threads,
-            Some(sink.clone()),
-        ) {
-            eprintln!("Error: failed to prune world: {err}");
-            return 1;
-        }
-    }
-
     if let Err(err) =
         snapshot_zip::append_remaining_snapshot_files(sink.as_ref(), &mut poll_abort)
     {
         if err.kind() == ErrorKind::Interrupted {
             return 2;
         }
-        eprintln!("Error: failed to zip snapshot remainder: {err}");
+        log_error(env, clazz, &format!("Chronos backups: failed to zip snapshot remainder: {err}"));
         return 1;
     }
 
     if let Err(err) = sink.as_ref().finish() {
-        eprintln!("Error: failed to finalize zip archive: {err}");
+        log_error(env, clazz, &format!("Chronos backups: failed to finalize zip archive: {err}"));
         return 1;
     }
 
@@ -133,10 +141,27 @@ pub extern "system" fn Java_com_magicjinn_chronos_core_RustPrunerBridge_pruneWor
             max_worker_threads as usize
         };
 
-        match prune_world_folder(PathBuf::from(world_folder_str), seconds, threads) {
+        let clazz = match env.find_class("com/magicjinn/chronos/core/RustPrunerBridge") {
+            Ok(c) => c,
+            Err(err) => {
+                eprintln!("Error: find_class RustPrunerBridge: {err}");
+                return 4;
+            }
+        };
+
+        match prune_world_folder(
+            PathBuf::from(world_folder_str),
+            seconds,
+            threads,
+            |message| log_info(&mut env, &clazz, message),
+        ) {
             Ok(()) => 0,
             Err(err) => {
-                eprintln!("Error: failed to prune world folder: {err}");
+                log_error(
+                    &mut env,
+                    &clazz,
+                    &format!("Chronos backups: failed to prune world folder: {err}"),
+                );
                 1
             }
         }

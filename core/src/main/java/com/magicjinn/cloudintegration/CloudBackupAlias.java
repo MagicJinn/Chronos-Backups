@@ -13,12 +13,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.logging.Logger;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import com.magicjinn.chronos.core.ChronosBackupArtifacts;
+import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.Core;
 
 /**
@@ -31,8 +31,6 @@ import com.magicjinn.chronos.core.Core;
  * folder {@code cherry-world}.
  */
 public final class CloudBackupAlias {
-    private static final Logger LOG = Logger.getLogger(CloudBackupAlias.class.getName());
-
     private static final String ALIAS_FILE_NAME = "chronos-alias.txt";
     private static final String CONFIG_FOLDER_NAME = "config";
     private static final String FRUITS_RESOURCE = "/chronos-fruits.json";
@@ -72,7 +70,7 @@ public final class CloudBackupAlias {
             List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
             return parseAliasLines(lines);
         } catch (IOException e) {
-            LOG.warning("Could not read " + ALIAS_FILE_NAME + ": " + e.getMessage());
+            ChronosLogger.warn("Could not read " + ALIAS_FILE_NAME + ": " + e.getMessage());
             return "";
         }
     }
@@ -215,19 +213,19 @@ public final class CloudBackupAlias {
     private static List<String> readFruitsFromResource() {
         InputStream in = CloudBackupAlias.class.getResourceAsStream(FRUITS_RESOURCE);
         if (in == null) {
-            LOG.warning("Missing classpath resource " + FRUITS_RESOURCE + ", using built-in fruits.");
+            ChronosLogger.warn("Missing classpath resource " + FRUITS_RESOURCE + ", using built-in fruits.");
             return defaultFruits();
         }
         try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
             List<String> parsed = GSON.fromJson(reader, STRING_LIST.getType());
             List<String> cleaned = cleanFruitList(parsed);
             if (cleaned.isEmpty()) {
-                LOG.warning(FRUITS_RESOURCE + " parsed empty, using built-in fruits.");
+                ChronosLogger.warn(FRUITS_RESOURCE + " parsed empty, using built-in fruits.");
                 return defaultFruits();
             }
             return cleaned;
         } catch (IOException | JsonParseException e) {
-            LOG.warning("Could not read " + FRUITS_RESOURCE + ": " + e.getMessage());
+            ChronosLogger.warn("Could not read " + FRUITS_RESOURCE + ": " + e.getMessage());
             return defaultFruits();
         }
     }
