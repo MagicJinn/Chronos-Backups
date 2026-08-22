@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -90,6 +90,13 @@ jobs:
 
       - name: Run buildAll
         run: ./gradlew buildAll -PchronosRustSkipBuild=true -PchronosRustRequireAllTargets=false --no-daemon
+
+      - name: Verify linux-aarch64 rust-pruner is packaged
+        run: |
+          test -f build/generated/rust-pruner-resources/natives/linux-aarch64/librust_pruner.so
+          fabric_jar=$(ls build/libs/chronosbackups-*-fabric.jar 2>/dev/null | head -1)
+          test -n "$fabric_jar"
+          unzip -l "$fabric_jar" | grep -F 'natives/linux-aarch64/librust_pruner.so'
 
       - name: Verify Google Drive jar packaging
         run: ./gradlew verifyGoogleDriveJarContents -PchronosRustSkipBuild=true --no-daemon
