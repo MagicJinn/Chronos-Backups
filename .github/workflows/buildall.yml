@@ -56,8 +56,7 @@ jobs:
           if-no-files-found: error
 
   build-all:
-    needs: [should-build, build-rust-host-native]
-    if: needs.should-build.outputs.build == 'true'
+    needs: build-rust-host-native
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
