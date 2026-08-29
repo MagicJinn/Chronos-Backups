@@ -8,6 +8,7 @@ This page documents the changes and fixes made in Chronos Backups, compared to t
 - Increased the cloud sync timeout from 20 seconds to 10 minutes, and improved the resumable upload logic
 - Improved an issue where backups would hang if the server was tick-paused. Backups should now complete correctly more often
 - Improve log formatting during backups so progress messages appear consistently in the server log
+- Added support for Linux ARM64, and Windows ARM64
 
 ## 1.1.0
 

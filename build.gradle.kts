@@ -108,6 +108,10 @@ fun useDockerForLinuxTarget(target: RustNativeTarget): Boolean {
     if (target.rustTargetTriple == "x86_64-unknown-linux-gnu") {
         return true
     }
+    // Cross-compiling linux-aarch64 from x86_64 (or other hosts) needs Zig in Docker.
+    if (target.rustTargetTriple == "aarch64-unknown-linux-gnu" && currentArchId() != "aarch64") {
+        return true
+    }
     if (!rustLinuxViaDockerProvider.get()) {
         return false
     }
@@ -120,8 +124,15 @@ fun runDockerRustBuild(target: RustNativeTarget) {
     val dockerImage = rustLinuxDockerImageProvider.get()
     val glibcMax = rustLinuxGlibcMaxProvider.get()
     val script =
-        if (target.rustTargetTriple == "x86_64-unknown-linux-gnu") {
-            val zigTarget = "x86_64-unknown-linux-gnu.$glibcMax"
+        if (target.rustTargetTriple == "x86_64-unknown-linux-gnu" ||
+            target.rustTargetTriple == "aarch64-unknown-linux-gnu"
+        ) {
+            val zigTarget =
+                when (target.rustTargetTriple) {
+                    "x86_64-unknown-linux-gnu" -> "x86_64-unknown-linux-gnu.$glibcMax"
+                    "aarch64-unknown-linux-gnu" -> "aarch64-unknown-linux-gnu.$glibcMax"
+                    else -> error("unexpected zig linux target: ${target.rustTargetTriple}")
+                }
             """
             #!/usr/bin/env bash
             set -euo pipefail
@@ -206,10 +217,12 @@ fun hostRustTarget(): RustNativeTarget {
 fun rustReleaseLibraryFile(target: RustNativeTarget): java.io.File {
     val base = rootProject.file("core/native/rust-pruner/target")
     val candidates = mutableListOf<java.io.File>()
-    if (target.rustTargetTriple == "x86_64-unknown-linux-gnu") {
+    if (target.rustTargetTriple == "x86_64-unknown-linux-gnu" ||
+        target.rustTargetTriple == "aarch64-unknown-linux-gnu"
+    ) {
         val glibcMax = rustLinuxGlibcMaxProvider.get()
         candidates +=
-            base.resolve("x86_64-unknown-linux-gnu.$glibcMax/release/${target.libraryFileName}")
+            base.resolve("${target.rustTargetTriple}.$glibcMax/release/${target.libraryFileName}")
     }
     candidates += base.resolve("${target.rustTargetTriple}/release/${target.libraryFileName}")
     return candidates.firstOrNull { it.isFile } ?: candidates.last()
