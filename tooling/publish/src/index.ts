@@ -114,7 +114,15 @@ export async function loadConfigFromEnv(): Promise<PublishConfig> {
 }
 
 async function listJarFiles(jarsDir: string): Promise<string[]> {
-  const entries = await readdir(jarsDir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(jarsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
   return entries
     .filter((entry) => entry.isFile() && entry.name.endsWith(".jar"))
     .map((entry) => entry.name)
@@ -122,6 +130,12 @@ async function listJarFiles(jarsDir: string): Promise<string[]> {
 }
 
 export async function publishRelease(config: PublishConfig): Promise<void> {
+  const jarNames = await listJarFiles(config.jarsDir);
+  if (jarNames.length === 0) {
+    console.log(`No jar files found in ${config.jarsDir}. Skipping jar publish.`);
+    return;
+  }
+
   const compileGroupsPath = defaultCompileGroupsPath(config.repoRoot);
   const index = await loadJarTargetIndex(compileGroupsPath);
   const knownLoaders = knownLoadersFromIndex(index);
@@ -147,11 +161,6 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       : new CurseForgeVersionResolver(config.curseforgeToken ?? "", config.platform.userAgent);
   if (curseforgeResolver) {
     await curseforgeResolver.load();
-  }
-
-  const jarNames = await listJarFiles(config.jarsDir);
-  if (jarNames.length === 0) {
-    throw new Error(`No jar files found in ${config.jarsDir}`);
   }
 
   console.log(

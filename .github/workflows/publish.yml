@@ -13,19 +13,21 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: tooling/publish/package-lock.json
 
       - name: Download release jars
-        uses: robinraju/release-downloader@v1
-        with:
-          repository: ${{ github.repository }}
-          tag: ${{ github.event.release.tag_name }}
-          fileName: "*.jar"
-          out-file-path: release-jars
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-jars
+          gh release download "${{ github.event.release.tag_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern '*.jar' \
+            --dir release-jars || echo "No jar assets found. Continuing."
 
       - name: Install publish dependencies
         working-directory: tooling/publish
