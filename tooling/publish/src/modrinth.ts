@@ -129,7 +129,7 @@ export async function updateModrinthProjectBody(
   dryRun = false,
 ): Promise<void> {
   if (dryRun) {
-    console.log(`[dry-run] Modrinth project body (${body.length} chars):`, body);
+    console.log(`[dry-run] Modrinth project body (${body.length} chars)`);
     return;
   }
 

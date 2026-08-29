@@ -35,7 +35,7 @@ jobs:
         working-directory: tooling/publish
         run: npm run build
 
-      - name: Publish to Modrinth and CurseForge
+      - name: Publish jars to Modrinth and CurseForge
         working-directory: tooling/publish
         env:
           CHRONOS_REPO_ROOT: ${{ github.workspace }}
@@ -45,3 +45,10 @@ jobs:
           MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
           CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
         run: npm start
+
+      - name: Update Modrinth project page description
+        working-directory: tooling/publish
+        env:
+          CHRONOS_REPO_ROOT: ${{ github.workspace }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        run: npm run update-mod-page
