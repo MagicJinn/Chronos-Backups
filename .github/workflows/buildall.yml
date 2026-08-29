@@ -90,9 +90,12 @@ jobs:
       - name: Verify Google Drive jar packaging
         run: ./gradlew verifyGoogleDriveJarContents -PchronosRustSkipBuild=true --no-daemon
 
+      - name: Compress jars with 7z
+        run: 7z a -t7z -mx=9 -m0=lzma2 build/chronos-build-jars.7z build/libs/*.jar
+
       - name: Upload built jars
         uses: actions/upload-artifact@v7
         with:
-          name: chronos-build-jars
-          path: build/libs/*.jar
+          path: build/chronos-build-jars.7z
+          archive: false
           if-no-files-found: error
