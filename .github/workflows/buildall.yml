@@ -4,21 +4,17 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "*.md"
-      - "**/*.md"
-      - "*.html"
-      - "**/*.html"
-      - "*.css"
-      - "**/*.css"
+      - "**.md"
+      - "**.html"
+      - "**.css"
+      - "docs/**"
       - "tooling/publish/**"
   pull_request:
     paths-ignore:
-      - "*.md"
-      - "**/*.md"
-      - "*.html"
-      - "**/*.html"
-      - "*.css"
-      - "**/*.css"
+      - "**.md"
+      - "**.html"
+      - "**.css"
+      - "docs/**"
       - "tooling/publish/**"
 
 jobs:
@@ -60,7 +56,8 @@ jobs:
           if-no-files-found: error
 
   build-all:
-    needs: build-rust-host-native
+    needs: [should-build, build-rust-host-native]
+    if: needs.should-build.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
