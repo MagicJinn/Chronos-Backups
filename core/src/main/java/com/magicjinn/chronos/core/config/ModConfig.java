@@ -4,13 +4,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.magicjinn.chronos.core.ChronosBackupArtifacts;
+
 /**
  * In-memory loaded values for {@code chronos.toml}.
  * Add a public field here, then register it once in {@link ChronosTomlSpec}.
  */
 public final class ModConfig {
-    /* The name of the folder that will contain the backups */
-    public String backupFolderName = "backups";
+    /* Single folder name under the run directory that will contain the backups */
+    public String backupFolderName = ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME;
 
     public boolean pruneChunks = true;
     public int pruneTimeRequirementSeconds = 60 * 2; // 2 minutes of playtime

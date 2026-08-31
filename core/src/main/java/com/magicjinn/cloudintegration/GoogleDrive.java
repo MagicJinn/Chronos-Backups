@@ -161,7 +161,10 @@ public final class GoogleDrive implements CloudIntegration {
             return;
         }
 
-        Path backupRoot = Core.RunningDirectory.resolve(Config.getBackupFolderName());
+        // Safer implementation of resolving the backup folder name
+        // (previously RunningDirectory.resolve())
+        Path backupRoot = ChronosBackupArtifacts.resolveBackupFolder(
+                Core.RunningDirectory, Config.getBackupFolderName());
         if (!Files.isDirectory(backupRoot)) {
             ChronosLogger.info("Google Drive sync: no local backup folder at " + backupRoot);
             return;

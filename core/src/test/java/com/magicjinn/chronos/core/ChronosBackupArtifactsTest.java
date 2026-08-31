@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,53 @@ class ChronosBackupArtifactsTest {
     void sanitizeReplacesPathSeparators() {
         assertEquals("a_b_c", ChronosBackupArtifacts.sanitizeWorldDirName("a/b\\c"));
         assertEquals(ChronosConstants.DEFAULT_WORLD_NAME, ChronosBackupArtifacts.sanitizeWorldDirName(""));
+        assertEquals(ChronosConstants.DEFAULT_WORLD_NAME, ChronosBackupArtifacts.sanitizeWorldDirName(".."));
+        assertEquals(ChronosConstants.DEFAULT_WORLD_NAME, ChronosBackupArtifacts.sanitizeWorldDirName("."));
+    }
+
+    @Test
+    void sanitizeBackupFolderNameRejectsTraversal() {
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName(null));
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName(""));
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName(".."));
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName("../other"));
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName("a/b"));
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName("a\\b"));
+        assertEquals(
+                ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME,
+                ChronosBackupArtifacts.sanitizeBackupFolderName("C:backups"));
+        assertEquals("chronos", ChronosBackupArtifacts.sanitizeBackupFolderName("chronos"));
+        assertEquals("backups", ChronosBackupArtifacts.sanitizeBackupFolderName("  backups  "));
+    }
+
+    @Test
+    void resolveBackupFolderStaysUnderRunDirectory() throws Exception {
+        Path runDir = Files.createTempDirectory("chronos-run");
+        try {
+            Path ok = ChronosBackupArtifacts.resolveBackupFolder(runDir, "chronos");
+            assertEquals(runDir.toAbsolutePath().normalize().resolve("chronos"), ok);
+            assertTrue(ok.startsWith(runDir.toAbsolutePath().normalize()));
+
+            Path escaped = ChronosBackupArtifacts.resolveBackupFolder(runDir, "../outside");
+            assertEquals(
+                    runDir.toAbsolutePath().normalize().resolve(
+                            ChronosBackupArtifacts.DEFAULT_BACKUP_FOLDER_NAME),
+                    escaped);
+        } finally {
+            Files.deleteIfExists(runDir);
+        }
     }
 
     @Test

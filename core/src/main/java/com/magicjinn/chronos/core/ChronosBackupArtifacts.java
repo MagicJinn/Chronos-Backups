@@ -30,41 +30,102 @@ public final class ChronosBackupArtifacts {
     private static final Pattern TIMESTAMP_SUFFIX = Pattern.compile(
             "(\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}\\.\\d{3})(\\.zip)?$");
 
+    /** Default backups folder name */
+    public static final String DEFAULT_BACKUP_FOLDER_NAME = "backups";
+
     private ChronosBackupArtifacts() {}
+
+    /**
+     * Single folder name under the Minecraft run directory. Rejects blank,
+     * {@code .}/{@code ..}, path separators, drive letters, and control/reserved
+     * characters. Invalid values fall back to {@link #DEFAULT_BACKUP_FOLDER_NAME}.
+     */
+    public static String sanitizeBackupFolderName(String name) {
+        return sanitizeFsSegment(name, DEFAULT_BACKUP_FOLDER_NAME, false);
+    }
+
+    /**
+     * Resolves {@code folderName} under {@code runDirectory}, always staying
+     * inside that root after normalize.
+     */
+    public static Path resolveBackupFolder(Path runDirectory, String folderName) {
+        if (runDirectory == null)
+            throw new IllegalArgumentException("runDirectory is null");
+
+        String safe = sanitizeBackupFolderName(folderName);
+        Path base = runDirectory.toAbsolutePath().normalize();
+        Path resolved = base.resolve(safe).normalize();
+        if (!resolved.startsWith(base) || resolved.equals(base))
+            return base.resolve(DEFAULT_BACKUP_FOLDER_NAME).normalize();
+
+        return resolved;
+    }
 
     /** Returns a sanitized world directory name */
     public static String sanitizeWorldDirName(String worldName) {
-        if (worldName == null || worldName.isEmpty()) 
-            return ChronosConstants.DEFAULT_WORLD_NAME;
+        return sanitizeFsSegment(worldName, ChronosConstants.DEFAULT_WORLD_NAME, true);
+    }
 
-        StringBuilder sb = new StringBuilder(worldName.length());
-        for (int i = 0; i < worldName.length(); i++) {
-            char ch = worldName.charAt(i);
-            if (ch < 32 || ch == 127) {
+    /**
+     * @param replaceUnsafe {@code true} replaces unsafe chars with {@code _};
+     *                      {@code false} rejects the whole name
+     */
+    private static String sanitizeFsSegment(String name, String fallback, boolean replaceUnsafe) {
+        if (name == null)
+            return fallback;
+
+        String trimmed = name.trim();
+        if (trimmed.isEmpty())
+            return fallback;
+
+        StringBuilder sb = new StringBuilder(trimmed.length());
+        for (int i = 0; i < trimmed.length(); i++) {
+            char ch = trimmed.charAt(i);
+            if (isUnsafeFsChar(ch)) {
+                if (!replaceUnsafe)
+                    return fallback;
+
                 sb.append('_');
             } else {
-                switch (ch) {
-                    case '\\':
-                    case '/':
-                    case ':':
-                    case '*':
-                    case '?':
-                    case '"':
-                    case '<':
-                    case '>':
-                    case '|':
-                        sb.append('_');
-                        break;
-                    default:
-                        sb.append(ch);
-                }
+                sb.append(ch);
             }
         }
-        String s = sb.toString().trim();
-        while (s.endsWith(".") || s.endsWith(" ")) {
-            s = s.substring(0, s.length() - 1).trim();
+
+        String s = stripTrailingDotsAndSpaces(sb.toString().trim());
+        if (s.isEmpty() || ".".equals(s) || "..".equals(s))
+            return fallback;
+
+        return s;
+    }
+
+    // Whether the character is unsafe for a filesystem path
+    private static boolean isUnsafeFsChar(char ch) {
+        // Reject ASCII control characters (below 32) and DEL (127)
+        if (ch < 32 || ch == 127)
+            return true;
+
+        // Reject any other unsafe characters
+        switch (ch) {
+            case '\\':
+            case '/':
+            case ':':
+            case '*':
+            case '?':
+            case '"':
+            case '<':
+            case '>':
+            case '|':
+                return true;
+            default:
+                return false;
         }
-        return s.isEmpty() ? ChronosConstants.DEFAULT_WORLD_NAME : s;
+    }
+
+    private static String stripTrailingDotsAndSpaces(String s) {
+        while (s.endsWith(".") || s.endsWith(" "))
+            s = s.substring(0, s.length() - 1).trim();
+
+        return s;
     }
 
     /** New backup id for {@code worldName} using the current time. */

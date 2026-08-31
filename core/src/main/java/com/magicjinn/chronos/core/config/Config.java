@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import com.electronwill.nightconfig.core.file.FileConfig;
 import com.electronwill.nightconfig.toml.TomlFormat;
+import com.magicjinn.chronos.core.ChronosBackupArtifacts;
 import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.Core;
 
@@ -32,6 +33,28 @@ public final class Config {
             writeTomlDocument(configPath, defaults); // writeTomlDocument will create parent dirs if needed
         }
         modConfig = loadFromToml(configPath, defaults);
+        sanitizeLoadedBackupFolderName();
+    }
+
+    /** Clamp {@code backupFolderName} to a single safe segment under the run dir. */
+    private static void sanitizeLoadedBackupFolderName() {
+        if (modConfig == null) {
+            return;
+        }
+        String raw = modConfig.backupFolderName;
+        String trimmed = raw == null ? "" : raw.trim();
+        String safe = ChronosBackupArtifacts.sanitizeBackupFolderName(raw);
+        if (!safe.equals(trimmed)) {
+            ChronosLogger.warn(
+                    "Invalid "
+                            + ChronosTomlSpec.KEY_BACKUP_FOLDER_NAME
+                            + " \""
+                            + raw
+                            + "\", using \""
+                            + safe
+                            + "\".");
+        }
+        modConfig.backupFolderName = safe;
     }
 
     /**
@@ -146,11 +169,13 @@ public final class Config {
     }
 
     /**
-     * The name of the folder that will contain the backups. When {@link #modConfig}
-     * is unset, returns built-in default ("chronos").
+     * Single folder name under the run directory for backups. Always sanitized.
+     * When {@link #modConfig} is unset, returns
+     * {@link ChronosBackupArtifacts#DEFAULT_BACKUP_FOLDER_NAME}.
      */
     public static String getBackupFolderName() {
-        return modConfig != null ? modConfig.backupFolderName : BUILTIN_DEFAULTS.backupFolderName;
+        String raw = modConfig != null ? modConfig.backupFolderName : BUILTIN_DEFAULTS.backupFolderName;
+        return ChronosBackupArtifacts.sanitizeBackupFolderName(raw);
     }
 
     /**

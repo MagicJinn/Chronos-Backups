@@ -239,7 +239,10 @@ public final class Backupper {
     }
 
     public static void InitializeBackupper() {
-        chronosFolder = Core.RunningDirectory.resolve(Config.getBackupFolderName());
+        // Safer implementation of resolving the backup folder name
+        // (previously RunningDirectory.resolve())
+        chronosFolder = ChronosBackupArtifacts.resolveBackupFolder(
+                Core.RunningDirectory, Config.getBackupFolderName());
         cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
         // Create the chronos folder if it doesn't exist
         try {

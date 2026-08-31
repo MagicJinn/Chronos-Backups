@@ -2,6 +2,10 @@
 
 This page documents the changes and fixes made in Chronos Backups, compared to the original Random Things mod, in reverse chronological order.
 
+## 1.1.2
+
+- Fix an issue where backup folder names could be resolved outside of the proper/target directory because of a lack of sanitization
+
 ## 1.1.1
 
 - Shortened the stack trace when a cloud sync fails
