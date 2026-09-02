@@ -324,12 +324,14 @@ public final class Backupper {
             while (true) {
                 switch (phase) {
                     case FLUSH:
-                        if (worldController != null && !worldController.prepareWorldFlush(serverHandle)) {
+                        if (worldController != null) {
                             if (!flushLogged) {
                                 context.logInfo("Chronos backups: flushing world to disk...");
                                 flushLogged = true;
                             }
-                            return false;
+                            if (!worldController.prepareWorldFlush(serverHandle)) {
+                                return false;
+                            }
                         }
                         phase = Phase.RESOLVE;
                         break;
