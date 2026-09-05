@@ -14,7 +14,6 @@ EXPECTED=(
   "natives/windows-aarch64/rust_pruner.dll"
   "natives/linux-x86_64/librust_pruner.so"
   "natives/linux-aarch64/librust_pruner.so"
-  "natives/macos-x86_64/librust_pruner.dylib"
   "natives/macos-aarch64/librust_pruner.dylib"
 )
 
