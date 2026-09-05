@@ -415,6 +415,9 @@ export class CurseForgeVersionResolver {
   }
 }
 
+const CURSEFORGE_SERVER_ERROR_RETRY_DELAY_MS = 60_000;
+const CURSEFORGE_SERVER_ERROR_MAX_ATTEMPTS = 2;
+
 async function postCurseForgeUpload(
   token: string,
   userAgent: string,
@@ -423,25 +426,42 @@ async function postCurseForgeUpload(
   filePath: string,
   metadata: Record<string, unknown>,
 ): Promise<number> {
-  const form = new FormData();
-  form.append("metadata", JSON.stringify(metadata));
-  form.append("file", await openAsBlob(filePath), fileName);
+  let lastError: Error | undefined;
 
-  const response = await fetch(`${CURSEFORGE_API}/projects/${projectId}/upload-file`, {
-    method: "POST",
-    headers: {
-      "X-Api-Token": token,
-      "User-Agent": userAgent,
-    },
-    body: form,
-  });
+  for (let attempt = 1; attempt <= CURSEFORGE_SERVER_ERROR_MAX_ATTEMPTS; attempt++) {
+    const form = new FormData();
+    form.append("metadata", JSON.stringify(metadata));
+    form.append("file", await openAsBlob(filePath), fileName);
 
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`CurseForge upload failed (${response.status}) for ${fileName}: ${body}`);
+    const response = await fetch(`${CURSEFORGE_API}/projects/${projectId}/upload-file`, {
+      method: "POST",
+      headers: {
+        "X-Api-Token": token,
+        "User-Agent": userAgent,
+      },
+      body: form,
+    });
+
+    const body = await response.text();
+    if (response.ok) {
+      return parseCurseForgeUploadFileId(body, fileName);
+    }
+
+    const error = new Error(`CurseForge upload failed (${response.status}) for ${fileName}: ${body}`);
+    if (response.status < 500 || attempt >= CURSEFORGE_SERVER_ERROR_MAX_ATTEMPTS) {
+      throw error;
+    }
+
+    lastError = error;
+    console.error(`  ERROR: ${error.message}`);
+    console.error(
+      `  Retrying CurseForge upload in ${CURSEFORGE_SERVER_ERROR_RETRY_DELAY_MS / 1000}s` +
+        ` (attempt ${attempt + 1}/${CURSEFORGE_SERVER_ERROR_MAX_ATTEMPTS})...`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, CURSEFORGE_SERVER_ERROR_RETRY_DELAY_MS));
   }
 
-  return parseCurseForgeUploadFileId(body, fileName);
+  throw lastError ?? new Error(`CurseForge upload failed for ${fileName}`);
 }
 
 export async function uploadCurseForgeFile(

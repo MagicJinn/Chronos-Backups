@@ -169,7 +169,7 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
       ` as release (loaders: ${[...knownLoaders].sort().join(", ")})`,
   );
 
-  let failures = 0;
+  const failedJars: string[] = [];
 
   for (const fileName of jarNames) {
     try {
@@ -245,14 +245,18 @@ export async function publishRelease(config: PublishConfig): Promise<void> {
         console.log(`  CurseForge file id: ${result.id}`);
       }
     } catch (error) {
-      failures += 1;
+      failedJars.push(fileName);
       const message = error instanceof Error ? error.message : String(error);
       console.error(`  ERROR: ${message}`);
     }
   }
 
-  if (failures > 0) {
-    throw new Error(`${failures} jar(s) failed to publish`);
+  if (failedJars.length > 0) {
+    console.error(`\n${failedJars.length} jar(s) failed to publish:`);
+    for (const name of failedJars) {
+      console.error(`  - ${name}`);
+    }
+    throw new Error(`${failedJars.length} jar(s) failed to publish`);
   }
 
   console.log(`\nDone. Published ${jarNames.length} jar(s).`);
