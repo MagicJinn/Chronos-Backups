@@ -13,7 +13,7 @@ This module contains shell-side code that is loader-agnostic and version-agnosti
 
 - `src/main/java/com/magicjinn/chronos/shell/ChronosCommandActions.java` - shared behavior for `/chronos backup` and `/chronos cancel`.
 - `src/main/java/com/magicjinn/chronos/shell/ChronosCommandLiterals.java` - command name constants used by shells.
-- `src/main/java/com/magicjinn/chronos/shell/ChronosConstants.java` - mod id, display name, and log tag.
+- `src/main/java/com/magicjinn/chronos/shell/ChronosConstants.java` - mod id, display name, log tag, default world name, log divider, and Minecraft server-thread helpers used by Forge/Mojmap shells.
 - `src/main/java/com/magicjinn/chronos/shell/HookBridge.java` - bridge from loader events to core lifecycle hooks.
 - `src/main/java/com/magicjinn/chronos/shell/LegacyCommandSupport.java` - shared parsing/execution for pre-Brigadier command adapters.
 - `src/main/java/com/magicjinn/chronos/shell/ShellCommandRegistrar.java` - tiny abstraction for loader-specific command registration.
