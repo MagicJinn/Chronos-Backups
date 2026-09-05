@@ -87,22 +87,8 @@ jobs:
       - name: Run buildAll
         run: ./gradlew buildAll -PchronosRustSkipBuild=true -PchronosRustRequireAllTargets=false --no-daemon
 
-      - name: Verify linux-aarch64 rust-pruner is packaged
-        run: |
-          test -f build/generated/rust-pruner-resources/natives/linux-aarch64/librust_pruner.so
-          fabric_jar=$(ls build/libs/chronosbackups-*-fabric.jar 2>/dev/null | head -1)
-          test -n "$fabric_jar"
-          unzip -l "$fabric_jar" | grep -F 'natives/linux-aarch64/librust_pruner.so'
-
-      - name: Verify windows-aarch64 rust-pruner is packaged
-        run: |
-          test -f build/generated/rust-pruner-resources/natives/windows-aarch64/rust_pruner.dll
-          fabric_jar=$(ls build/libs/chronosbackups-*-fabric.jar 2>/dev/null | head -1)
-          test -n "$fabric_jar"
-          unzip -l "$fabric_jar" | grep -F 'natives/windows-aarch64/rust_pruner.dll'
-
-      - name: Verify Google Drive jar packaging
-        run: ./gradlew verifyGoogleDriveJarContents -PchronosRustSkipBuild=true --no-daemon
+      - name: Verify rust-pruner natives are packaged
+        run: bash scripts/verify-rust-pruner-natives.sh
 
       - name: Compress jars with 7z
         run: 7z a -t7z -mx=9 -m0=lzma2 build/chronos-build-jars.7z build/libs/*.jar
