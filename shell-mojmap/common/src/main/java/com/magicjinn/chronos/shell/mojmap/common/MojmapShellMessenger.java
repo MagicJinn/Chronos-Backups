@@ -8,7 +8,10 @@ import java.util.function.Supplier;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 
-/** Logging and chat for Mojmap servers (Fabric / NeoForge) using Brigadier dispatch. */
+/**
+ * Logging and chat for Mojmap servers (Fabric / NeoForge) using Brigadier
+ * dispatch. Chronos only invokes this from the server tick drain.
+ */
 public final class MojmapShellMessenger implements ShellMessenger {
     private final Supplier<MinecraftServer> server;
 
@@ -21,6 +24,7 @@ public final class MojmapShellMessenger implements ShellMessenger {
         MinecraftServer mcServer = server.get();
         if (mcServer == null || command == null || command.trim().isEmpty())
             return;
+
         CommandSourceStack source = mcServer.createCommandSourceStack();
         ParseResults<CommandSourceStack> parsed = mcServer.getCommands().getDispatcher().parse(command, source);
         try {

@@ -109,7 +109,6 @@ sourceSets.main.java.srcDirs(
     rootProject.file('shell-shared/src/main/java'),
     rootProject.file('shell-forge/forge-shared-command-registrar/src/main/java'),
     rootProject.file('shell-forge/forge-common-1_8-1_12/src/main/java'),
-    rootProject.file('shell-forge/forge-common-1_7-1_8/src/main/java'),
     rootProject.file('shell-forge/v1_8/src/main/java'),
 )
 

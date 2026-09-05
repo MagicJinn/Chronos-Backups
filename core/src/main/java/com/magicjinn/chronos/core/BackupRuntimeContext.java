@@ -91,12 +91,29 @@ public final class BackupRuntimeContext {
         ChronosLogger.error(message);
     }
 
+    /**
+     * Queues a chat line for delivery on the next Chronos server-tick drain.
+     * Never dispatches commands on the calling thread (safe from the backup
+     * worker).
+     */
     public void sendChat(String message) {
-        if (chatSink != null) {
-            String command = chatCommandStyle == ChatCommandStyle.LEGACY_SAY
-                    ? ChatHelper.makeLegacySay(message)
-                    : ChatHelper.makeModernTellraw(CHAT_PREFIX + message);
-            chatSink.accept(command);
-        }
+        if (message == null || message.isEmpty())
+            return;
+
+        Backupper.enqueueServerChat(this, message);
+    }
+
+    /**
+     * Formats and dispatches a chat line via the shell messenger. Only
+     * {@link Backupper} should call this while draining the server-tick queue.
+     */
+    void deliverChat(String message) {
+        if (chatSink == null || message == null || message.isEmpty())
+            return;
+
+        String command = chatCommandStyle == ChatCommandStyle.LEGACY_SAY
+                ? ChatHelper.makeLegacySay(message)
+                : ChatHelper.makeModernTellraw(CHAT_PREFIX + message);
+        chatSink.accept(command);
     }
 }

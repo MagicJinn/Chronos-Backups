@@ -25,7 +25,6 @@ import net.minecraft.server.MinecraftServer;
  * deadlocks when the server thread is already busy).
  */
 final class Forge114CommandRegistrar implements ShellCommandRegistrar {
-    private static final String SERVER_THREAD_NAME = "Server thread";
 
     @Override
     public void register(Object registrationContext) {
@@ -102,9 +101,9 @@ final class Forge114CommandRegistrar implements ShellCommandRegistrar {
 
     private static int onServerThread(CommandContext<CommandSourceStack> ctx, ServerCommandAction action)
             throws CommandSyntaxException {
-        if (SERVER_THREAD_NAME.equals(Thread.currentThread().getName())) {
+        if (ChronosConstants.isMinecraftServerThread())
             return action.run(ctx);
-        }
+
         MinecraftServer server = ctx.getSource().getServer();
         server.execute(
                 () -> {

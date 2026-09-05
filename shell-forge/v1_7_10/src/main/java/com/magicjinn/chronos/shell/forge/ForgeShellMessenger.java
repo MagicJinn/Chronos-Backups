@@ -4,7 +4,10 @@ import com.magicjinn.chronos.core.ShellMessenger;
 import java.util.function.Supplier;
 import net.minecraft.server.MinecraftServer;
 
-/** Shared Forge shell logging/chat for Minecraft 1.7.10-1.8. */
+/**
+ * Forge 1.7.10 logging and chat. Chronos only invokes this from the server tick
+ * drain, so no off-thread scheduling is needed.
+ */
 public final class ForgeShellMessenger implements ShellMessenger {
     private final Supplier<MinecraftServer> server;
 
@@ -15,9 +18,9 @@ public final class ForgeShellMessenger implements ShellMessenger {
     @Override
     public void sendChat(String command) {
         MinecraftServer mcServer = server.get();
-        if (mcServer == null || command == null || command.trim().isEmpty()) {
+        if (mcServer == null || command == null || command.trim().isEmpty())
             return;
-        }
+
         mcServer.getCommandManager().executeCommand(mcServer, command);
     }
 }

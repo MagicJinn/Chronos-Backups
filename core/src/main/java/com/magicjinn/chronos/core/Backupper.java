@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import com.magicjinn.chronos.core.config.CompressionMethod;
 import com.magicjinn.chronos.core.config.Config;
@@ -25,10 +26,14 @@ import java.util.zip.ZipOutputStream;
 /**
  * Version-agnostic backup implementation.
  * <p>
- * Minecraft-specific work (world flush, save pause/resume, chat) runs on the
- * server thread. Copy, prune, zip, and retention trimming run on a dedicated
- * worker thread. {@link #tickBackupTracker()} restores autosaves and can
- * finalize on each tick. The worker may also finalize when ticks are frozen.
+ * Minecraft-specific work (world flush, save pause/resume, chat) runs only on
+ * the
+ * server tick via {@link #tickBackupTracker()} and related drains. Copy, prune,
+ * zip,
+ * and retention trimming run on a dedicated worker thread that must not call
+ * into
+ * Minecraft APIs. The worker may finalize when ticks are frozen, but only by
+ * queueing restore/chat for the next tick.
  */
 public final class Backupper {
     private static final String CACHE_FOLDER_NAME = ".cache";
@@ -67,6 +72,13 @@ public final class Backupper {
      * entry.
      */
     private static volatile PendingAutosaveRestore pendingAutosaveRestore;
+
+    /**
+     * Chat deferred when finalize runs on the backup worker. Command dispatch must
+     * not run off the server thread (can deadlock or freeze a busy integrated
+     * server). Drained by {@link #tickBackupTracker()}.
+     */
+    private static final ConcurrentLinkedQueue<PendingServerChat> pendingServerChats = new ConcurrentLinkedQueue<PendingServerChat>();
 
     static boolean isShutdownRequested() {
         return shutdownRequested || Thread.currentThread().isInterrupted();
@@ -236,6 +248,7 @@ public final class Backupper {
         activeSpeedtest = null;
         pendingBackupBegin = null;
         pendingAutosaveRestore = null;
+        pendingServerChats.clear();
     }
 
     public static void InitializeBackupper() {
@@ -454,14 +467,17 @@ public final class Backupper {
     }
 
     /**
-     * Server-thread progress for in-flight backups and deferred autosave restore.
-     * Safe to call from Chronos commands while the server is empty-paused.
+     * Server-thread progress for in-flight backups, deferred autosave restore, and
+     * deferred chat. Safe to call from Chronos commands while the server is
+     * empty-paused.
      */
     public static void tickBackupTracker() {
         drainPendingAutosaveRestore();
+        drainPendingServerChats();
 
         InFlightBackup run = inFlightBackup;
         if (run == null) {
+            drainPendingServerChats();
             return;
         }
 
@@ -469,6 +485,7 @@ public final class Backupper {
             run.context.logInfo("Chronos backups: restoring automatic saves...");
             if (run.worldController != null
                     && !run.worldController.preparePauseSaves(run.serverHandle, false)) {
+                drainPendingServerChats();
                 return;
             }
             run.attemptedSavingPause = false;
@@ -476,10 +493,22 @@ public final class Backupper {
         }
 
         if (!run.workerFinished) {
+            drainPendingServerChats();
             return;
         }
 
         tryFinalizeInFlightBackup(run, run.workerError, false);
+        drainPendingServerChats();
+    }
+
+    /**
+     * Queue a chat line for delivery on the server tick. Safe from any thread.
+     */
+    public static void enqueueServerChat(BackupRuntimeContext context, String message) {
+        if (context == null || message == null || message.isEmpty())
+            return;
+
+        pendingServerChats.offer(new PendingServerChat(context, message));
     }
 
     private static void drainPendingAutosaveRestore() {
@@ -495,6 +524,38 @@ public final class Backupper {
             return;
         }
         pendingAutosaveRestore = null;
+    }
+
+    /**
+     * Delivers queued chat on the server thread. Call at the end of Chronos
+     * tick/command entry so same-tick messages (e.g. "Backup started") appear.
+     */
+    public static void flushPendingServerChats() {
+        drainPendingServerChats();
+    }
+
+    private static void drainPendingServerChats() {
+        PendingServerChat chat;
+        // Work through the queue one at a time, sending on the server thread
+        while ((chat = pendingServerChats.poll()) != null) {
+            chat.context.deliverChat(chat.message);
+        }
+    }
+
+    private static void queueAutosaveRestoreAfterFinalize(InFlightBackup run, boolean deferAutosaveRestore) {
+        if (!run.attemptedSavingPause || run.worldController == null || run.savesRestoredOnMainThread)
+            return;
+
+        if (deferAutosaveRestore) {
+            // Worker must not toggle noSave / executeBlocking. Drain on next tick.
+            pendingAutosaveRestore = new PendingAutosaveRestore(
+                    run.worldController, run.serverHandle, run.context);
+            return;
+        }
+
+        run.worldController.setWorldSavingDisabled(run.serverHandle, false);
+        run.savesRestoredOnMainThread = true;
+        run.attemptedSavingPause = false;
     }
 
     private static void pruneSnapshotSaveRoots(InFlightBackup run, Path snapshotRoot) throws IOException {
@@ -563,7 +624,7 @@ public final class Backupper {
                     Files.deleteIfExists(run.zipOutputPath);
                     boolean singleSaveContainer = run.saveContainers.size() == 1
                             && SaveRootDiscovery.snapshotPathForSourceRoot(
-                                            run.worldPath, run.saveContainers.get(0), snapshotRoot)
+                                    run.worldPath, run.saveContainers.get(0), snapshotRoot)
                                     .equals(snapshotRoot);
                     if (singleSaveContainer) {
                         RustPrunerBridge.pruneWorldToZip(
@@ -629,12 +690,17 @@ public final class Backupper {
 
         boolean backupFinishedSuccessfully = run.backupFinishedSuccessfully;
         boolean announceUserCancelInChat = run.announceUserCancelInChat;
+
+        // Queue autosave restore before chat or other work that might hang the worker.
+        // Off-thread command dispatch must not block restore from being requested.
+        queueAutosaveRestoreAfterFinalize(run, deferAutosaveRestore);
+
         try {
             if (startupFailure != null && !run.workerFinished) {
                 String detail = startupFailure.getMessage();
-                if (detail == null || detail.isEmpty()) {
+                if (detail == null || detail.isEmpty())
                     detail = startupFailure.getClass().getName();
-                }
+
                 run.context.logError("Chronos backup failed: " + detail);
                 run.context.sendChat("Backup failed. Check server logs for details.");
                 startupFailure.printStackTrace();
@@ -644,9 +710,9 @@ public final class Backupper {
             if (run.workerError != null) {
                 Throwable t = run.workerError;
                 String detail = t.getMessage();
-                if (detail == null || detail.isEmpty()) {
+                if (detail == null || detail.isEmpty())
                     detail = t.getClass().getName();
-                }
+
                 run.context.logError("Chronos backup failed: " + detail);
                 run.context.sendChat("Backup failed. Check server logs for details.");
                 t.printStackTrace();
@@ -667,16 +733,6 @@ public final class Backupper {
                 }
             }
         } finally {
-            if (run.attemptedSavingPause && run.worldController != null && !run.savesRestoredOnMainThread) {
-                if (deferAutosaveRestore) {
-                    pendingAutosaveRestore = new PendingAutosaveRestore(
-                            run.worldController, run.serverHandle, run.context);
-                } else {
-                    run.worldController.setWorldSavingDisabled(run.serverHandle, false);
-                    run.savesRestoredOnMainThread = true;
-                    run.attemptedSavingPause = false;
-                }
-            }
             if (!backupFinishedSuccessfully) {
                 if (run.zipOutputPath != null) {
                     try {
@@ -775,6 +831,16 @@ public final class Backupper {
             this.worldController = worldController;
             this.serverHandle = serverHandle;
             this.context = context;
+        }
+    }
+
+    private static final class PendingServerChat {
+        final BackupRuntimeContext context;
+        final String message;
+
+        PendingServerChat(BackupRuntimeContext context, String message) {
+            this.context = context;
+            this.message = message;
         }
     }
 

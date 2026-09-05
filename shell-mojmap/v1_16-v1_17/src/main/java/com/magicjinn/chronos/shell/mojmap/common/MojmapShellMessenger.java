@@ -4,7 +4,10 @@ import com.magicjinn.chronos.core.ShellMessenger;
 import java.util.function.Supplier;
 import net.minecraft.server.MinecraftServer;
 
-/** Minecraft 1.16-1.17 logging and chat using /tellraw. */
+/**
+ * Minecraft 1.16-1.17 logging and chat using /tellraw. Chronos only invokes
+ * this from the server tick drain.
+ */
 public final class MojmapShellMessenger implements ShellMessenger {
     private final Supplier<MinecraftServer> server;
 
@@ -15,9 +18,9 @@ public final class MojmapShellMessenger implements ShellMessenger {
     @Override
     public void sendChat(String command) {
         MinecraftServer mcServer = server.get();
-        if (mcServer == null || command == null || command.trim().isEmpty()) {
+        if (mcServer == null || command == null || command.trim().isEmpty())
             return;
-        }
+
         mcServer.getCommands().performCommand(
                 mcServer.createCommandSourceStack(),
                 "/" + command);

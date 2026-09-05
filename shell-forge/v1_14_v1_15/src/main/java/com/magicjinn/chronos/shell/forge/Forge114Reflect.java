@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -23,7 +22,6 @@ import net.minecraft.server.MinecraftServer;
  * TODO. This sucks. Remove all reflection in the future.
  */
 final class Forge114Reflect {
-    private static final String SERVER_THREAD_NAME = "Server thread";
     private Forge114Reflect() {
     }
 
@@ -187,13 +185,13 @@ final class Forge114Reflect {
     private static void invokeFirstBooleanSaver(MinecraftServer server) {
         for (Class<?> type = server.getClass(); type != null; type = type.getSuperclass()) {
             for (Method method : type.getDeclaredMethods()) {
-                if (method.getParameterCount() != 1 || method.getParameterTypes()[0] != boolean.class) {
+                if (method.getParameterCount() != 1 || method.getParameterTypes()[0] != boolean.class)
                     continue;
-                }
+
                 String name = method.getName().toLowerCase(Locale.ROOT);
-                if (!name.contains("save") && !name.startsWith("func_71267")) {
+                if (!name.contains("save") && !name.startsWith("func_71267"))
                     continue;
-                }
+
                 invokeChecked(method, server, true);
                 return;
             }
@@ -219,106 +217,62 @@ final class Forge114Reflect {
                         // early 1.14.x: fall back
                     }
                     for (Object level : loadedLevels(server)) {
-                        if (level == null) {
+                        if (level == null)
                             continue;
-                        }
-                        if (setBooleanField(level, new String[] { "noSave", "disableLevelSaving" }, disabled)) {
+
+                        if (setBooleanField(level, new String[] { "noSave", "disableLevelSaving" }, disabled))
                             touched[0] = true;
-                        }
                     }
                 });
         return touched[0];
     }
 
     static void runOnServerThread(MinecraftServer server, Runnable task) {
-        if (SERVER_THREAD_NAME.equals(Thread.currentThread().getName())) {
-            task.run();
-            return;
-        }
-        // Prefer the stable scheduling entrypoint. If it links, we can avoid all reflection.
-        try {
-            runBlockingOn(server::execute, task);
-            return;
-        } catch (NoSuchMethodError ignored) {
-            // early 1.14.x: fall back
-        }
-
-        Method schedule = firstMethod(server.getClass(), new String[] { "execute", "postToMainThread", "tell" }, Runnable.class);
-        if (schedule == null) {
-            throw new IllegalStateException("Cannot schedule backup work on the Minecraft server thread");
-        }
-        runBlockingOn(r -> invokeChecked(schedule, server, r), task);
-    }
-
-    @FunctionalInterface
-    private interface Scheduler {
-        void schedule(Runnable runnable);
-    }
-
-    private static void runBlockingOn(Scheduler scheduler, Runnable task) {
-        CountDownLatch latch = new CountDownLatch(1);
-        Throwable[] failure = new Throwable[1];
-        Runnable wrapped = () -> {
-            try {
-                task.run();
-            } catch (Throwable t) {
-                failure[0] = t;
-            } finally {
-                latch.countDown();
-            }
-        };
-        scheduler.schedule(wrapped);
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        rethrow(failure[0]);
+        // Chronos only calls world ops from the server tick drain.
+        task.run();
     }
 
     private static Object firstLoadedLevel(MinecraftServer server) {
         for (Object level : loadedLevels(server)) {
-            if (level != null) {
+            if (level != null)
                 return level;
-            }
         }
         return null;
     }
 
     private static Iterable<Object> loadedLevels(MinecraftServer server) {
         Object forgeMap = invokeNoArg(server, "forgeGetWorldMap");
-        if (forgeMap instanceof java.util.Map<?, ?>) {
+        if (forgeMap instanceof java.util.Map<?, ?>)
             return castIterable(((java.util.Map<?, ?>) forgeMap).values());
-        }
-        if (forgeMap instanceof Iterable<?>) {
+
+        if (forgeMap instanceof Iterable<?>)
             return castIterable((Iterable<?>) forgeMap);
-        }
-        if (forgeMap != null && forgeMap.getClass().isArray()) {
+
+        if (forgeMap != null && forgeMap.getClass().isArray())
             return arrayIterable(forgeMap);
-        }
+
         Object levels = invokeNoArg(server, new String[] { "getAllLevels", "getWorlds" });
-        if (levels instanceof Iterable<?>) {
+        if (levels instanceof Iterable<?>)
             return castIterable((Iterable<?>) levels);
-        }
-        if (levels != null && levels.getClass().isArray()) {
+
+        if (levels != null && levels.getClass().isArray())
             return arrayIterable(levels);
-        }
+
         return java.util.Collections.emptyList();
     }
 
     private static Path worldSavePath(Object level) {
         Object storage = invokeNoArg(level, new String[] { "getLevelStorage", "getSaveHandler" });
-        if (storage == null) {
+        if (storage == null)
             return null;
-        }
+
         Object folder = invokeNoArg(storage, new String[] { "getFolder", "getWorldDirectory" });
-        if (folder instanceof Path) {
+        if (folder instanceof Path)
             return ((Path) folder).toAbsolutePath().normalize();
-        }
-        if (folder instanceof File) {
+
+        if (folder instanceof File)
             return ((File) folder).toPath().toAbsolutePath().normalize();
-        }
+
         return null;
     }
 
@@ -343,13 +297,12 @@ final class Forge114Reflect {
     private static Object invokeNoArg(Object target, String... names) {
         for (String name : names) {
             Method method = findMethod(target.getClass(), name);
-            if (method != null) {
+            if (method != null)
                 return invokeChecked(method, target);
-            }
+
             method = findDeclaredMethod(target.getClass(), name);
-            if (method != null) {
+            if (method != null)
                 return invokeChecked(method, target);
-            }
         }
         return null;
     }
@@ -379,21 +332,19 @@ final class Forge114Reflect {
     private static Method findMethod(Class<?> type, String name, Object... args) {
         Method[] methods = type.getMethods();
         for (Method method : methods) {
-            if (!method.getName().equals(name) || method.getParameterCount() != args.length) {
+            if (!method.getName().equals(name) || method.getParameterCount() != args.length)
                 continue;
-            }
-            if (matchesArgs(method.getParameterTypes(), args)) {
+
+            if (matchesArgs(method.getParameterTypes(), args))
                 return method;
-            }
         }
         for (Class<?> current = type; current != null; current = current.getSuperclass()) {
             for (Method method : current.getDeclaredMethods()) {
-                if (!method.getName().equals(name) || method.getParameterCount() != args.length) {
+                if (!method.getName().equals(name) || method.getParameterCount() != args.length)
                     continue;
-                }
-                if (matchesArgs(method.getParameterTypes(), args)) {
+
+                if (matchesArgs(method.getParameterTypes(), args))
                     return method;
-                }
             }
         }
         return null;
@@ -414,44 +365,42 @@ final class Forge114Reflect {
     private static Method firstMethod(Class<?> type, String[] names, Class<?>... params) {
         for (String name : names) {
             Method method = findMethod(type, name, params);
-            if (method != null) {
+            if (method != null)
                 return method;
-            }
         }
         return null;
     }
 
     private static boolean matchesArgs(Class<?>[] paramTypes, Object[] args) {
         for (int i = 0; i < paramTypes.length; i++) {
-            if (args[i] == null) {
+            if (args[i] == null)
                 continue;
-            }
-            if (!wrap(paramTypes[i]).isInstance(args[i])) {
+
+            if (!wrap(paramTypes[i]).isInstance(args[i]))
                 return false;
-            }
         }
         return true;
     }
 
     private static Class<?> wrap(Class<?> type) {
-        if (!type.isPrimitive()) {
+        if (!type.isPrimitive())
             return type;
-        }
-        if (type == boolean.class) {
+
+        if (type == boolean.class)
             return Boolean.class;
-        }
-        if (type == int.class) {
+
+        if (type == int.class)
             return Integer.class;
-        }
-        if (type == long.class) {
+
+        if (type == long.class)
             return Long.class;
-        }
-        if (type == float.class) {
+
+        if (type == float.class)
             return Float.class;
-        }
-        if (type == double.class) {
+
+        if (type == double.class)
             return Double.class;
-        }
+
         return type;
     }
 
@@ -474,19 +423,6 @@ final class Forge114Reflect {
             throw (Error) cause;
         }
         return new RuntimeException(cause != null ? cause : e);
-    }
-
-    private static void rethrow(Throwable failure) {
-        if (failure == null) {
-            return;
-        }
-        if (failure instanceof RuntimeException) {
-            throw (RuntimeException) failure;
-        }
-        if (failure instanceof Error) {
-            throw (Error) failure;
-        }
-        throw new RuntimeException(failure);
     }
 
     private static Iterable<Object> castIterable(Iterable<?> source) {

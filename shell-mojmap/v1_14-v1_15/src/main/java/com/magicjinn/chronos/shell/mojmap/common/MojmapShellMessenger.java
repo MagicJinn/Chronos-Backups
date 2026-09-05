@@ -1,4 +1,5 @@
 package com.magicjinn.chronos.shell.mojmap.common;
+
 import com.magicjinn.chronos.core.ChronosLogger;
 import com.magicjinn.chronos.core.ShellMessenger;
 import com.mojang.brigadier.ParseResults;
@@ -7,7 +8,10 @@ import java.util.function.Supplier;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 
-/** Minecraft 1.14-1.15 logging and chat using Brigadier command dispatch. */
+/**
+ * Minecraft 1.14-1.15 logging and chat using Brigadier. Chronos only invokes
+ * this from the server tick drain.
+ */
 public final class MojmapShellMessenger implements ShellMessenger {
     private final Supplier<MinecraftServer> server;
 
@@ -18,9 +22,8 @@ public final class MojmapShellMessenger implements ShellMessenger {
     @Override
     public void sendChat(String command) {
         MinecraftServer mcServer = server.get();
-        if (mcServer == null || command == null || command.trim().isEmpty()) {
+        if (mcServer == null || command == null || command.trim().isEmpty())
             return;
-        }
 
         CommandSourceStack source = mcServer.createCommandSourceStack();
         ParseResults<CommandSourceStack> parsed = mcServer.getCommands().getDispatcher().parse(command, source);

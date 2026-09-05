@@ -68,13 +68,21 @@ public final class ChronosCommandActions {
     /** Queues a manual backup when the world scheduler is active and no backup is running. */
     public static EnqueueResult tryStartManualBackup() {
         Backupper.tickBackupTracker();
-        return Scheduler.tryEnqueueManualBackup();
+        try {
+            return Scheduler.tryEnqueueManualBackup();
+        } finally {
+            Backupper.flushPendingServerChats();
+        }
     }
 
     /** Signals the current in-flight backup to stop, no-op if none is running. */
     public static boolean requestCancelInFlightBackup() {
         Backupper.tickBackupTracker();
-        return Backupper.requestCancelInFlightBackup();
+        try {
+            return Backupper.requestCancelInFlightBackup();
+        } finally {
+            Backupper.flushPendingServerChats();
+        }
     }
 
     /**
@@ -82,6 +90,10 @@ public final class ChronosCommandActions {
      */
     public static EnqueueResult tryStartSpeedtest(int s) {
         Backupper.tickBackupTracker();
-        return Scheduler.tryEnqueueSpeedtest(s);
+        try {
+            return Scheduler.tryEnqueueSpeedtest(s);
+        } finally {
+            Backupper.flushPendingServerChats();
+        }
     }
 }

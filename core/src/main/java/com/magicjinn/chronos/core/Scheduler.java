@@ -70,9 +70,8 @@ public final class Scheduler {
             Backupper.tickBackupTracker();
             Backupper.tickSpeedtestSession();
 
-            if (context != null && Backupper.hasPendingBackupBegin()) {
+            if (context != null && Backupper.hasPendingBackupBegin())
                 Backupper.tryBeginBackup(context);
-            }
 
             if (runtimeContext == null || !Config.getScheduleBackups())
                 return;
@@ -93,6 +92,9 @@ public final class Scheduler {
         } catch (Exception e) {
             logError("Error scheduling backup: " + e.getMessage());
             e.printStackTrace();
+        } finally {
+            // Deliver chat queued during this tick (e.g. "Backup started").
+            Backupper.flushPendingServerChats();
         }
     }
 

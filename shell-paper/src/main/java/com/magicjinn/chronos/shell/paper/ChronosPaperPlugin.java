@@ -13,7 +13,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ChronosPaperPlugin extends JavaPlugin implements CommandExecutor, TabCompleter {
     private static final PaperBackupWorldController WORLD_CONTROLLER = new PaperBackupWorldController();
-    private final PaperShellMessenger messenger = new PaperShellMessenger(this);
+    private final PaperShellMessenger messenger = new PaperShellMessenger();
     private final PaperCommands commands = new PaperCommands(this);
 
     @Override

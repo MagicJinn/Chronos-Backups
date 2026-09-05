@@ -10,7 +10,6 @@ import net.minecraft.server.level.ServerLevel;
  * {@code shell-mojmap/common} which targets {@code saveEverything} (1.18+).
  */
 public final class MojmapBackupWorldController implements BackupWorldController {
-    private static final String SERVER_THREAD_NAME = "Server thread";
 
     @Override
     public void saveAllWorldData(Object serverHandle) {
@@ -47,10 +46,7 @@ public final class MojmapBackupWorldController implements BackupWorldController 
     }
 
     private static void runOnServerThread(MinecraftServer server, Runnable task) {
-        if (SERVER_THREAD_NAME.equals(Thread.currentThread().getName())) {
-            task.run();
-            return;
-        }
-        server.submit(task).join();
+        // Chronos only calls world ops from the server tick drain.
+        task.run();
     }
 }

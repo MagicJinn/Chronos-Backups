@@ -1,17 +1,17 @@
-package com.magicjinn.chronos.shell.mojmap.common;
+package com.magicjinn.chronos.shell.forge;
 
 import com.magicjinn.chronos.core.ShellMessenger;
 import java.util.function.Supplier;
 import net.minecraft.server.MinecraftServer;
 
 /**
- * Minecraft 1.18.x logging and chat using /tellraw. Chronos only invokes this
- * from the server tick drain.
+ * Forge 1.8 logging and chat. Chronos only invokes this from the server tick
+ * drain, so no off-thread scheduling is needed.
  */
-public final class MojmapShellMessenger implements ShellMessenger {
+public final class ForgeShellMessenger implements ShellMessenger {
     private final Supplier<MinecraftServer> server;
 
-    public MojmapShellMessenger(Supplier<MinecraftServer> server) {
+    public ForgeShellMessenger(Supplier<MinecraftServer> server) {
         this.server = server;
     }
 
@@ -21,8 +21,6 @@ public final class MojmapShellMessenger implements ShellMessenger {
         if (mcServer == null || command == null || command.trim().isEmpty())
             return;
 
-        mcServer.getCommands().performCommand(
-                mcServer.createCommandSourceStack(),
-                "/" + command);
+        mcServer.getCommandManager().executeCommand(mcServer, command);
     }
 }

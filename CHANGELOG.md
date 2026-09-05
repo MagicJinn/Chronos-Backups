@@ -5,6 +5,8 @@ This page documents the changes and fixes made in Chronos Backups, compared to t
 ## 1.1.2
 
 - Fix an issue where backup folder names could be resolved outside of the proper/target directory because of a lack of sanitization
+- Fix "flushing world" message not logging if the flush finished before the next tick
+- Fix post-backup chat and autosave restore so they only run on the server tick
 
 ## 1.1.1
 
