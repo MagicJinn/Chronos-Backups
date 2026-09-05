@@ -1,6 +1,6 @@
 [package]
 name = "rust-pruner"
-version = "1.0.0"
+version = "1.1.1"
 edition = "2024"
 
 [lib]
@@ -26,3 +26,7 @@ rawzip = "0.4.4"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+# rustc still passes -O1 to the linker. Zig (and some other linkers) warn that this setting is deprecated. Harmless noise until rustc stops sending it
+[lints.rust]
+linker_messages = "allow"
