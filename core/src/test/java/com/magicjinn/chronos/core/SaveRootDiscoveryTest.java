@@ -151,6 +151,60 @@ class SaveRootDiscoveryTest {
     }
 
     @Test
+    void serverRootWorldDoesNotTreatTrashAsContainer() throws IOException {
+        Path runDir = tempDir.resolve("server");
+        Path trash = runDir.resolve(".trash");
+        touchMca(runDir.resolve("region/r.0.0.mca"));
+        Files.write(runDir.resolve("level.dat"), new byte[] { 1 });
+        touchMca(trash.resolve("world/region/r.0.0.mca"));
+        Files.write(trash.resolve("world/level.dat"), new byte[] { 1 });
+
+        SaveRootDiscovery.BackupScope scope = SaveRootDiscovery.resolve(context(runDir, runDir, true, "world"));
+
+        assertEquals(runDir.toAbsolutePath().normalize(), scope.snapshotLayoutRoot());
+        assertEquals(1, scope.saveContainers().size());
+        assertEquals(runDir.toAbsolutePath().normalize(), scope.saveContainers().get(0));
+    }
+
+    @Test
+    void dedicatedServerIgnoresAmpTrashSibling() throws IOException {
+        Path runDir = tempDir.resolve("server");
+        Path world = runDir.resolve("world");
+        Path trash = runDir.resolve(".trash");
+        Path trashedWorld = trash.resolve("world");
+        touchMca(world.resolve("region/r.0.0.mca"));
+        Files.write(world.resolve("level.dat"), new byte[] { 1 });
+        touchMca(trashedWorld.resolve("region/r.0.0.mca"));
+        Files.write(trashedWorld.resolve("level.dat"), new byte[] { 1 });
+
+        SaveRootDiscovery.BackupScope scope = SaveRootDiscovery.resolve(context(runDir, world, true));
+
+        assertEquals(world.toAbsolutePath().normalize(), scope.snapshotLayoutRoot());
+        assertEquals(1, scope.saveContainers().size());
+        assertFalse(scope.saveContainers().contains(trash.toAbsolutePath().normalize()));
+        assertFalse(scope.saveContainers().contains(trashedWorld.toAbsolutePath().normalize()));
+    }
+
+    @Test
+    void bukkitSplitWorldsIgnoreAmpTrashSibling() throws IOException {
+        Path runDir = tempDir.resolve("server");
+        Path world = runDir.resolve("world");
+        Path nether = runDir.resolve("world_nether");
+        Path trash = runDir.resolve(".trash");
+        touchMca(world.resolve("region/r.0.0.mca"));
+        touchMca(nether.resolve("region/r.0.0.mca"));
+        touchMca(trash.resolve("world/region/r.0.0.mca"));
+        Files.write(trash.resolve("world/level.dat"), new byte[] { 1 });
+
+        SaveRootDiscovery.BackupScope scope = SaveRootDiscovery.resolve(context(runDir, world, true));
+
+        assertEquals(2, scope.saveContainers().size());
+        assertTrue(scope.saveContainers().contains(world.toAbsolutePath().normalize()));
+        assertTrue(scope.saveContainers().contains(nether.toAbsolutePath().normalize()));
+        assertFalse(scope.saveContainers().contains(trash.toAbsolutePath().normalize()));
+    }
+
+    @Test
     void emptyRegionFolderWithoutMcaIsNotSaveContainer() throws IOException {
         Path runDir = tempDir.resolve("server");
         Path world = runDir.resolve("world");

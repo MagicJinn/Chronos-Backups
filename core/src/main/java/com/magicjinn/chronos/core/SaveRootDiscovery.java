@@ -45,6 +45,7 @@ public final class SaveRootDiscovery {
             "journeymap",
             ".cache",
             ".git",
+            ".trash",
             "region",
             "entities",
             "poi",
@@ -236,7 +237,8 @@ public final class SaveRootDiscovery {
 
     private static boolean shouldSkipSearchRoot(Path directory, Set<String> skipNames) {
         String name = directory.getFileName().toString().toLowerCase(Locale.ROOT);
-        return skipNames.contains(name);
+        // Panel/tooling dirs at the server root (AMP .trash, .cache, .git, ...) are never worlds.
+        return name.startsWith(".") || skipNames.contains(name);
     }
 
     private static void collectFromDimensionData(
