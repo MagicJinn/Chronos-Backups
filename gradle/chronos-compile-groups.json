@@ -443,23 +443,25 @@
     },
     {
       "id": "minecraft_26",
-      "description": "Fabric, NeoForge, and Paper plugin jars (Paper/Spigot/Purpur/Bukkit/Folia) for Minecraft 26.1-26.2 (same Mojmap shells).",
+      "description": "Fabric, NeoForge, and Paper plugin jars (Paper/Spigot/Purpur/Bukkit/Folia) for Minecraft 26.1-26.3 (same Mojmap shells). NeoForge 26.3 pending upstream release.",
       "jarTargetLabel": "26.x",
       "minecraftVersionPrefixes": [
         "26.1",
-        "26.2"
+        "26.2",
+        "26.3"
       ],
       "fabricConfig": {
-        "referenceMinecraft": "26.2",
-        "fabricLoader": "0.19.3",
-        "fabricApi": "0.152.1+26.2",
-        "minecraftDep": ">=26.1 <26.3",
+        "referenceMinecraft": "26.3-rc-3",
+        "fabricLoader": "0.19.5",
+        "fabricApi": "0.160.5+26.3",
+        "minecraftDep": ">=26.1 <26.4",
         "archiveVersionTag": "26.x",
         "supportedVersions": [
           "26.1.0",
           "26.1.1",
           "26.1.2",
-          "26.2"
+          "26.2",
+          "26.3"
         ],
         "loaderKeys": [
           "FABRIC"
@@ -488,7 +490,8 @@
         "26.1.0",
         "26.1.1",
         "26.1.2",
-        "26.2"
+        "26.2",
+        "26.3"
       ],
       "pluginConfig": {
         "referenceMinecraft": "26.2",
