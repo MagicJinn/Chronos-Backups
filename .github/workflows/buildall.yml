@@ -34,6 +34,15 @@ jobs:
           distribution: microsoft
           java-version: "25"
           cache: gradle
+          cache-dependency-path: |
+            **/*.gradle*
+            **/gradle-wrapper.properties
+            **/gradle.properties
+            gradle/chronos-compile-groups.json
+            gradle/chronos-java-matrix.json
+            gradle/chronos-forge-pack-format.json
+            gradle/chronos-shell-slices.json
+            gradle/*.versions.toml
 
       - name: Set up Rust nightly
         uses: dtolnay/rust-toolchain@nightly
@@ -68,6 +77,15 @@ jobs:
           distribution: microsoft
           java-version: "25"
           cache: gradle
+          cache-dependency-path: |
+            **/*.gradle*
+            **/gradle-wrapper.properties
+            **/gradle.properties
+            gradle/chronos-compile-groups.json
+            gradle/chronos-java-matrix.json
+            gradle/chronos-forge-pack-format.json
+            gradle/chronos-shell-slices.json
+            gradle/*.versions.toml
 
       - name: Download rust native artifacts from all OS jobs
         uses: actions/download-artifact@v8
@@ -85,7 +103,7 @@ jobs:
           CHRONOS_VARIANT_GENERATION: "skip"
 
       - name: Run buildAll
-        run: ./gradlew buildAll -PchronosRustSkipBuild=true -PchronosRustRequireAllTargets=false --no-daemon
+        run: ./gradlew buildAll -PchronosRustSkipBuild=true -PchronosRustRequireAllTargets=false -PneoForge.neoFormRuntime.enableCache=false --no-build-cache --no-daemon
 
       - name: Verify rust-pruner natives are packaged
         run: bash scripts/verify-rust-pruner-natives.sh
