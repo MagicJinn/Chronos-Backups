@@ -2,6 +2,11 @@
 
 This page documents the changes and fixes made in Chronos Backups, compared to the original Random Things mod, in reverse chronological order.
 
+## 1.1.3
+
+- Update 26.x to include 26.3
+- Fix an issue where `.trash` would be included in backups
+
 ## 1.1.2
 
 - Fix an issue where backup folder names could be resolved outside of the proper/target directory because of a lack of sanitization
