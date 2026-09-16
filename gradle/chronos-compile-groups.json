@@ -443,32 +443,34 @@
     },
     {
       "id": "minecraft_26",
-      "description": "Fabric, NeoForge, and Paper plugin jars (Paper/Spigot/Purpur/Bukkit/Folia) for Minecraft 26.1-26.2 (same Mojmap shells).",
+      "description": "Fabric, NeoForge, and Paper plugin jars (Paper/Spigot/Purpur/Bukkit/Folia) for Minecraft 26.1-26.3 (same Mojmap shells).",
       "jarTargetLabel": "26.x",
       "minecraftVersionPrefixes": [
         "26.1",
-        "26.2"
+        "26.2",
+        "26.3"
       ],
       "fabricConfig": {
-        "referenceMinecraft": "26.2",
-        "fabricLoader": "0.19.3",
-        "fabricApi": "0.152.1+26.2",
-        "minecraftDep": ">=26.1 <26.3",
+        "referenceMinecraft": "26.3",
+        "fabricLoader": "0.19.5",
+        "fabricApi": "0.160.5+26.3",
+        "minecraftDep": ">=26.1 <26.4",
         "archiveVersionTag": "26.x",
         "supportedVersions": [
           "26.1.0",
           "26.1.1",
           "26.1.2",
-          "26.2"
+          "26.2",
+          "26.3"
         ],
         "loaderKeys": [
           "FABRIC"
         ]
       },
       "neoForgeConfig": {
-        "referenceMinecraft": "26.2",
-        "neoForge": "26.2.0.3-beta",
-        "minecraftRange": "[26.1,26.3)",
+        "referenceMinecraft": "26.3",
+        "neoForge": "26.3.0.1-beta",
+        "minecraftRange": "[26.1,26.4)",
         "archiveVersionTag": "26.x",
         "neoForgeVersionOverrides": {
           "26.1.0": "beta",
@@ -478,7 +480,8 @@
           "26.1.0",
           "26.1.1",
           "26.1.2",
-          "26.2"
+          "26.2",
+          "26.3"
         ],
         "loaderKeys": [
           "NEOFORGE"
@@ -488,19 +491,22 @@
         "26.1.0",
         "26.1.1",
         "26.1.2",
-        "26.2"
+        "26.2",
+        "26.3"
       ],
       "pluginConfig": {
-        "referenceMinecraft": "26.2",
+        "referenceMinecraft": "26.3",
         "archiveVersionTag": "26.x",
         "apiVersion": "26.1",
         "paperChannelOverrides": {
-          "26.1.1": "experimental"
+          "26.1.1": "experimental",
+          "26.3": "experimental"
         },
         "supportedVersions": [
           "26.1.1",
           "26.1.2",
-          "26.2"
+          "26.2",
+          "26.3"
         ],
         "loaderKeys": [
           "PAPER",

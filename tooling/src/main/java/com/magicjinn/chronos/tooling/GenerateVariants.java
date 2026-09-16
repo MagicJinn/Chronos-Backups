@@ -49,7 +49,7 @@ public final class GenerateVariants {
 
         Map<String, String> rootProps = readRootProps();
         String loomVersion = rootProps.getOrDefault("loom.version", "1.10.1");
-        String neoforgeModdev = rootProps.getOrDefault("neoforge.moddev.plugin.version", "2.0.141");
+        String neoforgeModdev = rootProps.getOrDefault("neoforge.moddev.plugin.version", "2.0.147");
         String paperweightVersion = rootProps.getOrDefault("paperweight.userdev.version", "2.0.0-beta.21");
         String runPaperVersion = rootProps.getOrDefault("run.paper.version", "3.0.2");
 
