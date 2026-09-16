@@ -443,7 +443,7 @@
     },
     {
       "id": "minecraft_26",
-      "description": "Fabric, NeoForge, and Paper plugin jars (Paper/Spigot/Purpur/Bukkit/Folia) for Minecraft 26.1-26.3 (same Mojmap shells). NeoForge 26.3 compile pin pending maven.neoforged.net release (MDK-26.3-NeoGradle neo_version still blank).",
+      "description": "Fabric, NeoForge, and Paper plugin jars (Paper/Spigot/Purpur/Bukkit/Folia) for Minecraft 26.1-26.3 (same Mojmap shells).",
       "jarTargetLabel": "26.x",
       "minecraftVersionPrefixes": [
         "26.1",
@@ -468,8 +468,8 @@
         ]
       },
       "neoForgeConfig": {
-        "referenceMinecraft": "26.2",
-        "neoForge": "26.2.0.88",
+        "referenceMinecraft": "26.3",
+        "neoForge": "26.3.0.1-beta",
         "minecraftRange": "[26.1,26.4)",
         "archiveVersionTag": "26.x",
         "neoForgeVersionOverrides": {
