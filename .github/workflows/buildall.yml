@@ -38,11 +38,7 @@ jobs:
             **/*.gradle*
             **/gradle-wrapper.properties
             **/gradle.properties
-            gradle/chronos-compile-groups.json
-            gradle/chronos-java-matrix.json
-            gradle/chronos-forge-pack-format.json
-            gradle/chronos-shell-slices.json
-            gradle/*.versions.toml
+            gradle/**
 
       - name: Set up Rust nightly
         uses: dtolnay/rust-toolchain@nightly
@@ -81,11 +77,7 @@ jobs:
             **/*.gradle*
             **/gradle-wrapper.properties
             **/gradle.properties
-            gradle/chronos-compile-groups.json
-            gradle/chronos-java-matrix.json
-            gradle/chronos-forge-pack-format.json
-            gradle/chronos-shell-slices.json
-            gradle/*.versions.toml
+            gradle/**
 
       - name: Download rust native artifacts from all OS jobs
         uses: actions/download-artifact@v8
