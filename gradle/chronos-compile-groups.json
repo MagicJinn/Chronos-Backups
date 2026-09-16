@@ -495,16 +495,18 @@
         "26.3"
       ],
       "pluginConfig": {
-        "referenceMinecraft": "26.2",
+        "referenceMinecraft": "26.3",
         "archiveVersionTag": "26.x",
         "apiVersion": "26.1",
         "paperChannelOverrides": {
-          "26.1.1": "experimental"
+          "26.1.1": "experimental",
+          "26.3": "experimental"
         },
         "supportedVersions": [
           "26.1.1",
           "26.1.2",
-          "26.2"
+          "26.2",
+          "26.3"
         ],
         "loaderKeys": [
           "PAPER",
