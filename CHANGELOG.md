@@ -2,6 +2,10 @@
 
 This page documents the changes and fixes made in Chronos Backups, compared to the original Random Things mod, in reverse chronological order.
 
+## 1.1.4
+
+- Speedtest backups write under `backups/.speedtest` and are deleted when the session ends, so they no longer trim real backups or upload to the cloud
+
 ## 1.1.3
 
 - Update 26.x to include 26.3

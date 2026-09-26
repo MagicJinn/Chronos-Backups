@@ -26,11 +26,11 @@
 
 ## Commands
 
-| Command                        | Description                                                             |
-| ------------------------------ | ----------------------------------------------------------------------- |
-| `/chronos backup`              | Run a manual backup immediately.                                        |
-| `/chronos cancel`              | Stop the backup currently in progress.                                  |
-| `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic. not for normal use). |
+| Command                        | Description                                                                                                                               |
+|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `/chronos backup`              | Run a manual backup immediately.                                                                                                          |
+| `/chronos cancel`              | Stop the backup currently in progress.                                                                                                    |
+| `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic. not for normal use). Writes under `backups/.speedtest` and deletes them when finished. |
 
 The required permission level defaults to **4**.
 

@@ -37,9 +37,14 @@ import java.util.zip.ZipOutputStream;
  */
 public final class Backupper {
     private static final String CACHE_FOLDER_NAME = ".cache";
+    /**
+     * Scratch output for speedtest backups. Dot-prefixed so cloud sync skips it.
+     */
+    private static final String SPEEDTEST_FOLDER_NAME = ".speedtest";
 
     private static Path chronosFolder;
     private static Path cacheFolder;
+    private static Path speedtestFolder;
 
     /** Whether an in-flight copy / prune / zip work should stop. */
     private static volatile boolean shutdownRequested;
@@ -231,7 +236,9 @@ public final class Backupper {
                 + averages;
         session.context.logInfo(summary);
         session.context.sendChat(summary);
-        // One catch-up sync after the burst, never per speedtest backup.
+        cleanupSpeedtestFolder(session.context);
+        // Catch-up for any sync deferred during the burst.
+        // Note that speedtest themselves are not uploaded.
         CloudSync.requestSync();
     }
 
@@ -257,16 +264,14 @@ public final class Backupper {
         chronosFolder = ChronosBackupArtifacts.resolveBackupFolder(
                 Core.RunningDirectory, Config.getBackupFolderName());
         cacheFolder = chronosFolder.resolve(CACHE_FOLDER_NAME);
+        speedtestFolder = chronosFolder.resolve(SPEEDTEST_FOLDER_NAME);
         // Create the chronos folder if it doesn't exist
         try {
             Files.createDirectories(chronosFolder);
             Files.createDirectories(cacheFolder);
-            try {
-                // Attempt to set the cache folder as hidden (Windows only)
-                Files.setAttribute(cacheFolder, "dos:hidden", true, java.nio.file.LinkOption.NOFOLLOW_LINKS);
-            } catch (IOException | UnsupportedOperationException ex) {
-                // It's OK to silently ignore if unsupported (non-Windows, etc)
-            }
+            hideDotFolderQuietly(cacheFolder);
+            // Leftover speedtest scratch from a crashed prior run.
+            deleteDirectory(speedtestFolder);
         } catch (IOException e) {
             ChronosLogger.error("Failed to create chronos folder: " + e.getMessage());
             return;
@@ -414,7 +419,10 @@ public final class Backupper {
 
         final CompressionMethod compressionMethod = Config.getCompressionMethod();
         final String safeWorldDirName = ChronosBackupArtifacts.sanitizeWorldDirName(context.getWorldName());
-        final Path worldBackupDir = chronosFolder.resolve(safeWorldDirName);
+        final boolean speedtestArtifact = isSpeedtestSessionActive();
+        final Path worldBackupDir = speedtestArtifact
+                ? speedtestFolder.resolve(safeWorldDirName)
+                : chronosFolder.resolve(safeWorldDirName);
         // Milliseconds keep rapid successive backups (e.g. speedtests) distinct.
         final String backupId = ChronosBackupArtifacts.newBackupId(context.getWorldName());
 
@@ -435,6 +443,7 @@ public final class Backupper {
         run.context = context;
         run.compressionMethod = compressionMethod;
         run.worldBackupDir = worldBackupDir;
+        run.speedtestArtifact = speedtestArtifact;
         run.zipOutputPath = zipOutputPath;
         run.cacheSnapshotPath = cacheSnapshotPath;
         run.folderOutputPath = folderOutputPath;
@@ -447,6 +456,10 @@ public final class Backupper {
         try {
             Files.createDirectories(worldBackupDir);
             Files.createDirectories(cacheFolder);
+            if (speedtestArtifact) {
+                Files.createDirectories(speedtestFolder);
+                hideDotFolderQuietly(speedtestFolder);
+            }
 
             context.logInfo("Chronos backup started for world " + context.getWorldName() + " -> " + worldPath);
             context.sendChat("Backup started for " + context.getWorldName());
@@ -649,7 +662,9 @@ public final class Backupper {
             }
 
             run.backupFinishedSuccessfully = true;
-            trimOldBackupsAfterNewSuccess(run.worldBackupDir, Config.getMaxStoredBackups(), run.context);
+            // Speedtest writes under .speedtest and must not trim real retention.
+            if (!run.speedtestArtifact)
+                trimOldBackupsAfterNewSuccess(run.worldBackupDir, Config.getMaxStoredBackups(), run.context);
         } catch (InterruptedIOException e) {
             if (shutdownRequested) {
                 run.context.logInfo("Chronos backup aborted (shutdown).");
@@ -784,12 +799,42 @@ public final class Backupper {
 
             inFlightBackup = null;
             releaseBackupRunClaim();
+            // Cancel ends the session before the worker finishes. Wipe leftovers once the
+            // run clears.
+            if (run.speedtestArtifact && !isSpeedtestSessionActive())
+                cleanupSpeedtestFolder(run.context);
         }
     }
 
     private static void releaseBackupRunClaim() {
         backupCancelRequested = false;
         backupRunActive.set(false);
+    }
+
+    private static void hideDotFolderQuietly(Path folder) {
+        try {
+            Files.setAttribute(folder, "dos:hidden", true, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        } catch (IOException | UnsupportedOperationException ex) {
+            // Non-Windows or unsupported. Fine to leave visible.
+        }
+    }
+
+    /** Removes speedtest output */
+    private static void cleanupSpeedtestFolder(BackupRuntimeContext context) {
+        if (speedtestFolder == null)
+            return;
+
+        try {
+            deleteDirectory(speedtestFolder);
+        } catch (IOException e) {
+            String detail = "Chronos speedtest: could not remove scratch folder "
+                    + speedtestFolder + ": " + e.getMessage();
+            if (context != null) {
+                context.logError(detail);
+            } else {
+                ChronosLogger.error(detail);
+            }
+        }
     }
 
     private Backupper() {
@@ -799,6 +844,11 @@ public final class Backupper {
         BackupRuntimeContext context;
         CompressionMethod compressionMethod;
         Path worldBackupDir;
+        /**
+         * True when this run wrote under {@link #speedtestFolder} instead of real
+         * backups.
+         */
+        boolean speedtestArtifact;
         Path zipOutputPath;
         Path cacheSnapshotPath;
         Path folderOutputPath;
@@ -1024,9 +1074,9 @@ public final class Backupper {
     }
 
     private static void deleteDirectory(Path path) throws IOException {
-        if (path == null || !Files.exists(path)) {
+        if (path == null || !Files.exists(path))
             return;
-        }
+
         Files.walkFileTree(
                 path,
                 new SimpleFileVisitor<Path>() {
@@ -1058,11 +1108,12 @@ public final class Backupper {
         // Stop scheduled backup checks and cancel queued run-now tasks
         Scheduler.ShutdownScheduler();
 
-        // Delete the contents of the cache folder
+        // Delete temporary folders
         try {
             deleteDirectory(cacheFolder);
         } catch (IOException e) {
             ChronosLogger.error("Failed to delete cache folder: " + e.getMessage());
         }
+        cleanupSpeedtestFolder(null);
     }
 }
