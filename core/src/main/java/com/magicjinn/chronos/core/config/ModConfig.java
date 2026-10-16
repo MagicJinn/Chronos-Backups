@@ -70,4 +70,10 @@ public final class ModConfig {
      * Permission level (0-4) required to run {@code /chronos}.
      */
     public int commandRequiredPermissionLevel = 4;
+
+    /**
+     * Text prepended to Chronos server chat on Minecraft 1.13+ ({@code /tellraw}).
+     * Unused on 1.12 and below, which broadcast with {@code /say} instead.
+     */
+    public String chatPrefix = "[Chronos] ";
 }
