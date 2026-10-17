@@ -201,6 +201,15 @@ public final class Config {
         return modConfig != null ? modConfig.googleDriveEnabled : BUILTIN_DEFAULTS.googleDriveEnabled;
     }
 
+    /**
+     * Prefix for Chronos server chat on 1.13+ ({@code /tellraw}). Unused for
+     * legacy {@code /say} broadcasts on 1.12 and below.
+     */
+    public static String getChatPrefix() {
+        String raw = modConfig != null ? modConfig.chatPrefix : BUILTIN_DEFAULTS.chatPrefix;
+        return raw != null ? raw : BUILTIN_DEFAULTS.chatPrefix;
+    }
+
     private Config() {
     }
 }

@@ -1,9 +1,9 @@
 package com.magicjinn.chronos.shell;
 
 import com.magicjinn.chronos.core.Backupper;
-import com.magicjinn.chronos.core.BackupRuntimeContext;
 import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
+import com.magicjinn.chronos.core.config.Config;
 
 /**
  * Shared implementation for {@code /chronos} subcommands. Loader modules register Brigadier (or
@@ -28,32 +28,32 @@ public final class ChronosCommandActions {
     private ChronosCommandActions() {}
 
     public static String messageRuntimeInactive() {
-        return BackupRuntimeContext.CHAT_PREFIX + "Backup runtime is not active yet.";
+        return Config.getChatPrefix() + "Backup runtime is not active yet.";
     }
 
     public static String messageCancelNothingRunning() {
-        return BackupRuntimeContext.CHAT_PREFIX + "No backup is in progress.";
+        return Config.getChatPrefix() + "No backup is in progress.";
     }
 
     public static String messageManualBackupAlreadyRunning() {
-        return BackupRuntimeContext.CHAT_PREFIX + "A backup is already in progress. Request was not queued.";
+        return Config.getChatPrefix() + "A backup is already in progress. Request was not queued.";
     }
 
     public static String messageSpeedtestAlreadyRunning() {
-        return BackupRuntimeContext.CHAT_PREFIX
+        return Config.getChatPrefix()
                 + "A Chronos speedtest or backup is already running.";
     }
 
     public static String messageChronosUsage() {
-        return BackupRuntimeContext.CHAT_PREFIX + "Usage: " + USAGE_LINE;
+        return Config.getChatPrefix() + "Usage: " + USAGE_LINE;
     }
 
     public static String messageUnknownSubcommand(String sub) {
-        return BackupRuntimeContext.CHAT_PREFIX + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
+        return Config.getChatPrefix() + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
     }
 
     public static String messageSpeedtestUsage() {
-        return BackupRuntimeContext.CHAT_PREFIX
+        return Config.getChatPrefix()
                 + "Usage: /"
                 + ChronosCommandLiterals.ROOT
                 + " "
@@ -62,7 +62,7 @@ public final class ChronosCommandActions {
     }
 
     public static String messageSpeedtestInvalidInteger(String token) {
-        return BackupRuntimeContext.CHAT_PREFIX + "Not an integer: \"" + token + "\".";
+        return Config.getChatPrefix() + "Not an integer: \"" + token + "\".";
     }
 
     /** Queues a manual backup when the world scheduler is active and no backup is running. */

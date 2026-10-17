@@ -3,12 +3,12 @@ package com.magicjinn.chronos.core;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
+import com.magicjinn.chronos.core.config.Config;
+
 /**
  * Runtime information needed to resolve backup targets.
  */
 public final class BackupRuntimeContext {
-    public static final String CHAT_PREFIX = "[Chronos] ";
-
     private final ServerEnvironment environment;
     private final Object serverHandle;
     private final BackupWorldController worldController;
@@ -113,7 +113,7 @@ public final class BackupRuntimeContext {
 
         String command = chatCommandStyle == ChatCommandStyle.LEGACY_SAY
                 ? ChatHelper.makeLegacySay(message)
-                : ChatHelper.makeModernTellraw(CHAT_PREFIX + message);
+                : ChatHelper.makeModernTellraw(Config.getChatPrefix() + message);
         chatSink.accept(command);
     }
 }

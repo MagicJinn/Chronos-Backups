@@ -25,10 +25,11 @@ public final class ChronosTomlSpec {
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
     public static final String KEY_GOOGLE_DRIVE_ENABLED = "googleDriveEnabled";
     public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
+    public static final String KEY_CHAT_PREFIX = "chatPrefix";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     /** Internal config format version. Bump when the on-disk layout changes. */
-    public static final int CONFIG_VERSION = 2;
+    public static final int CONFIG_VERSION = 3;
 
     /**
      * Stable order = on-disk order. Add new user settings here (and the field on
@@ -95,7 +96,13 @@ public final class ChronosTomlSpec {
                     (c, v) -> c.commandRequiredPermissionLevel = v,
                     c -> c.commandRequiredPermissionLevel,
                     "# Minimum permission level (0-4) required to run /chronos.",
-                    "# 4 matches highly sensitive vanilla commands (e.g. /stop), 0 allows any command source that can run commands.")));
+                    "# 4 matches highly sensitive vanilla commands (e.g. /stop), 0 allows any command source that can run commands."),
+            string(KEY_CHAT_PREFIX,
+                    (c, v) -> c.chatPrefix = v,
+                    c -> c.chatPrefix,
+                    "# Prefix prepended to Chronos server chat messages on Minecraft 1.13+ (/tellraw).",
+                    "# Has no effect on 1.12 and below, which use /say (vanilla already labels those as server).",
+                    "# Example: \"[Chronos] \"")));
 
     public static ModConfig load(Config cfg, ModConfig defaults) {
         ModConfig out = new ModConfig();
