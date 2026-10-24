@@ -14,6 +14,8 @@
 
 [//]: # (BEGIN MOD PAGE DESCRIPTION)
 
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/bQvtauxXWp) [![Issues](https://img.shields.io/badge/Issues-GitHub-181717?logo=github)](https://github.com/MagicJinn/Chronos-Backups/issues)
+
 **Chronos Backups** is a multi-loader, multi-version Minecraft backup utility. Saves only the most important parts of your world, keeping backups smaller.
 
 ## Features
@@ -30,7 +32,7 @@
 |--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | `/chronos backup`              | Run a manual backup immediately.                                                                                                          |
 | `/chronos cancel`              | Stop the backup currently in progress.                                                                                                    |
-| `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic. not for normal use). Writes under `backups/.speedtest` and deletes them when finished. |
+| `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic, not for normal use). Writes under `backups/.speedtest` and deletes them when finished. |
 
 The required permission level defaults to **4**.
 
@@ -38,12 +40,12 @@ The required permission level defaults to **4**.
 
 On default settings, Chronos backups typically shrink to about **1–15%** of the original world size. When Distant Horizons and/or Voxy data is filtered out as well, the backup is often **under 7%** of the full on-disk footprint (world + LOD).
 
-| World                                                                                                         | Size    | Distant Horizon size (256 render distance) | Voxy size (Full world) | Average backup time | Final size (%pruned, %filtered + pruned) |
-|---------------------------------------------------------------------------------------------------------------|---------|--------------------------------------------|------------------------|---------------------|------------------------------------------|
-| [MY 100 DAYS SURVIVAL WORLD (1.19)](https://www.planetminecraft.com/project/my-100-days-survival-world-1-19/) | 189 MB  | 106 MB                                     | 85,8 MB                | 1,25s               | 28,0 MB (15%, 7%)                        |
-| [my survival world](https://www.planetminecraft.com/project/my-survival-world-6880390/)                       | 4840 MB | 888 MB                                     | 3060 MB                | 10,76s              | 46,5 MB (0.96%, 0.53%)                   |
-| [My survival World (Mission)](https://www.planetminecraft.com/project/my-survival-world-mission/)             | 1290 MB | 630 MB                                     | 708MB                  | 4,56s               | 156 MB (12%, 6%)                         |
-| [My Survival World](https://www.planetminecraft.com/project/my-survival-world-6766250/)                       | 1260 MB | 501 MB                                     | 816 MB                 | 6,68s               | 29,3 MB (2%, 1%)                         |
+| World                                                                                                         | Size    | Distant Horizons size (256 render distance) | Voxy size (Full world) | Average backup time | Final size (%pruned, %filtered + pruned) |
+|---------------------------------------------------------------------------------------------------------------|---------|---------------------------------------------|------------------------|---------------------|------------------------------------------|
+| [MY 100 DAYS SURVIVAL WORLD (1.19)](https://www.planetminecraft.com/project/my-100-days-survival-world-1-19/) | 189 MB  | 106 MB                                      | 85.8 MB                | 1.25s               | 28.0 MB (15%, 7%)                        |
+| [my survival world](https://www.planetminecraft.com/project/my-survival-world-6880390/)                       | 4840 MB | 888 MB                                      | 3060 MB                | 10.76s              | 46.5 MB (0.96%, 0.53%)                   |
+| [My survival World (Mission)](https://www.planetminecraft.com/project/my-survival-world-mission/)             | 1290 MB | 630 MB                                      | 708 MB                 | 4.56s               | 156 MB (12%, 6%)                         |
+| [My Survival World](https://www.planetminecraft.com/project/my-survival-world-6766250/)                       | 1260 MB | 501 MB                                      | 816 MB                 | 6.68s               | 29.3 MB (2%, 1%)                         |
 
 Distant Horizons (render distance 256, existing chunks only). Voxy (`/voxy import current`, existing chunks only).
 
@@ -110,7 +112,7 @@ All currently supported versions are listed below. Chronos is committed to never
 
 ## Configuration
 
-The mod's configuration is stored in the `config/chronos.toml` file. This file is automatically created when the mod is first run, and is located in the `config` folder. For the forseeable future, there is no GUI configuration available. Config options include:
+The mod's configuration is stored in the `config/chronos.toml` file. This file is automatically created when the mod is first run, and is located in the `config` folder. For the foreseeable future, there is no GUI configuration available. Config options include:
 
 - `backupFolderName`: The name of the folder that will contain the backups.
 - `pruneChunks`: Whether chunk pruning is enabled for backups.
@@ -129,7 +131,7 @@ This list may be out of date. To see the latest available configuration options 
 
 ## Nightly releases
 
-Github Actions automatically builds and uploads nightly releases to the [GitHub Releases](https://github.com/MagicJinn/Chronos-Backups/releases) page. These are not the same as stable releases found on Modrinth, CurseForge or Github Releases, and should not be relied upon or assumed to be stable.
+GitHub Actions automatically builds and uploads nightly releases to the [GitHub Releases](https://github.com/MagicJinn/Chronos-Backups/releases) page. These are not the same as stable releases found on Modrinth, CurseForge or GitHub Releases, and should not be relied upon or assumed to be stable.
 
 [//]: # (END MOD PAGE DESCRIPTION)
 
