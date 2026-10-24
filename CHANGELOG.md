@@ -1,9 +1,10 @@
 # Changelog
 
-This page documents the changes and fixes made in Chronos Backups, compared to the original Random Things mod, in reverse chronological order.
+This page documents the changes and fixes made in Chronos Backups, in reverse chronological order.
 
 ## 1.1.4
 
+- Added a Chat Prefix config option (only works for 1.13 and above) 
 - Speedtest backups write under `backups/.speedtest` and are deleted when the session ends, so they no longer trim real backups or upload to the cloud
 
 ## 1.1.3
