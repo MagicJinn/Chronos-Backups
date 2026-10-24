@@ -11,7 +11,9 @@
 [//]: # (END MOD PAGE DESCRIPTION)
 
 [![Modrinth](https://img.shields.io/badge/Modrinth-Chronos_Backups-00ae5d?logo=modrinth)](https://modrinth.com/mod/chronos-backups) [![CurseForge](https://img.shields.io/badge/CurseForge-Chronos_Backups-f16437?logo=curseforge)](https://www.curseforge.com/minecraft/mc-mods/chronos-backups)
+
 [//]: # (BEGIN MOD PAGE DESCRIPTION)
+
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/bQvtauxXWp) [![Issues](https://img.shields.io/badge/Issues-GitHub-181717?logo=github)](https://github.com/MagicJinn/Chronos-Backups/issues)
 
 **Chronos Backups** is a multi-loader, multi-version Minecraft backup utility. Saves only the most important parts of your world, keeping backups smaller.
