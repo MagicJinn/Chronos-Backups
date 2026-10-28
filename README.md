@@ -191,7 +191,7 @@ The project is organized as a small, version-agnostic **core** (scheduler + back
 - **Shell layer**: loader and version specific integration code that hooks into the server/runtime and registers commands, events and other hooks.
 - **Core layer**: loader-agnostic scheduling and backup execution logic reused across all targets.
 
-Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_1` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
+Project variants can use code from multiple shells to reduce duplicate code and improve maintainability. For example, the `fabric-line-1_21_11` variant uses code from the `shell-fabric` and `shell-mojmap` shells, while the `neoforge-line-26_x` variant uses code from the `shell-neoforge` and `shell-mojmap` shells. Minecraft versions that use Brigadier for command registration (1.13+) use the `shell-brigadier` shell, etc etc.
 
 New variants are defined in `gradle/chronos-compile-groups.json`. `gradle/chronos-java-matrix.json` defines the Java language levels and toolchains for all supported versions. The project has a dedicated `tooling/` folder that contains the Java tools for generating variants and running tests.
 
@@ -232,7 +232,7 @@ This test is meant for power users and should be run at least once before any re
 ```powershell
 ./gradlew cleanVariants
 ./gradlew buildAll
-./gradlew :forge-line-1_10:runClient
+./gradlew :forge-line-1_10_x:runClient
 ./gradlew :fabric-line-1_21_11:runServer
 ./gradlew testServers
 ./gradlew testServers "-Pchronos.testServers.args=--only fabric-1.14.4"

@@ -461,17 +461,27 @@ val chronosVariantPrefixAlt: String =
 val variantLineNameRegex = Regex("^($chronosVariantPrefixAlt)-line-(.+)$")
 val variantBareNameRegex = Regex("^($chronosVariantPrefixAlt)-(.+)$")
 
+/** Prefer group {@code jarTargetLabel}, else shortest {@code minecraftVersionPrefixes} (dots > underscores). */
+@Suppress("UNCHECKED_CAST")
+fun chronosLineSlug(group: Map<*, *>): String? {
+    val label = group["jarTargetLabel"]?.toString()?.takeIf { it.isNotBlank() }
+    if (label != null) {
+        return label.replace(".", "_")
+    }
+    val pfx = group["minecraftVersionPrefixes"] as? List<*> ?: return null
+    if (pfx.isEmpty()) return null
+    val primary = pfx.map { it.toString() }.minByOrNull { it.length } ?: return null
+    return primary.replace(".", "_")
+}
+
 @Suppress("UNCHECKED_CAST")
 val jarTargetLabelByLineSlug: Map<String, String> = run {
     val groups = chronosCompileGroupsRoot["groups"] as? List<*> ?: return@run emptyMap()
     val out = mutableMapOf<String, String>()
     for (g in groups) {
         val gm = g as? Map<*, *> ?: continue
-        val label = gm["jarTargetLabel"]?.toString() ?: continue
-        val pfx = gm["minecraftVersionPrefixes"] as? List<*> ?: continue
-        if (pfx.isEmpty()) continue
-        val primary = pfx.map { it.toString() }.minByOrNull { it.length } ?: continue
-        val slug = primary.replace(".", "_")
+        val label = gm["jarTargetLabel"]?.toString()?.takeIf { it.isNotBlank() } ?: continue
+        val slug = chronosLineSlug(gm) ?: continue
         out[slug] = label
     }
     out.toMap()
@@ -486,10 +496,7 @@ val jarArchiveTagByLoaderAndSlug: Map<String, Map<String, String>> = run {
     }
     for (g in groups) {
         val gm = g as? Map<*, *> ?: continue
-        val pfx = gm["minecraftVersionPrefixes"] as? List<*> ?: continue
-        if (pfx.isEmpty()) continue
-        val primary = pfx.map { it.toString() }.minByOrNull { it.length } ?: continue
-        val slug = primary.replace(".", "_")
+        val slug = chronosLineSlug(gm) ?: continue
         for (spec in chronosLoaderSpecs) {
             (gm[spec.configKey] as? Map<*, *>)?.get("archiveVersionTag")?.toString()?.takeIf { it.isNotBlank() }?.let {
                 putTag(spec.collectedKey, slug + spec.slugSuffix, it)

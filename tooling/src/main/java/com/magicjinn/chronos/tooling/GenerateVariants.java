@@ -60,7 +60,7 @@ public final class GenerateVariants {
             if (!shouldBuildGroup(g))
                 continue;
             String gid = str(g.get("id"));
-            String lineSlug = primaryLinePrefix(g).replace(".", "_");
+            String lineSlug = lineSlug(g);
             for (LoaderSpec loader : LOADERS) {
                 if (!g.containsKey(loader.configKey()))
                     continue;
@@ -782,6 +782,22 @@ public final class GenerateVariants {
             // fall through
         }
         return "v1_21_11";
+    }
+
+    /**
+     * Gradle project line slug. Prefer group {@code jarTargetLabel} (e.g. {@code 26.x} >
+     * {@code 26_x}), else the shortest {@code minecraftVersionPrefixes} entry.
+     */
+    private static String lineSlug(Map<String, Object> group) {
+        String slug = "";
+        String label = str(group.get("jarTargetLabel"));
+
+        if (!label.isBlank())
+            slug = label;
+        else
+            slug = primaryLinePrefix(group);
+
+        return slug.replace(".", "_");
     }
 
     private static String primaryLinePrefix(Map<String, Object> group) {
