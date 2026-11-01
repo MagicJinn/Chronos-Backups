@@ -180,15 +180,23 @@ public final class Config {
 
     /**
      * Maximum backups per world locally and on each enabled cloud destination.
-     * Values below 1 disable automatic deletion of older backups.
+     * Not enforced in git mode. Values below 1 disable automatic deletion of older backups.
      */
     public static int getMaxStoredBackups() {
         return modConfig != null ? modConfig.maxStoredBackups : BUILTIN_DEFAULTS.maxStoredBackups;
     }
 
-    /** Compression method used for backups. */
+    /** Compression / storage method used for backups ({@code zip}, {@code none}, or {@code git}). */
     public static CompressionMethod getCompressionMethod() {
         return modConfig != null ? modConfig.compressionMethod : BUILTIN_DEFAULTS.compressionMethod;
+    }
+
+    /**
+     * When true, git-mode may use native {@code git} on PATH. When false, git-mode
+     * always uses bundled gitoxide.
+     */
+    public static boolean getAllowNativeGit() {
+        return modConfig != null ? modConfig.allowNativeGit : BUILTIN_DEFAULTS.allowNativeGit;
     }
 
     /** When true, local backups will be kept even if a cloud integration is enabled, and upload succeeds. */

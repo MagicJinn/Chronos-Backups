@@ -8,7 +8,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 
-final class RustPrunerBridge {
+/** JNI bridge to the rust native library. */
+public final class RustPrunerBridge {
     private static final Object LOAD_LOCK = new Object();
     private static volatile boolean loaded;
 
@@ -24,7 +25,7 @@ final class RustPrunerBridge {
     /**
      * Prunes region/entities/poi MCA files in {@code worldPath} in place
      */
-    static void pruneWorld(
+    public static void pruneWorld(
             Path worldPath,
             int spentTimeRequirementSeconds,
             int maxWorkerThreads)
@@ -117,6 +118,79 @@ final class RustPrunerBridge {
         if (code != 0) {
             throw new IOException("Native rust-pruner world copy failed with status code " + code);
         }
+    }
+
+    /**
+     * Hashes live source files under {@code worldRoot} with xxHash3 and writes a
+     * scan-result JSON to {@code resultJsonPath}.
+     *
+     * @param previousFilesJson Gson JSON object of path -> {@code {hash,size}} from
+     *                          the previous manifest (may be {@code "{}"})
+     * @param forceAll          when true, every file is treated as changed (prune
+     *                          policy invalidation)
+     */
+    public static void scanWorldSources(
+            Path worldRoot,
+            List<String> copyBlacklistPatterns,
+            String previousFilesJson,
+            String prunePolicyHash,
+            boolean forceAll,
+            Path resultJsonPath,
+            int maxWorkerThreads)
+            throws IOException {
+        ensureLoaded();
+
+        if (resultJsonPath == null)
+            throw new IllegalArgumentException("resultJsonPath is null");
+
+        String[] arr = copyBlacklistPatterns == null || copyBlacklistPatterns.isEmpty()
+                ? new String[0]
+                : copyBlacklistPatterns.toArray(new String[0]);
+        int code = scanWorldSourcesNative(
+                worldRoot.toAbsolutePath().normalize().toString(),
+                arr,
+                previousFilesJson == null ? "{}" : previousFilesJson,
+                prunePolicyHash == null ? "" : prunePolicyHash,
+                forceAll ? 1 : 0,
+                resultJsonPath.toAbsolutePath().normalize().toString(),
+                maxWorkerThreads);
+
+        if (code != 0)
+            throw new IOException("Native rust-pruner source scan failed with status code " + code);
+    }
+
+    /**
+     * Copies only the listed relative paths from {@code worldRoot} into
+     * {@code destRoot}.
+     */
+    public static void copySelectedFiles(
+            Path worldRoot,
+            Path destRoot,
+            List<String> relativePaths,
+            int maxCopyWorkerThreads,
+            int[] outCopiedFileCount)
+            throws IOException {
+        ensureLoaded();
+
+        if (outCopiedFileCount == null || outCopiedFileCount.length < 1)
+            throw new IllegalArgumentException("outCopiedFileCount must hold at least one int");
+
+        String[] arr = relativePaths == null || relativePaths.isEmpty()
+                ? new String[0]
+                : relativePaths.toArray(new String[0]);
+        int code = copySelectedFilesNative(
+                worldRoot.toAbsolutePath().normalize().toString(),
+                destRoot.toAbsolutePath().normalize().toString(),
+                arr,
+                maxCopyWorkerThreads,
+                outCopiedFileCount);
+
+        if (code == 5)
+            throw new IOException(
+                    "Native selected copy refused: dest path appears to be inside the world directory.");
+
+        if (code != 0)
+            throw new IOException("Native rust-pruner selected copy failed with status code " + code);
     }
 
     /**
@@ -217,4 +291,85 @@ final class RustPrunerBridge {
             String[] copyBlacklistPatterns,
             int maxCopyWorkerThreads,
             int[] outCopiedFileCount);
+
+    private static native int scanWorldSourcesNative(
+            String worldRootPath,
+            String[] copyBlacklistPatterns,
+            String previousFilesJson,
+            String prunePolicyHash,
+            int forceAll,
+            String resultJsonPath,
+            int maxWorkerThreads);
+
+    private static native int copySelectedFilesNative(
+            String worldRootPath,
+            String destRootPath,
+            String[] relativePaths,
+            int maxCopyWorkerThreads,
+            int[] outCopiedFileCount);
+
+    private static native int gitInitNative(String worktreePath);
+
+    private static native String gitCommitAndTagNative(
+            String worktreePath, String backupId, String message);
+
+    private static native String gitListBackupTagsNative(String worktreePath);
+
+    private static native int gitExportTagNative(
+            String worktreePath, String tagName, String destPath);
+
+    /**
+     * Bundled gitoxide: init a Git worktree (no-op if {@code .git} already exists).
+     */
+    public static void gitInit(Path worktree) throws IOException {
+        ensureLoaded();
+        int code = gitInitNative(worktree.toAbsolutePath().normalize().toString());
+        if (code != 0) {
+            throw new IOException("gitoxide init failed with status " + code);
+        }
+    }
+
+    /** Bundled gitoxide: commit the full worktree and create a backup tag. */
+    public static String gitCommitAndTag(Path worktree, String backupId, String message)
+            throws IOException {
+        ensureLoaded();
+        String sha = gitCommitAndTagNative(
+                worktree.toAbsolutePath().normalize().toString(),
+                backupId == null ? "" : backupId,
+                message == null ? "" : message);
+        if (sha == null || sha.isEmpty()) {
+            throw new IOException("gitoxide commit returned no SHA");
+        }
+        return sha;
+    }
+
+    /** Bundled gitoxide: list backup tags, newest first. */
+    public static java.util.List<String> gitListBackupTags(Path worktree) throws IOException {
+        ensureLoaded();
+        String raw = gitListBackupTagsNative(worktree.toAbsolutePath().normalize().toString());
+        if (raw == null || raw.trim().isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        for (String line : raw.split("\n")) {
+            String t = line.trim();
+            if (!t.isEmpty()) {
+                out.add(t);
+            }
+        }
+        return out;
+    }
+
+    /** Bundled gitoxide: export a tagged snapshot into {@code destDir}. */
+    public static void gitExportTag(Path worktree, String tagName, Path destDir)
+            throws IOException {
+        ensureLoaded();
+        int code = gitExportTagNative(
+                worktree.toAbsolutePath().normalize().toString(),
+                tagName,
+                destDir.toAbsolutePath().normalize().toString());
+        if (code != 0) {
+            throw new IOException("gitoxide export failed with status " + code);
+        }
+    }
 }

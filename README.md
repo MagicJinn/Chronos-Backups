@@ -33,6 +33,8 @@
 | `/chronos backup`              | Run a manual backup immediately.                                                                                                          |
 | `/chronos cancel`              | Stop the backup currently in progress.                                                                                                    |
 | `/chronos speedtest <seconds>` | Run repeated backups for benchmarking (diagnostic, not for normal use). Writes under `backups/.speedtest` and deletes them when finished. |
+| `/chronos list`                | List the 10 newest backups (zip/folder names, or git tags in git mode). For older git tags, open the repo in a Git client/CLI. |
+| `/chronos export <tag>`        | Export a git backup into `backups/exported/` (without touching the live world).  |
 
 The required permission level defaults to **4**.
 
@@ -58,7 +60,7 @@ Chronos can upload finished backups to a remote cloud provider, then optionally 
 ### Behaviour
 
 - Local backups missing from the remote are uploaded, including catch-up after a failed upload or a restart.
-- `maxStoredBackups` also caps how many Chronos backups each enabled provider keeps per world (oldest removed first). Values below 1 disable automatic removal locally and remotely.
+- `maxStoredBackups` also caps how many Chronos backups each enabled provider keeps per world (oldest removed first). Values below 1 disable automatic removal locally and remotely. Does not apply when `compressionMethod = "git"`.
 - If `shouldKeepLocalBackups` is `false`, a backup is deleted from disk (only after it has been uploaded successfully).
 
 When multiple worlds would map to the same remote folder (e.g. two servers both named "world"), Chronos attempts to resolve this by assigning a unique alias in `chronos-alias.txt` instead of overwriting. This favors safety over storage, so orphaned remote data may remain. Watch the console when enabling cloud sync on multiple servers.
@@ -120,8 +122,9 @@ The mod's configuration is stored in the `config/chronos.toml` file. This file i
 - `pruneMaxWorkerThreads`: Maximum worker threads for pruning. 0 (or less) means "auto" (pruner picks a sensible default).
 - `scheduleBackups`: Whether to run backups on a timer.
 - `backupIntervalSeconds`: Seconds between automatic backup runs.
-- `maxStoredBackups`: Maximum backups kept per world locally and on each enabled cloud destination. After a successful backup, oldest local backups are removed if the limit is exceeded. Cloud sync also trims remote Chronos backups to this cap. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
-- `compressionMethod`: Whether to compress the backups into a zip file or store it as an uncompressed folder. Accepts `"zip"` or `"none"`.
+- `maxStoredBackups`: Maximum backups kept per world locally and on each enabled cloud destination for zip/none. After a successful backup, oldest local backups are removed if the limit is exceeded. Cloud sync also trims remote Chronos backups to this cap. **Not enforced in git mode**. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
+- `compressionMethod`: How backups are stored. Accepts `"zip"` (default), `"none"` (uncompressed folder), or `"git"` (incremental Git repo under the world backup folder, openable in Git clients/CLI). Git mode probes for native `git` on PATH and prefers it. Otherwise it uses bundled gitoxide. Use `/chronos export <tag>` to export a git snapshot.
+- `allowNativeGit`: When `true` (default), git-mode may use native `git` on PATH. Set to `false` to force bundled gitoxide.
 - `googleDriveEnabled`: Enable Google Drive as a cloud sync destination (see [Cloud sync](#cloud-sync)).
 - `shouldKeepLocalBackups`: When `true`, keep local backups after a successful cloud upload. When `false`, delete each local backup once it has been uploaded.
 - `commandRequiredPermissionLevel`: Permission level required to run `/chronos`.
@@ -182,7 +185,7 @@ cd core/native/rust-pruner
 cargo +nightly run --release --features world-test --bin prune-world-test
 ```
 
-It copies the world, prunes the snapshot, prints the results, and discards the backup.
+It copies the world, prunes the snapshot, prints the results, and discards it.
 
 ### Project structure
 

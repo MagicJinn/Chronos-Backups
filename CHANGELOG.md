@@ -2,9 +2,17 @@
 
 This page documents the changes and fixes made in Chronos Backups, in reverse chronological order.
 
+## 1.2.0
+
+- Add `compressionMethod = "git"` for incremental Git backups (space + speed). Prefers native `git` when available, otherwise uses bundled gitoxide. `maxStoredBackups` is not applied when in git mode.
+- Add `allowNativeGit` config (default `true`) to forbid native git and force bundled gitoxide
+- Pre-prune xxHash3 source manifest skips unchanged files before copy/prune for git-mode
+- Add `/chronos list` to list created backups for the current world, or git tags when in git mode
+- Add `/chronos export <tag>` for git-mode snapshots, exporting to `backups/exported/`, while keeping the live world untouched
+
 ## 1.1.4
 
-- Added a Chat Prefix config option (only works for 1.13 and above) 
+- Added a Chat Prefix config option (only works for 1.13 and above)
 - Speedtest backups write under `backups/.speedtest` and are deleted when the session ends, so they no longer trim real backups or upload to the cloud
 
 ## 1.1.3

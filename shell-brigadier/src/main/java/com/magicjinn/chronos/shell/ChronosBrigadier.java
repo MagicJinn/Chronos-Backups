@@ -1,13 +1,18 @@
 package com.magicjinn.chronos.shell;
 
+import java.util.concurrent.CompletableFuture;
+
 import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
 /**
- * Single Brigadier tree for {@code /chronos backup|cancel|speedtest}, shared by
+ * Single Brigadier tree for {@code /chronos backup|cancel|speedtest|list|export}, shared by
  * loaders that ship Brigadier. Uses {@link LiteralArgumentBuilder#literal} so
  * we do not depend on version-specific {@code Commands} classes.
  *
@@ -97,7 +102,34 @@ public final class ChronosBrigadier {
                                                 false);
                                     }
                                     return hooks.backupReturnCode(start == EnqueueResult.QUEUED);
+                                })))
+                .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.LIST)
+                        .executes(ctx -> {
+                            hooks.feedback(
+                                    ctx.getSource(),
+                                    ChronosCommandActions.tryListBackups(),
+                                    false);
+                            return hooks.successReturnCode();
+                        }))
+                .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.EXPORT)
+                        .then(RequiredArgumentBuilder.<S, String>argument(
+                                        "tag", StringArgumentType.word())
+                                .suggests((ctx, builder) -> suggestExportTags(builder))
+                                .executes(ctx -> {
+                                    String tag = StringArgumentType.getString(ctx, "tag");
+                                    hooks.feedback(
+                                            ctx.getSource(),
+                                            ChronosCommandActions.tryExportGitBackup(tag),
+                                            false);
+                                    return hooks.successReturnCode();
                                 })));
+    }
+
+    private static CompletableFuture<Suggestions> suggestExportTags(SuggestionsBuilder builder) {
+        for (String tag : ChronosCommandActions.suggestExportTags(builder.getRemaining())) {
+            builder.suggest(tag);
+        }
+        return builder.buildFuture();
     }
 
     public static <S> void register(CommandDispatcher<S> dispatcher, Hooks<S> hooks) {

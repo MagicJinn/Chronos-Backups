@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell.paper;
 
 import com.magicjinn.chronos.core.ChronosLogger;
+import com.magicjinn.chronos.shell.ChronosCommandActions;
 import com.magicjinn.chronos.shell.ChronosCommandLiterals;
 import com.magicjinn.chronos.shell.LegacyCommandSupport;
 import java.util.ArrayList;
@@ -56,17 +57,16 @@ final class PaperCommands implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
             List<String> choices = new ArrayList<>();
-            for (String candidate : new String[] {
-                    ChronosCommandLiterals.BACKUP,
-                    ChronosCommandLiterals.CANCEL,
-                    ChronosCommandLiterals.SPEEDTEST
-            }) {
-                if (candidate.startsWith(prefix)) {
+            for (String candidate : ChronosCommandLiterals.SUBCOMMANDS) {
+                if (candidate.startsWith(prefix))
                     choices.add(candidate);
-                }
             }
             return choices;
         }
+        if (args.length == 2
+                && ChronosCommandLiterals.EXPORT.equalsIgnoreCase(args[0]))
+            return ChronosCommandActions.suggestExportTags(args[1]);
+
         return Collections.emptyList();
     }
 }

@@ -43,11 +43,10 @@ final class ChronosBackupCommand extends CommandBase {
     public List<String> addTabCompletionOptions(
             ICommandSender sender, String[] args, BlockPos targetPos) {
         if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(
-                    args,
-                    ChronosCommandLiterals.BACKUP,
-                    ChronosCommandLiterals.CANCEL,
-                    ChronosCommandLiterals.SPEEDTEST);
+            return getListOfStringsMatchingLastWord(args, ChronosCommandLiterals.SUBCOMMANDS);
+        } else if (args.length == 2) {
+            if (ChronosCommandLiterals.EXPORT.equalsIgnoreCase(args[0]))
+                return ChronosCommandActions.suggestExportTags(args[1]);
         }
         return Collections.emptyList();
     }

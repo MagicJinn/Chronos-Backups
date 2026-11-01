@@ -41,13 +41,13 @@ final class ChronosBackupCommand extends CommandBase {
     @Override
     public List<String> getTabCompletions(
             MinecraftServer server, ICommandSender sender, String[] args, BlockPos targetPos) {
-        if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(
-                    args,
-                    ChronosCommandLiterals.BACKUP,
-                    ChronosCommandLiterals.CANCEL,
-                    ChronosCommandLiterals.SPEEDTEST);
-        }
+        if (args.length == 1)
+            return getListOfStringsMatchingLastWord(args, ChronosCommandLiterals.SUBCOMMANDS);
+
+        // Suggest export tags for the export subcommand.
+        if (args.length == 2 && ChronosCommandLiterals.EXPORT.equalsIgnoreCase(args[0]))
+            return ChronosCommandActions.suggestExportTags(args[1]);
+
         return Collections.emptyList();
     }
 
