@@ -63,8 +63,7 @@ public final class ModConfig {
                     "bluemap",
                     "DistantHorizons.sqlite",
                     "DistantHorizons.sqlite-wal",
-                    "DistantHorizons.sqlite-shm",
-                    "ledger.sqlite"));
+                    "DistantHorizons.sqlite-shm"));
 
     /**
      * Permission level (0-4) required to run {@code /chronos}.
