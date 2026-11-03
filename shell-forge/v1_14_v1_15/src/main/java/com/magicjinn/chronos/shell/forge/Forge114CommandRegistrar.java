@@ -118,7 +118,7 @@ final class Forge114CommandRegistrar implements ShellCommandRegistrar {
                                             ChronosCommandActions.tryExportGitBackup(tag),
                                             false);
                                     return hooks.successReturnCode();
-                                })))
+                                }))))
                 .then(LiteralArgumentBuilder.<CommandSourceStack>literal(ChronosCommandLiterals.RELOAD)
                         .executes(ctx -> onServerThread(ctx, c -> {
                             boolean applied = ChronosCommandActions.tryReloadConfig();
