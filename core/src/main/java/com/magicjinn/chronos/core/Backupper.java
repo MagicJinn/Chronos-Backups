@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import com.magicjinn.chronos.core.config.CompressionMethod;
 import com.magicjinn.chronos.core.config.Config;
+import com.magicjinn.chronos.core.config.ModConfig;
 import com.magicjinn.chronos.core.git.GitBackupEngine;
 import com.magicjinn.chronos.core.git.GitBackupRepository;
 import com.magicjinn.chronos.core.git.NativeGit;
@@ -342,6 +343,19 @@ public final class Backupper {
     }
 
     public static void InitializeBackupper() {
+        refreshBackupPaths(true);
+        ChronosLogger.info("Backupper is ready and on standby...");
+    }
+
+    /**
+     * Re-resolve backup / cache / speedtest roots from the current config.
+     * In-flight backups already snapshot their paths on {@link InFlightBackup}.
+     */
+    public static void refreshBackupPaths() {
+        refreshBackupPaths(false);
+    }
+
+    private static void refreshBackupPaths(boolean clearStaleSpeedtest) {
         // Safer implementation of resolving the backup folder name
         // (previously RunningDirectory.resolve())
         chronosFolder = ChronosBackupArtifacts.resolveBackupFolder(
@@ -353,14 +367,13 @@ public final class Backupper {
             Files.createDirectories(chronosFolder);
             Files.createDirectories(cacheFolder);
             hideDotFolderQuietly(cacheFolder);
-            // Leftover speedtest scratch from a crashed prior run.
-            deleteDirectory(speedtestFolder);
+            if (clearStaleSpeedtest && !isSpeedtestSessionActive()) {
+                // Leftover speedtest scratch from a crashed prior run.
+                deleteDirectory(speedtestFolder);
+            }
         } catch (IOException e) {
             ChronosLogger.error("Failed to create chronos folder: " + e.getMessage());
-            return;
         }
-
-        ChronosLogger.info("Backupper is ready and on standby...");
     }
 
     /**
@@ -500,7 +513,8 @@ public final class Backupper {
             Object serverHandle) {
         Path worldPath = scope.snapshotLayoutRoot();
 
-        final CompressionMethod compressionMethod = Config.getCompressionMethod();
+        final ModConfig configSnapshot = Config.snapshot();
+        final CompressionMethod compressionMethod = configSnapshot.compressionMethod;
         final String safeWorldDirName = ChronosBackupArtifacts.sanitizeWorldDirName(context.getWorldName());
         final boolean speedtestArtifact = isSpeedtestSessionActive();
         final Path worldBackupDir = speedtestArtifact
@@ -530,6 +544,7 @@ public final class Backupper {
 
         InFlightBackup run = new InFlightBackup();
         run.context = context;
+        run.configSnapshot = configSnapshot;
         run.compressionMethod = compressionMethod;
         run.worldBackupDir = worldBackupDir;
         run.speedtestArtifact = speedtestArtifact;
@@ -662,8 +677,9 @@ public final class Backupper {
     }
 
     private static void pruneSnapshotSaveRoots(InFlightBackup run, Path snapshotRoot) throws IOException {
-        int pruneSeconds = Config.getPruneTimeRequirementSeconds();
-        int pruneThreads = Config.getPruneMaxWorkerThreads();
+        ModConfig cfg = run.configOrDefaults();
+        int pruneSeconds = cfg.pruneTimeRequirementSeconds;
+        int pruneThreads = Math.max(0, cfg.pruneMaxWorkerThreads);
         for (Path sourceRoot : run.saveContainers) {
             Path snapshotSaveRoot = SaveRootDiscovery.snapshotPathForSourceRoot(
                     run.worldPath, sourceRoot, snapshotRoot);
@@ -676,12 +692,17 @@ public final class Backupper {
 
     private static void runHeavyBackupWork(InFlightBackup run) {
         try {
+            ModConfig cfg = run.configOrDefaults();
             Path layoutRootAbs = run.worldPath.toAbsolutePath().normalize();
+            List<String> blacklist = cfg.copyBlacklist != null
+                    ? cfg.copyBlacklist
+                    : Collections.<String>emptyList();
+            int pruneThreads = Math.max(0, cfg.pruneMaxWorkerThreads);
 
             if (run.compressionMethod == CompressionMethod.GIT) {
                 run.context.logInfo(
                         "Chronos backups: incremental git backup"
-                                + (Config.getAllowNativeGit() && NativeGit.isAvailable()
+                                + (cfg.allowNativeGit && NativeGit.isAvailable()
                                         ? " (native git)"
                                         : " (bundled gitoxide)")
                                 + "...");
@@ -710,8 +731,8 @@ public final class Backupper {
                             layoutRootAbs,
                             run.saveContainers,
                             run.cacheSnapshotPath,
-                            Config.getCopyBlacklist(),
-                            Config.getPruneMaxWorkerThreads(),
+                            blacklist,
+                            pruneThreads,
                             outCopied);
                     run.context.logInfo(
                             "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
@@ -726,8 +747,8 @@ public final class Backupper {
                             layoutRootAbs,
                             run.saveContainers,
                             run.folderOutputPath,
-                            Config.getCopyBlacklist(),
-                            Config.getPruneMaxWorkerThreads(),
+                            blacklist,
+                            pruneThreads,
                             outCopied);
                     run.context.logInfo(
                             "Chronos backups: finished copying " + outCopied[0]
@@ -743,7 +764,7 @@ public final class Backupper {
                         ? run.cacheSnapshotPath
                         : run.folderOutputPath;
                 if (run.compressionMethod == CompressionMethod.ZIP) {
-                    if (Config.getPruneChunksEnabled()) {
+                    if (cfg.pruneChunks) {
                         run.context.logInfo(
                                 "Chronos backups: pruning snapshot and writing zip...");
                         Files.deleteIfExists(run.zipOutputPath);
@@ -755,8 +776,8 @@ public final class Backupper {
                             RustPrunerBridge.pruneWorldToZip(
                                     snapshotRoot,
                                     run.zipOutputPath,
-                                    Config.getPruneTimeRequirementSeconds(),
-                                    Config.getPruneMaxWorkerThreads());
+                                    cfg.pruneTimeRequirementSeconds,
+                                    pruneThreads);
                         } else {
                             pruneSnapshotSaveRoots(run, snapshotRoot);
                             zipSnapshot(snapshotRoot, run.zipOutputPath);
@@ -766,7 +787,7 @@ public final class Backupper {
                         run.context.logInfo("Chronos backups: writing zip archive...");
                         zipSnapshot(run.cacheSnapshotPath, run.zipOutputPath);
                     }
-                } else if (Config.getPruneChunksEnabled()) {
+                } else if (cfg.pruneChunks) {
                     run.context.logInfo("Chronos backups: pruning snapshot in backup folder...");
                     pruneSnapshotSaveRoots(run, snapshotRoot);
                 } else {
@@ -777,7 +798,7 @@ public final class Backupper {
                 // Speedtest writes under .speedtest and must not trim real retention.
                 if (!run.speedtestArtifact) {
                     trimOldBackupsAfterNewSuccess(
-                            run.worldBackupDir, Config.getMaxStoredBackups(), run.context);
+                            run.worldBackupDir, cfg.maxStoredBackups, run.context);
                 }
             }
         } catch (InterruptedIOException e) {
@@ -964,6 +985,8 @@ public final class Backupper {
 
     private static final class InFlightBackup {
         BackupRuntimeContext context;
+        /** Config when this backup started. Live reloads must not affect it. */
+        ModConfig configSnapshot;
         CompressionMethod compressionMethod;
         Path worldBackupDir;
         /**
@@ -995,6 +1018,10 @@ public final class Backupper {
         volatile boolean announceUserCancelInChat;
         volatile Throwable workerError;
         Thread workerThread;
+
+        ModConfig configOrDefaults() {
+            return configSnapshot != null ? configSnapshot : new ModConfig();
+        }
     }
 
     private static final class PendingAutosaveRestore {

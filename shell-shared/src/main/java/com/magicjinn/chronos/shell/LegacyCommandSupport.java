@@ -67,6 +67,15 @@ public final class LegacyCommandSupport {
             return;
         }
 
+        if (ChronosCommandLiterals.RELOAD.equalsIgnoreCase(subcommand)) {
+            if (ChronosCommandActions.tryReloadConfig()) {
+                sink.send(ChronosCommandActions.messageReloadApplied());
+            } else {
+                sink.send(ChronosCommandActions.messageReloadFailed());
+            }
+            return;
+        }
+
         throw new UnknownSubcommandException(ChronosCommandActions.messageUnknownSubcommand(subcommand));
     }
 

@@ -9,6 +9,8 @@ import com.magicjinn.chronos.core.ChronosBackupArtifacts;
 /**
  * In-memory loaded values for {@code chronos.toml}.
  * Add a public field here, then register it once in {@link ChronosTomlSpec}.
+ * Read live values via {@link Config#live()}. Use {@link Config#snapshot()} for
+ * in-flight backups.
  */
 public final class ModConfig {
     /* Single folder name under the run directory that will contain the backups */
@@ -70,8 +72,7 @@ public final class ModConfig {
                     "bluemap",
                     "DistantHorizons.sqlite",
                     "DistantHorizons.sqlite-wal",
-                    "DistantHorizons.sqlite-shm",
-                    "ledger.sqlite"));
+                    "DistantHorizons.sqlite-shm"));
 
     /**
      * Permission level (0-4) required to run {@code /chronos}.
@@ -83,4 +84,35 @@ public final class ModConfig {
      * Unused on 1.12 and below, which broadcast with {@code /say} instead.
      */
     public String chatPrefix = "[Chronos] ";
+
+    /**
+     * When true, Chronos polls {@code chronos.toml} about every
+     * {@code POLL_INTERVAL_SECONDS} milliseconds and reloads after the file
+     * size/mtime have settled. {@code /chronos reload} always works.
+     */
+    public boolean autoReload = true;
+
+    /**
+     * Deep-enough copy for in-flight backup snapshots and atomic swaps. Why is
+     * there not a built in method for this in Java? OR ANY LANGUAGE?
+     */
+    public ModConfig copy() {
+        ModConfig out = new ModConfig();
+        out.backupFolderName = backupFolderName;
+        out.pruneChunks = pruneChunks;
+        out.pruneTimeRequirementSeconds = pruneTimeRequirementSeconds;
+        out.pruneMaxWorkerThreads = pruneMaxWorkerThreads;
+        out.scheduleBackups = scheduleBackups;
+        out.backupIntervalSeconds = backupIntervalSeconds;
+        out.maxStoredBackups = maxStoredBackups;
+        out.compressionMethod = compressionMethod;
+        out.allowNativeGit = allowNativeGit;
+        out.shouldKeepLocalBackups = shouldKeepLocalBackups;
+        out.googleDriveEnabled = googleDriveEnabled;
+        out.copyBlacklist = copyBlacklist == null ? new ArrayList<String>() : new ArrayList<String>(copyBlacklist);
+        out.commandRequiredPermissionLevel = commandRequiredPermissionLevel;
+        out.chatPrefix = chatPrefix;
+        out.autoReload = autoReload;
+        return out;
+    }
 }

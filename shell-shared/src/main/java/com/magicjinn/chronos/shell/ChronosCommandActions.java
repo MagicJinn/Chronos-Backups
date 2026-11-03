@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.magicjinn.chronos.core.Backupper;
+import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 import com.magicjinn.chronos.core.config.CompressionMethod;
@@ -28,7 +29,9 @@ public final class ChronosCommandActions {
             + ChronosCommandLiterals.ROOT + " " + ChronosCommandLiterals.LIST
             + " | /"
             + ChronosCommandLiterals.ROOT + " " + ChronosCommandLiterals.EXPORT
-            + " <tag>";
+            + " <tag>"
+            + " | /"
+            + ChronosCommandLiterals.ROOT + " " + ChronosCommandLiterals.RELOAD;
 
     /** Newest backups shown by {@code /chronos list} and export tab-complete. */
     private static final int BACKUP_LIST_UI_LIMIT = 10;
@@ -38,33 +41,37 @@ public final class ChronosCommandActions {
 
     private ChronosCommandActions() {}
 
+    private static String chatPrefix() {
+        return Config.live().chatPrefix;
+    }
+
     public static String messageRuntimeInactive() {
-        return Config.getChatPrefix() + "Backup runtime is not active yet.";
+        return chatPrefix() + "Backup runtime is not active yet.";
     }
 
     public static String messageCancelNothingRunning() {
-        return Config.getChatPrefix() + "No backup is in progress.";
+        return chatPrefix() + "No backup is in progress.";
     }
 
     public static String messageManualBackupAlreadyRunning() {
-        return Config.getChatPrefix() + "A backup is already in progress. Request was not queued.";
+        return chatPrefix() + "A backup is already in progress. Request was not queued.";
     }
 
     public static String messageSpeedtestAlreadyRunning() {
-        return Config.getChatPrefix()
+        return chatPrefix()
                 + "A Chronos speedtest or backup is already running.";
     }
 
     public static String messageChronosUsage() {
-        return Config.getChatPrefix() + "Usage: " + USAGE_LINE;
+        return chatPrefix() + "Usage: " + USAGE_LINE;
     }
 
     public static String messageUnknownSubcommand(String sub) {
-        return Config.getChatPrefix() + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
+        return chatPrefix() + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
     }
 
     public static String messageSpeedtestUsage() {
-        return Config.getChatPrefix()
+        return chatPrefix()
                 + "Usage: /"
                 + ChronosCommandLiterals.ROOT
                 + " "
@@ -73,16 +80,25 @@ public final class ChronosCommandActions {
     }
 
     public static String messageSpeedtestInvalidInteger(String token) {
-        return Config.getChatPrefix() + "Not an integer: \"" + token + "\".";
+        return chatPrefix() + "Not an integer: \"" + token + "\".";
+    }
+
+    public static String messageReloadApplied() {
+        return chatPrefix() + "Reloaded chronos.toml.";
+    }
+
+    public static String messageReloadFailed() {
+        return chatPrefix()
+                + "Could not reload chronos.toml. Keeping previous config. Check the console for further details.";
     }
 
     public static String messageGitModeRequired() {
-        return Config.getChatPrefix()
+        return chatPrefix()
                 + "This command requires compressionMethod = \"git\" in config/chronos.toml.";
     }
 
     public static String messageExportUsage() {
-        return Config.getChatPrefix()
+        return chatPrefix()
                 + "Usage: /"
                 + ChronosCommandLiterals.ROOT + " " + ChronosCommandLiterals.EXPORT + " <tag>";
     }
@@ -130,11 +146,11 @@ public final class ChronosCommandActions {
                     ? Backupper.listGitBackupTags()
                     : Backupper.listLocalBackupNames();
             if (names.isEmpty())
-                return Config.getChatPrefix()
+                return chatPrefix()
                         + (git ? "No git backup snapshots yet." : "No backups yet.");
 
             StringBuilder sb = new StringBuilder();
-            sb.append(Config.getChatPrefix())
+            sb.append(chatPrefix())
                     .append(git ? "Git snapshots (newest first):" : "Backups (newest first):");
             int limit = Math.min(names.size(), BACKUP_LIST_UI_LIMIT);
             for (int i = 0; i < limit; i++) {
@@ -149,7 +165,7 @@ public final class ChronosCommandActions {
 
             return sb.toString();
         } catch (Exception e) {
-            return Config.getChatPrefix() + "Failed to list backups: " + e.getMessage();
+            return chatPrefix() + "Failed to list backups: " + e.getMessage();
         }
     }
 
@@ -166,10 +182,10 @@ public final class ChronosCommandActions {
 
         try {
             Path dest = Backupper.exportGitBackup(tag.trim());
-            return Config.getChatPrefix()
+            return chatPrefix()
                     + "Exported snapshot to " + dest + " (live world was not modified).";
         } catch (Exception e) {
-            return Config.getChatPrefix() + "Export failed: " + e.getMessage();
+            return chatPrefix() + "Export failed: " + e.getMessage();
         }
     }
 
@@ -205,5 +221,13 @@ public final class ChronosCommandActions {
         } catch (Exception e) {
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * Forces a config reload from disk. Returns {@code true} when a new config was
+     * applied.
+     */
+    public static boolean tryReloadConfig() {
+        return Core.reloadConfigNow();
     }
 }

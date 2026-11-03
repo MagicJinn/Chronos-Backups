@@ -11,9 +11,10 @@ public final class ChronosCommandLiterals {
     public static final String SPEEDTEST = "speedtest";
     public static final String LIST = "list";
     public static final String EXPORT = "export";
+    public static final String RELOAD = "reload";
 
     /** Tab-completion candidates for the first argument. */
     public static final String[] SUBCOMMANDS = {
-            BACKUP, CANCEL, SPEEDTEST, LIST, EXPORT
+            BACKUP, CANCEL, SPEEDTEST, LIST, EXPORT, RELOAD
     };
 }

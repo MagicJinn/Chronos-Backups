@@ -12,7 +12,8 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
 /**
- * Single Brigadier tree for {@code /chronos backup|cancel|speedtest|list|export}, shared by
+ * Single Brigadier tree for
+ * {@code /chronos backup|cancel|speedtest|list|export|reload}, shared by
  * loaders that ship Brigadier. Uses {@link LiteralArgumentBuilder#literal} so
  * we do not depend on version-specific {@code Commands} classes.
  *
@@ -122,7 +123,18 @@ public final class ChronosBrigadier {
                                             ChronosCommandActions.tryExportGitBackup(tag),
                                             false);
                                     return hooks.successReturnCode();
-                                })));
+                                })))
+                .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.RELOAD)
+                        .executes(ctx -> {
+                            boolean applied = ChronosCommandActions.tryReloadConfig();
+                            hooks.feedback(
+                                    ctx.getSource(),
+                                    applied
+                                            ? ChronosCommandActions.messageReloadApplied()
+                                            : ChronosCommandActions.messageReloadFailed(),
+                                    false);
+                            return hooks.successReturnCode();
+                        }));
     }
 
     private static CompletableFuture<Suggestions> suggestExportTags(SuggestionsBuilder builder) {

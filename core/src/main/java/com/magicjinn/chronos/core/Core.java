@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.cloudintegration.CloudIntegration;
@@ -97,6 +98,13 @@ public class Core {
      * Called on every server tick.
      */
     public static void OnServerTick() {
+        // Poll for config changes and apply them if they exist
+        try {
+            Config.pollForFileChanges().ifPresent(Core::applyConfigReload);
+        } catch (Exception e) {
+            ChronosLogger.error("Error polling config reload: " + e.getMessage());
+            e.printStackTrace();
+        }
         // This will prevent a backup etc from crashing the server
         try {
             Scheduler.tickScheduler();
@@ -104,5 +112,36 @@ public class Core {
             ChronosLogger.error("Error ticking scheduler: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Forces an immediate config reload (used by {@code /chronos reload}).
+     *
+     * @return {@code true} when a new config was applied
+     */
+    public static boolean reloadConfigNow() {
+        Optional<Config.ReloadOutcome> outcome = Config.forceReloadFromDisk();
+        outcome.ifPresent(Core::applyConfigReload);
+        return outcome.isPresent();
+    }
+
+    private static void applyConfigReload(Config.ReloadOutcome outcome) {
+        String previousFolder = outcome.previous != null ? outcome.previous.backupFolderName : null;
+        String currentFolder = outcome.current != null ? outcome.current.backupFolderName : null;
+        if (previousFolder == null || !previousFolder.equals(currentFolder))
+            Backupper.refreshBackupPaths();
+
+        boolean wasDriveEnabled = outcome.previous != null && outcome.previous.googleDriveEnabled;
+        for (CloudIntegration cloud : cloudIntegrations()) {
+            if (cloud.isEnabled()) {
+                if (!cloud.isReady())
+                    cloud.initialize();
+            } else if (cloud instanceof GoogleDrive && wasDriveEnabled) {
+                ((GoogleDrive) cloud).deactivateFromConfig();
+            } else if (cloud.isReady()) {
+                cloud.shutdown();
+            }
+        }
+        CloudSync.requestSync();
     }
 }
