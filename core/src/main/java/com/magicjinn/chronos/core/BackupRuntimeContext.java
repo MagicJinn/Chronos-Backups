@@ -113,7 +113,7 @@ public final class BackupRuntimeContext {
 
         String command = chatCommandStyle == ChatCommandStyle.LEGACY_SAY
                 ? ChatHelper.makeLegacySay(message)
-                : ChatHelper.makeModernTellraw(Config.getChatPrefix() + message);
+                : ChatHelper.makeModernTellraw(Config.live().chatPrefix + message);
         chatSink.accept(command);
     }
 }

@@ -91,7 +91,18 @@ final class Forge114CommandRegistrar implements ShellCommandRegistrar {
                                                 false);
                                     }
                                     return hooks.backupReturnCode(start == EnqueueResult.QUEUED);
-                                }))));
+                                }))))
+                .then(LiteralArgumentBuilder.<CommandSourceStack>literal(ChronosCommandLiterals.RELOAD)
+                        .executes(ctx -> onServerThread(ctx, c -> {
+                            boolean applied = ChronosCommandActions.tryReloadConfig();
+                            hooks.feedback(
+                                    c.getSource(),
+                                    applied
+                                            ? ChronosCommandActions.messageReloadApplied()
+                                            : ChronosCommandActions.messageReloadFailed(),
+                                    false);
+                            return hooks.successReturnCode();
+                        })));
     }
 
     @FunctionalInterface

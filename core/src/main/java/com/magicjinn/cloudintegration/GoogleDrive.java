@@ -116,7 +116,7 @@ public final class GoogleDrive implements CloudIntegration {
 
     @Override
     public boolean isEnabled() {
-        return Config.isGoogleDriveEnabled();
+        return Config.live().googleDriveEnabled;
     }
 
     @Override
@@ -126,7 +126,7 @@ public final class GoogleDrive implements CloudIntegration {
 
     @Override
     public void initialize() {
-        if (!Config.isGoogleDriveEnabled()) {
+        if (!Config.live().googleDriveEnabled) {
             ChronosLogger.info("Google Drive is disabled in config.");
             return;
         }
@@ -171,8 +171,8 @@ public final class GoogleDrive implements CloudIntegration {
         }
 
         String rootFolderId = findOrCreateFolder(null, REMOTE_ROOT_FOLDER_NAME);
-        int maxStored = Config.getMaxStoredBackups();
-        boolean shouldKeepLocal = Config.shouldKeepLocalBackups();
+        int maxStored = Config.live().maxStoredBackups;
+        boolean shouldKeepLocal = Config.live().shouldKeepLocalBackups;
 
         try (DirectoryStream<Path> worlds = Files.newDirectoryStream(backupRoot)) {
             for (Path worldDir : worlds) {
@@ -579,8 +579,19 @@ public final class GoogleDrive implements CloudIntegration {
 
     @Override
     public void shutdown() {
+        // Soft cancel only. Keep stored auth so the next world can sync without
+        // re-OAuth.
         authInProgress.set(false);
         syncCancelRequested.set(true);
+    }
+
+    /** Disable after {@code googleDriveEnabled} is turned off at runtime. */
+    public void deactivateFromConfig() {
+        shutdown();
+        aliasSetupPending.set(false);
+        ready = false;
+        drive = null;
+        ChronosLogger.info("Google Drive disabled from config reload.");
     }
 
     /**

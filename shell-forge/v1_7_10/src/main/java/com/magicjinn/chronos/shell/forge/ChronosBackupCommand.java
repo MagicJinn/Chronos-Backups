@@ -43,13 +43,9 @@ final class ChronosBackupCommand extends CommandBase {
 
     @Override
     public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
-        if (args.length == 1) {
-            return getListOfStringsMatchingLastWord(
-                    args,
-                    ChronosCommandLiterals.BACKUP,
-                    ChronosCommandLiterals.CANCEL,
-                    ChronosCommandLiterals.SPEEDTEST);
-        }
+        if (args.length == 1)
+            return getListOfStringsMatchingLastWord(args, ChronosCommandLiterals.TAB_SUBCOMMANDS);
+
         return Collections.emptyList();
     }
 

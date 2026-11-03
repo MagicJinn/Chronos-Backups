@@ -73,7 +73,7 @@ public final class Scheduler {
             if (context != null && Backupper.hasPendingBackupBegin())
                 Backupper.tryBeginBackup(context);
 
-            if (runtimeContext == null || !Config.getScheduleBackups())
+            if (runtimeContext == null || !Config.live().scheduleBackups)
                 return;
 
             if (Backupper.isSpeedtestSessionActive())
@@ -83,7 +83,7 @@ public final class Scheduler {
                 return;
 
             long currentTimeSeconds = getCurrentTimeSeconds();
-            long interval = Config.getBackupIntervalSeconds();
+            long interval = Config.live().backupIntervalSeconds;
 
             if (currentTimeSeconds - secondsSinceLastBackup >= interval) {
                 secondsSinceLastBackup = currentTimeSeconds;

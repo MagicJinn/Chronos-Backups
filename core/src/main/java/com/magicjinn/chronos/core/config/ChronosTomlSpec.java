@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
 
 import com.electronwill.nightconfig.core.Config;
 
@@ -26,10 +28,14 @@ public final class ChronosTomlSpec {
     public static final String KEY_GOOGLE_DRIVE_ENABLED = "googleDriveEnabled";
     public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
     public static final String KEY_CHAT_PREFIX = "chatPrefix";
+    public static final String KEY_AUTO_RELOAD = "autoReload";
     public static final String KEY_CONFIG_VERSION = "configVersion";
 
     /** Internal config format version. Bump when the on-disk layout changes. */
-    public static final int CONFIG_VERSION = 3;
+    public static final int CONFIG_VERSION = 4;
+
+    /** Settings that require a full restart to take effect (currently none) */
+    private static final List<String> RESTART_REQUIRED_KEYS = Collections.emptyList();
 
     /**
      * Stable order = on-disk order. Add new user settings here (and the field on
@@ -81,7 +87,7 @@ public final class ChronosTomlSpec {
                     (c, v) -> c.googleDriveEnabled = v,
                     c -> c.googleDriveEnabled,
                     "# Whether backups should be uploaded to Google Drive.",
-                    "# Requires OAuth credentials to be set up. On mod startup, check the console for instructions."),
+                    "# Requires OAuth credentials to be set up. After enabling, check the console for instructions."),
             bool(KEY_SHOULD_KEEP_LOCAL_BACKUPS,
                     (c, v) -> c.shouldKeepLocalBackups = v,
                     c -> c.shouldKeepLocalBackups,
@@ -102,7 +108,12 @@ public final class ChronosTomlSpec {
                     c -> c.chatPrefix,
                     "# Prefix prepended to Chronos server chat messages on Minecraft 1.13+ (/tellraw).",
                     "# Has no effect on 1.12 and below, which use /say (vanilla already labels those as server).",
-                    "# Example: \"[Chronos] \"")));
+                    "# Example: \"[Chronos] \""),
+            bool(KEY_AUTO_RELOAD,
+                    (c, v) -> c.autoReload = v,
+                    c -> c.autoReload,
+                    "# When true, Chronos polls this file about every second and reloads it automatically.",
+                    "# /chronos reload always forces a reload regardless of this setting.")));
 
     public static ModConfig load(Config cfg, ModConfig defaults) {
         ModConfig out = new ModConfig();
@@ -110,6 +121,42 @@ public final class ChronosTomlSpec {
             entry.load(cfg, out, defaults);
         }
         return out;
+    }
+
+    /**
+     * Human-readable lines for values that differ between two configs (for reload
+     * logs).
+     */
+    public static List<String> describeChanges(ModConfig before, ModConfig after) {
+        List<String> changes = new ArrayList<String>();
+        if (before == null || after == null)
+            return changes;
+
+        for (Entry entry : ENTRIES) {
+            String line = entry.describeChange(before, after);
+            if (line != null)
+                changes.add(line);
+        }
+        return changes;
+    }
+
+    /**
+     * Logs settings that changed but cannot take effect until Minecraft is
+     * restarted. (Currently none.)
+     */
+    public static void logRestartRequiredChanges(ModConfig before, ModConfig after) {
+        if (before == null || after == null || RESTART_REQUIRED_KEYS.isEmpty())
+            return;
+
+        for (Entry entry : ENTRIES) {
+            if (!RESTART_REQUIRED_KEYS.contains(entry.key()))
+                continue;
+
+            String line = entry.describeChange(before, after);
+            if (line != null)
+                com.magicjinn.chronos.core.ChronosLogger.warn(
+                        "Config change requires a restart to fully apply: " + line);
+        }
     }
 
     /**
@@ -122,8 +169,8 @@ public final class ChronosTomlSpec {
         lines.add("# Chronos Backup");
         lines.add("#");
         lines.add(
-                "# These values load once when Minecraft starts (client or dedicated server).");
-        lines.add("# Editing this file requires a full restart. Reloading the world does not apply changes.");
+                "# Chronos reloads this file automatically a few seconds after you save it (when autoReload is true).");
+        lines.add("# /chronos reload forces an immediate reload. A full restart is not required for these settings.");
         lines.add("#");
         for (Entry entry : ENTRIES) {
             entry.render(lines, config);
@@ -148,6 +195,16 @@ public final class ChronosTomlSpec {
                 addComments(lines, comments);
                 lines.add(key + " = " + tomlStringLiteral(get.get(config)));
             }
+
+            @Override
+            public String key() {
+                return key;
+            }
+
+            @Override
+            public String describeChange(ModConfig before, ModConfig after) {
+                return changeLine(key, get.get(before), get.get(after), ChronosTomlSpec::formatQuoted);
+            }
         };
     }
 
@@ -164,6 +221,16 @@ public final class ChronosTomlSpec {
                 addComments(lines, comments);
                 lines.add(key + " = " + get.get(config));
             }
+
+            @Override
+            public String key() {
+                return key;
+            }
+
+            @Override
+            public String describeChange(ModConfig before, ModConfig after) {
+                return changeLine(key, get.get(before), get.get(after));
+            }
         };
     }
 
@@ -179,6 +246,16 @@ public final class ChronosTomlSpec {
             public void render(List<String> lines, ModConfig config) {
                 addComments(lines, comments);
                 lines.add(key + " = " + get.get(config));
+            }
+
+            @Override
+            public String key() {
+                return key;
+            }
+
+            @Override
+            public String describeChange(ModConfig before, ModConfig after) {
+                return changeLine(key, get.get(before), get.get(after));
             }
         };
     }
@@ -197,6 +274,16 @@ public final class ChronosTomlSpec {
                 addComments(lines, comments);
                 lines.add(KEY_COMPRESSION_METHOD + " = "
                         + tomlStringLiteral(config.compressionMethod.name().toLowerCase()));
+            }
+
+            @Override
+            public String key() {
+                return KEY_COMPRESSION_METHOD;
+            }
+
+            @Override
+            public String describeChange(ModConfig before, ModConfig after) {
+                return changeLine(KEY_COMPRESSION_METHOD, before.compressionMethod, after.compressionMethod);
             }
         };
     }
@@ -241,6 +328,16 @@ public final class ChronosTomlSpec {
                 }
                 lines.add("]");
             }
+
+            @Override
+            public String key() {
+                return key;
+            }
+
+            @Override
+            public String describeChange(ModConfig before, ModConfig after) {
+                return changeLine(key, get.get(before), get.get(after));
+            }
         };
     }
 
@@ -249,11 +346,33 @@ public final class ChronosTomlSpec {
             lines.add(comment);
         }
     }
-    
+
+    /** {@code null} when unchanged. */
+    private static String changeLine(String key, Object oldVal, Object newVal) {
+        return changeLine(key, oldVal, newVal, String::valueOf);
+    }
+
+    private static String changeLine(String key, Object oldVal, Object newVal,
+            Function<Object, String> format) {
+        if (Objects.equals(oldVal, newVal))
+            return null;
+
+        return key + ": " + format.apply(oldVal) + " -> " + format.apply(newVal);
+    }
+
     private interface Entry {
         void load(Config cfg, ModConfig out, ModConfig defaults);
 
         void render(List<String> lines, ModConfig config);
+
+        String key();
+
+        /** {@code null} when unchanged. */
+        String describeChange(ModConfig before, ModConfig after);
+    }
+
+    private static String formatQuoted(Object s) {
+        return tomlStringLiteral(s == null ? "" : s.toString());
     }
 
     private interface StringGet {

@@ -1,6 +1,7 @@
 package com.magicjinn.chronos.shell;
 
 import com.magicjinn.chronos.core.Backupper;
+import com.magicjinn.chronos.core.Core;
 import com.magicjinn.chronos.core.Scheduler;
 import com.magicjinn.chronos.core.Scheduler.EnqueueResult;
 import com.magicjinn.chronos.core.config.Config;
@@ -23,37 +24,44 @@ public final class ChronosCommandActions {
             + ChronosCommandLiterals.ROOT
             + " "
             + ChronosCommandLiterals.SPEEDTEST
-            + " <s>";
+            + " <s> | /"
+            + ChronosCommandLiterals.ROOT
+            + " "
+            + ChronosCommandLiterals.RELOAD;
 
     private ChronosCommandActions() {}
 
+    private static String chatPrefix() {
+        return Config.live().chatPrefix;
+    }
+
     public static String messageRuntimeInactive() {
-        return Config.getChatPrefix() + "Backup runtime is not active yet.";
+        return chatPrefix() + "Backup runtime is not active yet.";
     }
 
     public static String messageCancelNothingRunning() {
-        return Config.getChatPrefix() + "No backup is in progress.";
+        return chatPrefix() + "No backup is in progress.";
     }
 
     public static String messageManualBackupAlreadyRunning() {
-        return Config.getChatPrefix() + "A backup is already in progress. Request was not queued.";
+        return chatPrefix() + "A backup is already in progress. Request was not queued.";
     }
 
     public static String messageSpeedtestAlreadyRunning() {
-        return Config.getChatPrefix()
+        return chatPrefix()
                 + "A Chronos speedtest or backup is already running.";
     }
 
     public static String messageChronosUsage() {
-        return Config.getChatPrefix() + "Usage: " + USAGE_LINE;
+        return chatPrefix() + "Usage: " + USAGE_LINE;
     }
 
     public static String messageUnknownSubcommand(String sub) {
-        return Config.getChatPrefix() + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
+        return chatPrefix() + "Unknown subcommand \"" + sub + "\". " + USAGE_LINE;
     }
 
     public static String messageSpeedtestUsage() {
-        return Config.getChatPrefix()
+        return chatPrefix()
                 + "Usage: /"
                 + ChronosCommandLiterals.ROOT
                 + " "
@@ -62,7 +70,16 @@ public final class ChronosCommandActions {
     }
 
     public static String messageSpeedtestInvalidInteger(String token) {
-        return Config.getChatPrefix() + "Not an integer: \"" + token + "\".";
+        return chatPrefix() + "Not an integer: \"" + token + "\".";
+    }
+
+    public static String messageReloadApplied() {
+        return chatPrefix() + "Reloaded chronos.toml.";
+    }
+
+    public static String messageReloadFailed() {
+        return chatPrefix()
+                + "Could not reload chronos.toml. Keeping previous config. Check the console for further details.";
     }
 
     /** Queues a manual backup when the world scheduler is active and no backup is running. */
@@ -95,5 +112,13 @@ public final class ChronosCommandActions {
         } finally {
             Backupper.flushPendingServerChats();
         }
+    }
+
+    /**
+     * Forces a config reload from disk. Returns {@code true} when a new config was
+     * applied.
+     */
+    public static boolean tryReloadConfig() {
+        return Core.reloadConfigNow();
     }
 }

@@ -5,9 +5,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.electronwill.nightconfig.core.file.FileConfig;
 import com.electronwill.nightconfig.toml.TomlFormat;
 import com.magicjinn.chronos.core.ChronosBackupArtifacts;
@@ -16,32 +17,228 @@ import com.magicjinn.chronos.core.Core;
 
 /**
  * Loads {@code config/chronos.toml}. Reads with Night Config (on the loader
- * classpath for all platforms).
+ * classpath for all platforms). Polls the file during the server tick loop and
+ * reloads when its size or last-modified time has settled.
  */
 public final class Config {
-    public static ModConfig modConfig;
+    private static final AtomicReference<ModConfig> MOD_CONFIG = new AtomicReference<ModConfig>();
 
     private static final ModConfig BUILTIN_DEFAULTS = new ModConfig();
 
     private static final String CONFIG_FOLDER_NAME = "config";
     private static final String CONFIG_FILE_NAME = "chronos.toml";
 
+    /** How often to inspect the config file for external edits. */
+    private static final long POLL_INTERVAL_MS = 1000L;
+
+    private static long lastPollEpochMs;
+    private static long trackedSize = -1L;
+    private static long trackedMtimeMs = -1L;
+    private static long pendingSize = -1L;
+    private static long pendingMtimeMs = -1L;
+    private static boolean hasPendingChange;
+
+    /**
+     * Successful live reload. Previous values, and the newly applied ones.
+     */
+    public static final class ReloadOutcome {
+        public final ModConfig previous;
+        public final ModConfig current;
+
+        public ReloadOutcome(ModConfig previous, ModConfig current) {
+            this.previous = previous;
+            this.current = current;
+        }
+    }
+
     public static void InitializeConfig() {
-        Path configPath = Core.RunningDirectory.resolve(CONFIG_FOLDER_NAME).resolve(CONFIG_FILE_NAME);
+        Path configPath = configPath();
         ModConfig defaults = new ModConfig();
         if (needsDefaultConfigFile(configPath)) {
             writeTomlDocument(configPath, defaults); // writeTomlDocument will create parent dirs if needed
         }
-        modConfig = loadFromToml(configPath, defaults);
-        sanitizeLoadedBackupFolderName();
+        ModConfig loaded = loadFromToml(configPath, defaults);
+        sanitizeLoadedBackupFolderName(loaded);
+        setNewConfig(loaded);
+        recordFingerprint(configPath);
+        clearPendingChange();
+        lastPollEpochMs = System.currentTimeMillis();
     }
 
-    /** Clamp {@code backupFolderName} to a single safe segment under the run dir. */
-    private static void sanitizeLoadedBackupFolderName() {
-        if (modConfig == null) {
+    /**
+     * Called from the server tick loop. Uses a settle debounce. After a size/mtime
+     * change is seen, the next poll reloads only if the fingerprint is unchanged.
+     */
+    // Will not run when the server is paused, but this is OK! Backups do not run
+    // during this period either, meaning that as soon as the server is unpaused,
+    // the config will be reloaded before the next backup runs.
+    public static Optional<ReloadOutcome> pollForFileChanges() {
+        if (!live().autoReload)
+            return Optional.empty();
+
+        long now = System.currentTimeMillis();
+        if (now - lastPollEpochMs < POLL_INTERVAL_MS)
+            return Optional.empty();
+
+        lastPollEpochMs = now;
+
+        Path configPath = configPath();
+        Fingerprint finger = readFingerprint(configPath);
+        if (finger == null)
+            return Optional.empty();
+
+        boolean differsFromTracked = finger.size != trackedSize || finger.mtimeMs != trackedMtimeMs;
+        if (!differsFromTracked && !hasPendingChange)
+            return Optional.empty();
+
+        if (!hasPendingChange || finger.size != pendingSize || finger.mtimeMs != pendingMtimeMs) {
+            // First sighting of this fingerprint (or still changing). Wait one more poll.
+            pendingSize = finger.size;
+            pendingMtimeMs = finger.mtimeMs;
+            hasPendingChange = true;
+            return Optional.empty();
+        }
+
+        // If we reach here, the fingerprint is stable across two polls. Safe to
+        // proceed.
+        return tryApplyReload(configPath, finger,
+                "Detected settled change in " + CONFIG_FILE_NAME + ", reloaded config.");
+    }
+
+    /**
+     * Immediate reload for {@code /chronos reload}. Ignores {@code autoReload} and
+     * debounce. Parse failure keeps the previous config, never rewrites the file.
+     */
+    public static Optional<ReloadOutcome> forceReloadFromDisk() {
+        Path configPath = configPath();
+        Fingerprint finger = readFingerprint(configPath);
+        if (finger == null) {
+            ChronosLogger.warn(CONFIG_FILE_NAME + " is missing. Cannot reload.");
+            return Optional.empty();
+        }
+        if (finger.size == 0L) {
+            ChronosLogger.warn(
+                    CONFIG_FILE_NAME + " is empty. Keeping previous config.");
+            trackedSize = finger.size;
+            trackedMtimeMs = finger.mtimeMs;
+            clearPendingChange();
+            return Optional.empty();
+        }
+        return tryApplyReload(configPath, finger, "Forced reload of " + CONFIG_FILE_NAME + ".");
+    }
+
+    private static Optional<ReloadOutcome> tryApplyReload(Path configPath, Fingerprint finger, String successLog) {
+        if (finger.size == 0L) {
+            ChronosLogger.warn(
+                    "Failed to reload "
+                            + CONFIG_FILE_NAME
+                            + ": file is empty. Keeping previous config.");
+            trackedSize = finger.size;
+            trackedMtimeMs = finger.mtimeMs;
+            clearPendingChange();
+            return Optional.empty();
+        }
+
+        ModConfig previous = live();
+        ModConfig defaults = previous;
+        ModConfig loaded;
+        try {
+            loaded = tryLoadForReload(configPath, defaults);
+        } catch (Exception e) {
+            String reason = e.getMessage() == null || e.getMessage().isEmpty() ? e.toString() : e.getMessage();
+            ChronosLogger.warn(
+                    "Failed to reload "
+                            + CONFIG_FILE_NAME
+                            + ": "
+                            + reason
+                            + ". Keeping previous config.");
+            trackedSize = finger.size;
+            trackedMtimeMs = finger.mtimeMs;
+            clearPendingChange();
+            return Optional.empty();
+        }
+
+        sanitizeLoadedBackupFolderName(loaded);
+        List<String> changes = ChronosTomlSpec.describeChanges(previous, loaded);
+        setNewConfig(loaded);
+        recordFingerprint(configPath);
+        clearPendingChange();
+
+        ChronosLogger.info(successLog);
+        if (changes.isEmpty()) {
+            ChronosLogger.info("No setting values changed (comments or whitespace only).");
+        } else {
+            for (String change : changes) {
+                ChronosLogger.info("  " + change);
+            }
+        }
+        ChronosTomlSpec.logRestartRequiredChanges(previous, loaded);
+        return Optional.of(new ReloadOutcome(previous, loaded));
+    }
+
+    private static void setNewConfig(ModConfig next) {
+        MOD_CONFIG.set(next);
+    }
+
+    /**
+     * Live config. Never null. Falls back to built-in defaults before
+     * {@link #InitializeConfig()} or if the reference was cleared.
+     */
+    public static ModConfig live() {
+        ModConfig c = MOD_CONFIG.get();
+        return c != null ? c : BUILTIN_DEFAULTS;
+    }
+
+    private static void clearPendingChange() {
+        hasPendingChange = false;
+        pendingSize = -1L;
+        pendingMtimeMs = -1L;
+    }
+
+    private static final class Fingerprint {
+        final long size;
+        final long mtimeMs;
+
+        Fingerprint(long size, long mtimeMs) {
+            this.size = size;
+            this.mtimeMs = mtimeMs;
+        }
+    }
+
+    private static Fingerprint readFingerprint(Path configPath) {
+        try {
+            if (!Files.isRegularFile(configPath)) {
+                return null;
+            }
+            return new Fingerprint(Files.size(configPath), Files.getLastModifiedTime(configPath).toMillis());
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static Path configPath() {
+        return Core.RunningDirectory.resolve(CONFIG_FOLDER_NAME).resolve(CONFIG_FILE_NAME);
+    }
+
+    private static void recordFingerprint(Path configPath) {
+        Fingerprint finger = readFingerprint(configPath);
+        if (finger == null) {
+            trackedSize = -1L;
+            trackedMtimeMs = -1L;
             return;
         }
-        String raw = modConfig.backupFolderName;
+        trackedSize = finger.size;
+        trackedMtimeMs = finger.mtimeMs;
+    }
+
+    /**
+     * Clamp {@code backupFolderName} to a single safe segment under the run dir.
+     */
+    private static void sanitizeLoadedBackupFolderName(ModConfig config) {
+        if (config == null)
+            return;
+
+        String raw = config.backupFolderName;
         String trimmed = raw == null ? "" : raw.trim();
         String safe = ChronosBackupArtifacts.sanitizeBackupFolderName(raw);
         if (!safe.equals(trimmed)) {
@@ -54,7 +251,7 @@ public final class Config {
                             + safe
                             + "\".");
         }
-        modConfig.backupFolderName = safe;
+        config.backupFolderName = safe;
     }
 
     /**
@@ -107,107 +304,64 @@ public final class Config {
     }
 
     /**
-     * When true, the scheduler may trigger automatic backups on the configured
-     * interval. When false, only manual {@code /chronos} backups run.
+     * Reload. NEVER substitutes built-in defaults on failure (keeps the
+     * previous config). Also migrates the on-disk format when the version key
+     * differs.
      */
-    public static boolean getScheduleBackups() {
-        return modConfig != null ? modConfig.scheduleBackups : BUILTIN_DEFAULTS.scheduleBackups;
+    private static ModConfig tryLoadForReload(Path configPath, ModConfig defaults) throws Exception {
+        try (FileConfig cfg = FileConfig.of(configPath, TomlFormat.instance())) {
+            cfg.load();
+            ModConfig out = ChronosTomlSpec.load(cfg, defaults);
+            int fileVersion = cfg.getIntOrElse(ChronosTomlSpec.KEY_CONFIG_VERSION, 0);
+            if (fileVersion != ChronosTomlSpec.CONFIG_VERSION)
+                ChronosLogger.info("Updating " + CONFIG_FILE_NAME + " from format v" + fileVersion + " to v"
+                        + ChronosTomlSpec.CONFIG_VERSION);
+
+            writeTomlDocument(configPath, out);
+
+            return out;
+        }
     }
 
     /**
-     * Seconds between automatic backups. When {@link #modConfig} is unset (e.g.
-     * init ordering), returns the same
-     * built-in defaults as a fresh {@link ModConfig}.
-     */
-    public static int getBackupIntervalSeconds() {
-        return modConfig != null ? modConfig.backupIntervalSeconds : BUILTIN_DEFAULTS.backupIntervalSeconds;
-    }
-
-    /**
-     * Whether backup snapshots should run chunk pruning.
-     */
-    public static boolean getPruneChunksEnabled() {
-        return modConfig != null ? modConfig.pruneChunks : BUILTIN_DEFAULTS.pruneChunks;
-    }
-
-    /**
-     * Minimum in-world playtime (seconds) before a chunk may no longer be pruned. When
-     * {@link #modConfig} is unset, returns the
-     * same built-in defaults as a fresh {@link ModConfig}.
-     */
-    public static int getPruneTimeRequirementSeconds() {
-        return modConfig != null ? modConfig.pruneTimeRequirementSeconds : BUILTIN_DEFAULTS.pruneTimeRequirementSeconds;
-    }
-
-    /**
-     * Maximum pruning worker threads.
-     * 0 means auto, values less than 0 are clamped to 0.
-     */
-    public static int getPruneMaxWorkerThreads() {
-        int raw = modConfig != null ? modConfig.pruneMaxWorkerThreads : BUILTIN_DEFAULTS.pruneMaxWorkerThreads;
-        return Math.max(0, raw);
-    }
-
-    /**
-     * Path patterns excluded when copying the world for backup. When {@link #modConfig} is unset,
-     * returns the same built-in defaults as a fresh {@link ModConfig}.
-     */
-    public static List<String> getCopyBlacklist() {
-        List<String> src = modConfig != null && modConfig.copyBlacklist != null ? modConfig.copyBlacklist
-                : BUILTIN_DEFAULTS.copyBlacklist;
-        return Collections.unmodifiableList(new ArrayList<>(src));
-    }
-
-    /**
-     * Clamped to 0-4 (vanilla permission levels). When {@link #modConfig} is unset,
-     * returns built-in default (4).
+     * Clamped to 0-4 (vanilla permission levels).
      */
     public static int getCommandRequiredPermissionLevel() {
-        int raw = modConfig != null ? modConfig.commandRequiredPermissionLevel
-                : BUILTIN_DEFAULTS.commandRequiredPermissionLevel;
-        return Math.max(0, Math.min(4, raw));
+        return Math.max(0, Math.min(4, live().commandRequiredPermissionLevel));
     }
 
     /**
      * Single folder name under the run directory for backups. Always sanitized.
-     * When {@link #modConfig} is unset, returns
-     * {@link ChronosBackupArtifacts#DEFAULT_BACKUP_FOLDER_NAME}.
      */
     public static String getBackupFolderName() {
-        String raw = modConfig != null ? modConfig.backupFolderName : BUILTIN_DEFAULTS.backupFolderName;
-        return ChronosBackupArtifacts.sanitizeBackupFolderName(raw);
+        return ChronosBackupArtifacts.sanitizeBackupFolderName(live().backupFolderName);
+    }
+
+    /** Snapshot of the live config for an in-flight backup. */
+    public static ModConfig snapshot() {
+        return live().copy();
     }
 
     /**
-     * Maximum backups per world locally and on each enabled cloud destination.
-     * Values below 1 disable automatic deletion of older backups.
+     * Test helper. Next {@link #pollForFileChanges()} ignores the poll interval.
      */
-    public static int getMaxStoredBackups() {
-        return modConfig != null ? modConfig.maxStoredBackups : BUILTIN_DEFAULTS.maxStoredBackups;
+    static void resetPollThrottleForTests() {
+        lastPollEpochMs = 0L;
     }
 
-    /** Compression method used for backups. */
-    public static CompressionMethod getCompressionMethod() {
-        return modConfig != null ? modConfig.compressionMethod : BUILTIN_DEFAULTS.compressionMethod;
+    /** Test helper. Clear settle-debounce state. */
+    static void clearPendingChangeForTests() {
+        clearPendingChange();
     }
 
-    /** When true, local backups will be kept even if a cloud integration is enabled, and upload succeeds. */
-    public static boolean shouldKeepLocalBackups() {
-        return modConfig != null ? modConfig.shouldKeepLocalBackups : BUILTIN_DEFAULTS.shouldKeepLocalBackups;
+    /** Test helper. Read the live reference (may be null). */
+    static ModConfig peekForTests() {
+        return MOD_CONFIG.get();
     }
 
-    /** When true, Chronos may authorize and upload backups to Google Drive. */
-    public static boolean isGoogleDriveEnabled() {
-        return modConfig != null ? modConfig.googleDriveEnabled : BUILTIN_DEFAULTS.googleDriveEnabled;
-    }
-
-    /**
-     * Prefix for Chronos server chat on 1.13+ ({@code /tellraw}). Unused for
-     * legacy {@code /say} broadcasts on 1.12 and below.
-     */
-    public static String getChatPrefix() {
-        String raw = modConfig != null ? modConfig.chatPrefix : BUILTIN_DEFAULTS.chatPrefix;
-        return raw != null ? raw : BUILTIN_DEFAULTS.chatPrefix;
+    /** Test helper. Restore a previous live config */
+    static void restoreForTests(ModConfig previous) {
+        MOD_CONFIG.set(previous);
     }
 
     private Config() {

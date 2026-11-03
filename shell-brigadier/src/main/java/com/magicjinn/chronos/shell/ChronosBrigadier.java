@@ -7,9 +7,10 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 
 /**
- * Single Brigadier tree for {@code /chronos backup|cancel|speedtest}, shared by
- * loaders that ship Brigadier. Uses {@link LiteralArgumentBuilder#literal} so
- * we do not depend on version-specific {@code Commands} classes.
+ * Single Brigadier tree for {@code /chronos backup|cancel|speedtest|reload},
+ * shared by loaders that ship Brigadier. Uses
+ * {@link LiteralArgumentBuilder#literal} so we do not depend on
+ * version-specific {@code Commands} classes.
  *
  * <p>
  * Kept in {@code shell-brigadier} (not {@code shell-shared}) so Forge 1.12
@@ -97,7 +98,18 @@ public final class ChronosBrigadier {
                                                 false);
                                     }
                                     return hooks.backupReturnCode(start == EnqueueResult.QUEUED);
-                                })));
+                                })))
+                .then(LiteralArgumentBuilder.<S>literal(ChronosCommandLiterals.RELOAD)
+                        .executes(ctx -> {
+                            boolean applied = ChronosCommandActions.tryReloadConfig();
+                            hooks.feedback(
+                                    ctx.getSource(),
+                                    applied
+                                            ? ChronosCommandActions.messageReloadApplied()
+                                            : ChronosCommandActions.messageReloadFailed(),
+                                    false);
+                            return hooks.successReturnCode();
+                        }));
     }
 
     public static <S> void register(CommandDispatcher<S> dispatcher, Hooks<S> hooks) {
