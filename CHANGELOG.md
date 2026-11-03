@@ -6,6 +6,10 @@ This page documents the changes and fixes made in Chronos Backups, in reverse ch
 
 - Added a Chat Prefix config option (only works for 1.13 and above) 
 - Speedtest backups write under `backups/.speedtest` and are deleted when the session ends, so they no longer trim real backups or upload to the cloud
+- Added live config reload.
+- - Edits to `chronos.toml` are now reloaded after a few seconds
+- - Added command `/chronos reload`, immediately reloading the config from disk
+- - Added config option `autoReload`. If disabled, the config is not reloaded automatically.
 
 ## 1.1.3
 
