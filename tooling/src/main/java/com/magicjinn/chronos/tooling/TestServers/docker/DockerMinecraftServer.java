@@ -2,9 +2,10 @@ package com.magicjinn.chronos.tooling.TestServers.docker;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -15,7 +16,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 import com.magicjinn.chronos.tooling.TestServers.BukkitPluginLoaderAvailability;
 import com.magicjinn.chronos.tooling.TestServers.TestServers;
@@ -26,6 +26,10 @@ public class DockerMinecraftServer {
     private static final long IDLE_TIMEOUT_MS = 60_000;
     /** Idle timeout while a long-running install/shutdown step is in progress. */
     private static final long LONG_IDLE_TIMEOUT_MS = IDLE_TIMEOUT_MS * 5;
+    /** Backoff while a single entry is locked mid-pass */
+    private static final long[] DELETE_RETRY_DELAYS_MS = { 50, 150, 400, 1000 };
+    /** Outer settle delays after the first walk (~15.75s total). */
+    private static final long[] DELETE_SETTLE_DELAYS_MS = { 250, 500, 1000, 2000, 4000, 8000 };
 
     private final String loaderKey;
     private final String version;
@@ -292,10 +296,12 @@ public class DockerMinecraftServer {
         }
         Path dataDir = dataDir();
         Files.createDirectories(dataDir);
+        // Drop any leftover container first so Windows releases bind-mount handles
+        // before we wipe worlds from a prior run.
+        removeDockerContainer();
         resetSavedWorlds(dataDir);
         stageModJar(dataDir);
         String containerName = containerName();
-        removeDockerContainer();
         String image = DockerServerImage.imageFor(getVersion());
         System.out.println("Starting " + containerName + " with image " + image);
 
@@ -548,19 +554,82 @@ public class DockerMinecraftServer {
     }
 
     private static void deleteRecursively(Path path) throws IOException {
-        if (!Files.exists(path)) {
+        if (!Files.exists(path))
             return;
+
+        try {
+            forceDeleteTree(path);
+            List<Path> remaining = settleRemaining(path);
+            if (!remaining.isEmpty())
+                throw new IOException(
+                        "Failed to delete " + path + " (" + remaining.size()
+                                + " entries still locked, e.g. " + remaining.get(0) + ")");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while deleting " + path, e);
         }
-        try (Stream<Path> walk = Files.walk(path)) {
-            walk.sorted(Comparator.reverseOrder()).forEach(p -> {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            });
-        } catch (UncheckedIOException e) {
-            throw e.getCause();
+    }
+
+    private static void forceDeleteTree(Path root) throws IOException, InterruptedException {
+        List<Path> entries;
+        try (var walk = Files.walk(root)) {
+            entries = walk.sorted(Comparator.reverseOrder()).toList();
+        }
+        for (Path p : entries) {
+            tryDeleteWithRetries(p);
+        }
+    }
+
+    private static List<Path> settleRemaining(Path root) throws IOException, InterruptedException {
+        List<Path> remaining = collectRemaining(root);
+        for (int i = 0; i < DELETE_SETTLE_DELAYS_MS.length && !remaining.isEmpty(); i++) {
+            System.out.println(
+                    "Waiting for " + remaining.size() + " locked entries under " + root.getFileName()
+                            + " to release (" + DELETE_SETTLE_DELAYS_MS[i] + " ms)...");
+            Thread.sleep(DELETE_SETTLE_DELAYS_MS[i]);
+            for (Path p : remaining) {
+                tryDeleteWithRetries(p);
+            }
+            remaining = collectRemaining(root);
+        }
+        return remaining;
+    }
+
+    private static void tryDeleteWithRetries(Path path) throws InterruptedException {
+        for (int attempt = 0; attempt <= DELETE_RETRY_DELAYS_MS.length; attempt++) {
+            try {
+                Files.deleteIfExists(path);
+                // On Windows, delete can succeed but leave the entry
+                // visible until the handle releases. Only treat as done when gone.
+                if (!Files.exists(path))
+                    return;
+            } catch (NoSuchFileException ignored) {
+                return;
+            } catch (AccessDeniedException ade) {
+                clearReadOnly(path);
+            } catch (IOException ignored) {
+                // Transient lock or non-empty dir (child still releasing). Retry.
+            }
+            if (attempt < DELETE_RETRY_DELAYS_MS.length)
+                Thread.sleep(DELETE_RETRY_DELAYS_MS[attempt]);
+        }
+        path.toFile().deleteOnExit();
+    }
+
+    private static List<Path> collectRemaining(Path root) throws IOException {
+        if (!Files.exists(root))
+            return List.of();
+
+        try (var walk = Files.walk(root)) {
+            return walk.sorted(Comparator.reverseOrder()).toList();
+        }
+    }
+
+    private static void clearReadOnly(Path path) {
+        try {
+            path.toFile().setWritable(true, false);
+        } catch (Throwable ignored) {
+            // Best effort.
         }
     }
 }
