@@ -271,15 +271,40 @@ fn is_executable(path: &Path) -> bool {
 }
 
 fn normalize_tag(tag_name: &str) -> io::Result<String> {
-    let tag = tag_name.trim();
+    // Must match tag_name_for_backup_id so restore finds tags created via commit_and_tag.
+    let tag = tag_name_for_backup_id(tag_name);
     if tag.is_empty() {
         return Err(io::Error::new(ErrorKind::InvalidInput, "Backup tag is empty"));
     }
-    Ok(tag.to_string())
+    Ok(tag)
 }
 
 pub fn tag_name_for_backup_id(backup_id: &str) -> String {
     backup_id.trim().replace(' ', "_")
+}
+
+#[cfg(test)]
+mod tag_name_tests {
+    use super::{normalize_tag, tag_name_for_backup_id};
+
+    #[test]
+    fn normalize_tag_matches_commit_tag_with_spaces() {
+        let backup_id = "backup id";
+        let created = tag_name_for_backup_id(backup_id);
+        let looked_up = normalize_tag(backup_id).unwrap();
+        assert_eq!(created, "backup_id");
+        assert_eq!(looked_up, created);
+    }
+
+    #[test]
+    fn normalize_tag_idempotent_for_underscored_names() {
+        assert_eq!(normalize_tag("backup_id").unwrap(), "backup_id");
+    }
+
+    #[test]
+    fn normalize_tag_rejects_empty() {
+        assert!(normalize_tag("   ").is_err());
+    }
 }
 
 fn gix_err<E: std::fmt::Display>(err: E) -> io::Error {
