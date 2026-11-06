@@ -24,6 +24,7 @@ public final class ChronosTomlSpec {
     public static final String KEY_BACKUP_INTERVAL_SECONDS = "backupIntervalSeconds";
     public static final String KEY_MAX_STORED_BACKUPS = "maxStoredBackups";
     public static final String KEY_COMPRESSION_METHOD = "compressionMethod";
+    public static final String KEY_ALLOW_NATIVE_GIT = "allowNativeGit";
     public static final String KEY_COPY_BLACKLIST = "copyBlacklist";
     public static final String KEY_GOOGLE_DRIVE_ENABLED = "googleDriveEnabled";
     public static final String KEY_COMMAND_REQUIRED_PERMISSION_LEVEL = "commandRequiredPermissionLevel";
@@ -78,11 +79,22 @@ public final class ChronosTomlSpec {
                     "# Maximum backups kept per world.",
                     "# After a successful backup, oldest local snapshots are removed if this would be exceeded.",
                     "# Cloud sync also trims remote Chronos backups to this cap.",
+                    "# Not enforced when compressionMethod = \"git\".",
                     "# Recommended value: 5. Values lower than 3 save space but risk losing older restore points.",
                     "# Values below 1 disable automatic removal."),
             compressionMethod(
-                    "# Snapshot storage: \"zip\" or \"none\".",
-                    "# \"zip\" uses zip for compression. \"none\" stores an uncompressed folder."),
+                    "# Snapshot storage: \"zip\", \"none\", or \"git\".",
+                    "# \"zip\": writes a compressed .zip per backup.",
+                    "# \"none\": stores an uncompressed folder per backup.",
+                    "# \"git\": instead of multiple loose backups, keeps an incremental Git repo for Git based backups,",
+                    "# which can be managed by git (cli) and Git-clients like Github Desktop.",
+                    "# Unchanged files are skipped for speed and space-efficiency.",
+                    "# maxStoredBackups is not applied in git mode."),
+            bool(KEY_ALLOW_NATIVE_GIT,
+                    (c, v) -> c.allowNativeGit = v,
+                    c -> c.allowNativeGit,
+                    "# When true, git-mode prefers native git on PATH if available.",
+                    "# When false, git-mode always uses bundled gitoxide."),
             bool(KEY_GOOGLE_DRIVE_ENABLED,
                     (c, v) -> c.googleDriveEnabled = v,
                     c -> c.googleDriveEnabled,

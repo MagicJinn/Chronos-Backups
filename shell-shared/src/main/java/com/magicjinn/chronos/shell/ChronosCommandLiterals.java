@@ -9,16 +9,12 @@ public final class ChronosCommandLiterals {
     public static final String BACKUP = "backup";
     public static final String CANCEL = "cancel";
     public static final String SPEEDTEST = "speedtest";
+    public static final String LIST = "list";
+    public static final String EXPORT = "export";
     public static final String RELOAD = "reload";
 
     /** Tab-completion candidates for the first argument. */
-    public static final String[] TAB_SUBCOMMANDS = {
-        BACKUP,
-        CANCEL,
-        SPEEDTEST,
-        RELOAD
+    public static final String[] SUBCOMMANDS = {
+            BACKUP, CANCEL, SPEEDTEST, LIST, EXPORT, RELOAD
     };
-
-    private ChronosCommandLiterals() {
-    }
 }

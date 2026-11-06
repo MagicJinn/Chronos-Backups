@@ -181,7 +181,7 @@ public final class GoogleDrive implements CloudIntegration {
                     continue;
                 
                 String worldName = worldDir.getFileName().toString();
-                if (worldName.startsWith("."))
+                if (ChronosBackupArtifacts.isBackupMetaFolderName(worldName))
                     continue;
 
                 syncWorld(worldDir, worldName, rootFolderId, maxStored, shouldKeepLocal);

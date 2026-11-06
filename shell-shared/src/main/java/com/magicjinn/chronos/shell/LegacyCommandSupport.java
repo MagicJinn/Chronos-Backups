@@ -53,6 +53,20 @@ public final class LegacyCommandSupport {
             return;
         }
 
+        if (ChronosCommandLiterals.LIST.equalsIgnoreCase(subcommand)) {
+            sink.send(ChronosCommandActions.tryListBackups());
+            return;
+        }
+
+        if (ChronosCommandLiterals.EXPORT.equalsIgnoreCase(subcommand)) {
+            if (args.length < 2) {
+                sink.send(ChronosCommandActions.messageExportUsage());
+                return;
+            }
+            sink.send(ChronosCommandActions.tryExportGitBackup(args[1]));
+            return;
+        }
+
         if (ChronosCommandLiterals.RELOAD.equalsIgnoreCase(subcommand)) {
             if (ChronosCommandActions.tryReloadConfig()) {
                 sink.send(ChronosCommandActions.messageReloadApplied());

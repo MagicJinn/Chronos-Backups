@@ -20,6 +20,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.magicjinn.chronos.core.config.CompressionMethod;
 import com.magicjinn.chronos.core.config.Config;
 import com.magicjinn.chronos.core.config.ModConfig;
+import com.magicjinn.chronos.core.git.GitBackupEngine;
+import com.magicjinn.chronos.core.git.GitBackupRepository;
+import com.magicjinn.chronos.core.git.NativeGit;
 import com.magicjinn.cloudintegration.CloudSync;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -259,6 +262,86 @@ public final class Backupper {
         pendingServerChats.clear();
     }
 
+    /**
+     * Lists git backup tags for the active world (newest first). Empty when the
+     * repo does not exist yet.
+     */
+    public static List<String> listGitBackupTags() throws IOException {
+        Path worktree = activeWorldBackupDir();
+        if (worktree == null || !Files.isDirectory(worktree.resolve(".git")))
+            return Collections.emptyList();
+
+        return GitBackupEngine.listSnapshots(worktree);
+    }
+
+    /**
+     * Lists zip/folder Chronos backup artifact names for the active world
+     * (newest first). Empty when the world backup folder is missing.
+     */
+    public static List<String> listLocalBackupNames() throws IOException {
+        Path worldBackupDir = activeWorldBackupDir();
+        if (worldBackupDir == null || !Files.isDirectory(worldBackupDir))
+            return Collections.emptyList();
+
+        String worldName = worldBackupDir.getFileName().toString();
+        List<Path> backups = new ArrayList<>();
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(worldBackupDir)) {
+            for (Path p : ds) {
+                String name = p.getFileName().toString();
+                if (!ChronosBackupArtifacts.isChronosBackupName(name, worldName))
+                    continue;
+                if (Files.isRegularFile(p) && name.endsWith(".zip"))
+                    backups.add(p);
+                else if (Files.isDirectory(p))
+                    backups.add(p);
+            }
+        }
+        backups.sort(Comparator.comparingLong(
+                (Path p) -> ChronosBackupArtifacts.timestampSortKey(p.getFileName().toString()))
+                .reversed());
+        List<String> names = new ArrayList<>(backups.size());
+        for (Path p : backups)
+            names.add(p.getFileName().toString());
+        return names;
+    }
+
+    /**
+     * Exports a git backup tag into {@code backups/exported/{world}-{tag}} and
+     * returns that path. Does not touch the live world.
+     */
+    public static Path exportGitBackup(String tagOrId) throws IOException {
+        if (Config.getCompressionMethod() != CompressionMethod.GIT)
+            throw new IOException("compressionMethod is not \"git\"");
+
+        Path worktree = activeWorldBackupDir();
+        if (worktree == null)
+            throw new IOException("No active world backup folder");
+
+        BackupRuntimeContext ctx = Scheduler.tryGetRuntimeContext();
+        String world = ctx != null
+                ? ChronosBackupArtifacts.sanitizeWorldDirName(ctx.getWorldName())
+                : "world";
+        String tag = GitBackupRepository.tagNameForBackupId(tagOrId);
+        String safeTag = ChronosBackupArtifacts.sanitizeWorldDirName(tag);
+        Path dest = chronosFolder
+                .resolve(ChronosBackupArtifacts.EXPORTED_FOLDER_NAME)
+                .resolve(world + "-" + safeTag);
+
+        return GitBackupEngine.exportSnapshot(worktree, tag, dest);
+    }
+
+    /** Active world's backup folder under {@link #chronosFolder}, or null. */
+    private static Path activeWorldBackupDir() {
+        if (chronosFolder == null)
+            return null;
+
+        BackupRuntimeContext ctx = Scheduler.tryGetRuntimeContext();
+        if (ctx == null)
+            return null;
+
+        return chronosFolder.resolve(ChronosBackupArtifacts.sanitizeWorldDirName(ctx.getWorldName()));
+    }
+
     public static void InitializeBackupper() {
         refreshBackupPaths(true);
         ChronosLogger.info("Backupper is ready and on standby...");
@@ -443,10 +526,16 @@ public final class Backupper {
         final Path zipOutputPath;
         final Path cacheSnapshotPath;
         final Path folderOutputPath;
+        final String backupIdForRun = backupId;
         if (compressionMethod == CompressionMethod.ZIP) {
             cacheSnapshotPath = cacheFolder.resolve(backupId);
             zipOutputPath = worldBackupDir.resolve(ChronosBackupArtifacts.zipFileName(backupId));
             folderOutputPath = null;
+        } else if (compressionMethod == CompressionMethod.GIT) {
+            // Persistent per-world Git worktree (incremental commits + tags).
+            cacheSnapshotPath = null;
+            zipOutputPath = null;
+            folderOutputPath = worldBackupDir;
         } else {
             cacheSnapshotPath = null;
             zipOutputPath = null;
@@ -462,6 +551,7 @@ public final class Backupper {
         run.zipOutputPath = zipOutputPath;
         run.cacheSnapshotPath = cacheSnapshotPath;
         run.folderOutputPath = folderOutputPath;
+        run.backupId = backupIdForRun;
         run.worldPath = worldPath;
         run.saveContainers = scope.saveContainers();
         run.worldController = worldController;
@@ -609,83 +699,108 @@ public final class Backupper {
                     : Collections.<String>emptyList();
             int pruneThreads = Math.max(0, cfg.pruneMaxWorkerThreads);
 
-            if (run.compressionMethod == CompressionMethod.ZIP) {
-                run.context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
-                assertCacheOutsideSaveContainers(run.saveContainers, layoutRootAbs, run.cacheSnapshotPath);
-                deleteDirectory(run.cacheSnapshotPath);
-                Files.createDirectories(run.cacheSnapshotPath);
-                int[] outCopied = new int[1];
-                copySaveContainersToSnapshot(
-                        layoutRootAbs,
-                        run.saveContainers,
-                        run.cacheSnapshotPath,
-                        blacklist,
-                        pruneThreads,
-                        outCopied);
+            if (run.compressionMethod == CompressionMethod.GIT) {
                 run.context.logInfo(
-                        "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
-            } else {
-                run.context.logInfo(
-                        "Chronos backups: copying world to backup folder...");
-                assertCacheOutsideSaveContainers(run.saveContainers, layoutRootAbs, run.folderOutputPath);
-                deleteDirectory(run.folderOutputPath);
-                Files.createDirectories(run.folderOutputPath);
-                int[] outCopied = new int[1];
-                copySaveContainersToSnapshot(
+                        "Chronos backups: incremental git backup"
+                                + (cfg.allowNativeGit && NativeGit.isAvailable()
+                                        ? " (native git)"
+                                        : " (bundled gitoxide)")
+                                + "...");
+                GitBackupEngine.runIncrementalBackup(
+                        run.context,
                         layoutRootAbs,
                         run.saveContainers,
                         run.folderOutputPath,
-                        blacklist,
-                        pruneThreads,
-                        outCopied);
-                run.context.logInfo(
-                        "Chronos backups: finished copying " + outCopied[0] + " files into backup folder.");
-            }
+                        run.backupId);
+                // Duration / completion exclude remote push (kicked off after announce, like
+                // Drive sync).
+                run.durationEndNanos = System.nanoTime();
+                run.copyComplete = true;
+                if (shouldAbortBackupWork())
+                    throw new InterruptedIOException("Backup aborted");
 
-            run.copyComplete = true;
-
-            if (shouldAbortBackupWork()) {
-                throw new InterruptedIOException("Backup aborted");
-            }
-
-            Path snapshotRoot = run.compressionMethod == CompressionMethod.ZIP
-                    ? run.cacheSnapshotPath
-                    : run.folderOutputPath;
-            if (run.compressionMethod == CompressionMethod.ZIP) {
-                if (cfg.pruneChunks) {
+                run.backupFinishedSuccessfully = true;
+            } else {
+                if (run.compressionMethod == CompressionMethod.ZIP) {
+                    run.context.logInfo("Chronos backups: copying world into cache (this can take a while)...");
+                    assertCacheOutsideSaveContainers(run.saveContainers, layoutRootAbs, run.cacheSnapshotPath);
+                    deleteDirectory(run.cacheSnapshotPath);
+                    Files.createDirectories(run.cacheSnapshotPath);
+                    int[] outCopied = new int[1];
+                    copySaveContainersToSnapshot(
+                            layoutRootAbs,
+                            run.saveContainers,
+                            run.cacheSnapshotPath,
+                            blacklist,
+                            pruneThreads,
+                            outCopied);
                     run.context.logInfo(
-                            "Chronos backups: pruning snapshot and writing zip...");
-                    Files.deleteIfExists(run.zipOutputPath);
-                    boolean singleSaveContainer = run.saveContainers.size() == 1
-                            && SaveRootDiscovery.snapshotPathForSourceRoot(
-                                    run.worldPath, run.saveContainers.get(0), snapshotRoot)
-                                    .equals(snapshotRoot);
-                    if (singleSaveContainer) {
-                        RustPrunerBridge.pruneWorldToZip(
-                                snapshotRoot,
-                                run.zipOutputPath,
-                                cfg.pruneTimeRequirementSeconds,
-                                pruneThreads);
+                            "Chronos backups: finished copying " + outCopied[0] + " files into cache.");
+                } else {
+                    run.context.logInfo(
+                            "Chronos backups: copying world to backup folder...");
+                    assertCacheOutsideSaveContainers(run.saveContainers, layoutRootAbs, run.folderOutputPath);
+                    deleteDirectory(run.folderOutputPath);
+                    Files.createDirectories(run.folderOutputPath);
+                    int[] outCopied = new int[1];
+                    copySaveContainersToSnapshot(
+                            layoutRootAbs,
+                            run.saveContainers,
+                            run.folderOutputPath,
+                            blacklist,
+                            pruneThreads,
+                            outCopied);
+                    run.context.logInfo(
+                            "Chronos backups: finished copying " + outCopied[0]
+                                    + " files into backup folder.");
+                }
+
+                run.copyComplete = true;
+
+                if (shouldAbortBackupWork())
+                    throw new InterruptedIOException("Backup aborted");
+
+                Path snapshotRoot = run.compressionMethod == CompressionMethod.ZIP
+                        ? run.cacheSnapshotPath
+                        : run.folderOutputPath;
+                if (run.compressionMethod == CompressionMethod.ZIP) {
+                    if (cfg.pruneChunks) {
+                        run.context.logInfo(
+                                "Chronos backups: pruning snapshot and writing zip...");
+                        Files.deleteIfExists(run.zipOutputPath);
+                        boolean singleSaveContainer = run.saveContainers.size() == 1
+                                && SaveRootDiscovery.snapshotPathForSourceRoot(
+                                        run.worldPath, run.saveContainers.get(0), snapshotRoot)
+                                        .equals(snapshotRoot);
+                        if (singleSaveContainer) {
+                            RustPrunerBridge.pruneWorldToZip(
+                                    snapshotRoot,
+                                    run.zipOutputPath,
+                                    cfg.pruneTimeRequirementSeconds,
+                                    pruneThreads);
+                        } else {
+                            pruneSnapshotSaveRoots(run, snapshotRoot);
+                            zipSnapshot(snapshotRoot, run.zipOutputPath);
+                        }
                     } else {
-                        pruneSnapshotSaveRoots(run, snapshotRoot);
-                        zipSnapshot(snapshotRoot, run.zipOutputPath);
+                        run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
+                        run.context.logInfo("Chronos backups: writing zip archive...");
+                        zipSnapshot(run.cacheSnapshotPath, run.zipOutputPath);
                     }
+                } else if (cfg.pruneChunks) {
+                    run.context.logInfo("Chronos backups: pruning snapshot in backup folder...");
+                    pruneSnapshotSaveRoots(run, snapshotRoot);
                 } else {
                     run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
-                    run.context.logInfo("Chronos backups: writing zip archive...");
-                    zipSnapshot(run.cacheSnapshotPath, run.zipOutputPath);
                 }
-            } else if (cfg.pruneChunks) {
-                run.context.logInfo("Chronos backups: pruning snapshot in backup folder...");
-                pruneSnapshotSaveRoots(run, snapshotRoot);
-            } else {
-                run.context.logInfo("Chronos backups: snapshot pruning disabled by config.");
-            }
 
-            run.backupFinishedSuccessfully = true;
-            // Speedtest writes under .speedtest and must not trim real retention.
-            if (!run.speedtestArtifact)
-                trimOldBackupsAfterNewSuccess(run.worldBackupDir, cfg.maxStoredBackups, run.context);
+                run.backupFinishedSuccessfully = true;
+                // Speedtest writes under .speedtest and must not trim real retention.
+                if (!run.speedtestArtifact) {
+                    trimOldBackupsAfterNewSuccess(
+                            run.worldBackupDir, cfg.maxStoredBackups, run.context);
+                }
+            }
         } catch (InterruptedIOException e) {
             if (shutdownRequested) {
                 run.context.logInfo("Chronos backup aborted (shutdown).");
@@ -756,17 +871,22 @@ public final class Backupper {
             }
 
             if (backupFinishedSuccessfully) {
-                final String duration = formatBackupDurationNanos(run.backupStartNanos);
+                final String duration = formatBackupDuration(run);
                 if (run.compressionMethod == CompressionMethod.ZIP) {
                     run.context.logInfo("Chronos backup completed in " + duration + ": " + run.zipOutputPath);
+                } else if (run.compressionMethod == CompressionMethod.GIT) {
+                    run.context.logInfo(
+                            "Chronos git backup completed in " + duration + ": " + run.folderOutputPath
+                                    + " tag=" + GitBackupRepository.tagNameForBackupId(run.backupId));
                 } else {
                     run.context.logInfo("Chronos backup completed in " + duration + ": " + run.folderOutputPath);
                 }
                 run.context.sendChat("Backup completed in " + duration + ".");
                 // Skip sync if a speedtest is in progress
-                if (!isSpeedtestSessionActive()) {
+                if (!isSpeedtestSessionActive())
                     CloudSync.requestSync();
-                }
+                // Git worktrees sync via Google Drive like zip/none. Native git push is
+                // disabled for now.
             }
         } finally {
             if (!backupFinishedSuccessfully) {
@@ -781,7 +901,9 @@ public final class Backupper {
                                         + e.getMessage());
                     }
                 }
-                if (run.folderOutputPath != null) {
+                // Never delete a git worktree on failure
+                if (run.folderOutputPath != null
+                        && run.compressionMethod != CompressionMethod.GIT) {
                     try {
                         deleteDirectory(run.folderOutputPath);
                     } catch (IOException e) {
@@ -875,11 +997,18 @@ public final class Backupper {
         Path zipOutputPath;
         Path cacheSnapshotPath;
         Path folderOutputPath;
+        /** Backup id / git tag base for this run. */
+        String backupId;
         Path worldPath;
         List<Path> saveContainers = Collections.emptyList();
         BackupWorldController worldController;
         Object serverHandle;
         long backupStartNanos;
+        /**
+         * When non-zero, reported backup duration ends here instead of at finalize
+         * time. To prevent printing a wrong duration (that includes sync/push time)
+         */
+        long durationEndNanos;
         boolean attemptedSavingPause;
         volatile boolean copyComplete;
         volatile boolean savesRestoredOnMainThread;
@@ -989,12 +1118,19 @@ public final class Backupper {
         }
     }
 
-    /**
-     * Elapsed time since {@code startNanos} from {@link System#nanoTime()} for
-     * log/chat messages.
-     */
     private static String formatBackupDurationNanos(long startNanos) {
-        long elapsedNanos = System.nanoTime() - startNanos;
+        return formatElapsedNanos(System.nanoTime() - startNanos);
+    }
+
+    private static String formatBackupDuration(InFlightBackup run) {
+        long end = run.durationEndNanos != 0L ? run.durationEndNanos : System.nanoTime();
+        return formatElapsedNanos(end - run.backupStartNanos);
+    }
+
+    private static String formatElapsedNanos(long elapsedNanos) {
+        if (elapsedNanos < 0L)
+            elapsedNanos = 0L;
+
         double seconds = elapsedNanos / 1_000_000_000.0;
         if (seconds < 60) {
             return String.format(Locale.ROOT, "%.2f s", seconds);

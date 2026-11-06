@@ -33,7 +33,7 @@ public final class ModConfig {
 
     /**
      * Maximum number of backup artifacts kept per world (local and remote).
-     * Values less than 1 disable automatic deletion of older backups.
+     * Not enforced in git mode. Values less than 1 disable automatic deletion of older backups.
      */
     public int maxStoredBackups = 5;
 
@@ -42,8 +42,15 @@ public final class ModConfig {
      * subdirectory.
      * {@code none}: copy the world tree directly into a folder named like the zip
      * basename (no cache, no archive).
+     * {@code git}: incremental Git repository under the world backup folder
      */
     public CompressionMethod compressionMethod = CompressionMethod.ZIP;
+
+    /**
+     * When true (default), git-mode prefers native {@code git} on PATH when available.
+     * When false, git-mode always uses bundled gitoxide.
+     */
+    public boolean allowNativeGit = true;
 
     /** When true, local backups will be kept even if a cloud integration is enabled, and upload succeeds. */
     public boolean shouldKeepLocalBackups = true;
@@ -99,6 +106,7 @@ public final class ModConfig {
         out.backupIntervalSeconds = backupIntervalSeconds;
         out.maxStoredBackups = maxStoredBackups;
         out.compressionMethod = compressionMethod;
+        out.allowNativeGit = allowNativeGit;
         out.shouldKeepLocalBackups = shouldKeepLocalBackups;
         out.googleDriveEnabled = googleDriveEnabled;
         out.copyBlacklist = copyBlacklist == null ? new ArrayList<String>() : new ArrayList<String>(copyBlacklist);

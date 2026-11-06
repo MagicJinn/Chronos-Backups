@@ -10,6 +10,7 @@ import com.magicjinn.chronos.shell.ShellCommandRegistrar;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -91,6 +92,32 @@ final class Forge114CommandRegistrar implements ShellCommandRegistrar {
                                                 false);
                                     }
                                     return hooks.backupReturnCode(start == EnqueueResult.QUEUED);
+                                }))))
+                .then(LiteralArgumentBuilder.<CommandSourceStack>literal(ChronosCommandLiterals.LIST)
+                        .executes(ctx -> onServerThread(ctx, c -> {
+                            hooks.feedback(
+                                    c.getSource(),
+                                    ChronosCommandActions.tryListBackups(),
+                                    false);
+                            return hooks.successReturnCode();
+                        })))
+                .then(LiteralArgumentBuilder.<CommandSourceStack>literal(ChronosCommandLiterals.EXPORT)
+                        .then(RequiredArgumentBuilder.<CommandSourceStack, String>argument(
+                                "tag", StringArgumentType.word())
+                                .suggests((ctx, builder) -> {
+                                    for (String tag : ChronosCommandActions.suggestExportTags(
+                                            builder.getRemaining())) {
+                                        builder.suggest(tag);
+                                    }
+                                    return builder.buildFuture();
+                                })
+                                .executes(ctx -> onServerThread(ctx, c -> {
+                                    String tag = StringArgumentType.getString(c, "tag");
+                                    hooks.feedback(
+                                            c.getSource(),
+                                            ChronosCommandActions.tryExportGitBackup(tag),
+                                            false);
+                                    return hooks.successReturnCode();
                                 }))))
                 .then(LiteralArgumentBuilder.<CommandSourceStack>literal(ChronosCommandLiterals.RELOAD)
                         .executes(ctx -> onServerThread(ctx, c -> {

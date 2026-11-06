@@ -33,7 +33,21 @@ public final class ChronosBackupArtifacts {
     /** Default backups folder name */
     public static final String DEFAULT_BACKUP_FOLDER_NAME = "backups";
 
+    /**
+     * Git export output under backups/.
+     * Not a world folder, cloud sync should skip it.
+     */
+    public static final String EXPORTED_FOLDER_NAME = "exported";
+
     private ChronosBackupArtifacts() {}
+
+    /** Meta dirs under the backups root that are not world backup folders. */
+    public static boolean isBackupMetaFolderName(String name) {
+        if (name == null || name.isEmpty())
+            return true;
+
+        return name.startsWith(".") || EXPORTED_FOLDER_NAME.equals(name);
+    }
 
     /**
      * Single folder name under the Minecraft run directory. Rejects blank,

@@ -42,16 +42,25 @@ fn is_copy_blacklisted(relative_to_world_root: &Path, patterns: &[String]) -> bo
 }
 
 fn should_include_entry(entry: &DirEntry, world_root: &Path, blacklist: &[String]) -> bool {
+    entry_allowed_for_hash(entry, world_root, blacklist)
+}
+
+/// Public for the source-hash scanner (same include rules as copy).
+pub fn entry_allowed_for_hash(entry: &DirEntry, world_root: &Path, blacklist: &[String]) -> bool {
     let path = entry.path();
     let Ok(rel) = path.strip_prefix(world_root) else {
         return true;
     };
     let name = entry.file_name().to_string_lossy();
-    // Excplicitly exclude the session lock file
+    // Explicitly exclude the session lock file
     if name == SESSION_LOCK_FILE_NAME {
         return false;
     }
     if name.ends_with(NEOFORGE_ATOMIC_TMP_SUFFIX) || name.ends_with(FABRIC_ATOMIC_TMP_SUFFIX) {
+        return false;
+    }
+    // Never walk into Chronos/Git metadata inside a worktree used as a source.
+    if name == ".git" || name == ".chronos" {
         return false;
     }
     !is_copy_blacklisted(rel, blacklist)
@@ -103,6 +112,64 @@ pub fn build_copy_plan(
     }
 
     Ok(copy_jobs)
+}
+
+/// Walks `world_root` and returns (absolute source path, relative path string) for hashing.
+pub fn build_hash_plan(
+    world_root: &Path,
+    blacklist: &[String],
+) -> io::Result<Vec<(PathBuf, String)>> {
+    let world_root = world_root.to_path_buf();
+    let mut jobs: Vec<(PathBuf, String)> = Vec::new();
+
+    let walker = WalkDir::new(&world_root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| should_include_entry(e, &world_root, blacklist));
+
+    for entry in walker {
+        let entry = entry.map_err(|e| io::Error::new(ErrorKind::Other, e.to_string()))?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let rel = entry
+            .path()
+            .strip_prefix(&world_root)
+            .map_err(|_| io::Error::new(ErrorKind::InvalidInput, "walk path left world root"))?;
+        jobs.push((
+            entry.path().to_path_buf(),
+            rel.to_string_lossy().replace('\\', "/"),
+        ));
+    }
+
+    Ok(jobs)
+}
+
+/// Copies only the listed relative files from `world_root` into `dest_root`.
+pub fn copy_selected_files(
+    world_root: &Path,
+    dest_root: &Path,
+    relative_paths: &[String],
+    max_copy_worker_threads: usize,
+) -> io::Result<usize> {
+    assert_cache_outside_world(world_root, dest_root)?;
+    let mut jobs: Vec<(PathBuf, PathBuf)> = Vec::with_capacity(relative_paths.len());
+    for rel in relative_paths {
+        let rel_norm = rel.replace('\\', "/");
+        if rel_norm.is_empty() || rel_norm.contains("..") {
+            continue;
+        }
+        let src = world_root.join(Path::new(&rel_norm));
+        let dst = dest_root.join(Path::new(&rel_norm));
+        if src.is_file() {
+            jobs.push((src, dst));
+        }
+    }
+    let total = jobs.len();
+    for chunk in jobs.chunks(2048) {
+        parallel_copy_file_chunk(chunk, max_copy_worker_threads)?;
+    }
+    Ok(total)
 }
 
 /// Windows: ERROR_SHARING_VIOLATION / ERROR_LOCK_VIOLATION while Minecraft still holds region files.

@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -342,9 +344,7 @@ public final class Config {
         return live().copy();
     }
 
-    /**
-     * Test helper. Next {@link #pollForFileChanges()} ignores the poll interval.
-     */
+    /** Test helper. Next {@link #pollForFileChanges()} ignores the poll interval. */
     static void resetPollThrottleForTests() {
         lastPollEpochMs = 0L;
     }
@@ -362,6 +362,51 @@ public final class Config {
     /** Test helper. Restore a previous live config */
     static void restoreForTests(ModConfig previous) {
         MOD_CONFIG.set(previous);
+    }
+
+    /** Whether backup snapshots should run chunk pruning. */
+    public static boolean getPruneChunksEnabled() {
+        return live().pruneChunks;
+    }
+
+    /** Minimum in-world playtime (seconds) before a chunk may no longer be pruned. */
+    public static int getPruneTimeRequirementSeconds() {
+        return live().pruneTimeRequirementSeconds;
+    }
+
+    /** Maximum pruning worker threads. */
+    public static int getPruneMaxWorkerThreads() {
+        return Math.max(0, live().pruneMaxWorkerThreads);
+    }
+
+    /** World-relative paths skipped when copying a save for backup. */
+    public static List<String> getCopyBlacklist() {
+        List<String> src = live().copyBlacklist != null
+                ? live().copyBlacklist
+                : BUILTIN_DEFAULTS.copyBlacklist;
+        return Collections.unmodifiableList(new ArrayList<String>(src));
+    }
+
+    /** Compression / storage method used for backups ({@code zip}, {@code none}, or {@code git}). */
+    public static CompressionMethod getCompressionMethod() {
+        return live().compressionMethod;
+    }
+
+    /**
+     * When true, git-mode may use native {@code git} on PATH. When false, git-mode
+     * always uses bundled gitoxide.
+     */
+    public static boolean getAllowNativeGit() {
+        return live().allowNativeGit;
+    }
+
+    /**
+     * Prefix for Chronos server chat on 1.13+ ({@code /tellraw}). Unused for
+     * legacy {@code /say} broadcasts on 1.12 and below.
+     */
+    public static String getChatPrefix() {
+        String raw = live().chatPrefix;
+        return raw != null ? raw : BUILTIN_DEFAULTS.chatPrefix;
     }
 
     private Config() {
