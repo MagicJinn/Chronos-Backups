@@ -32,10 +32,20 @@ public final class ModConfig {
     public int backupIntervalSeconds = 60 * 30; // 30 minutes
 
     /**
-     * Maximum number of backup artifacts kept per world (local and remote).
-     * Values less than 1 disable automatic deletion of older backups.
+     * Maximum local backup artifacts kept per world.
+     * Not enforced in git mode. Values less than 1 disable automatic deletion of
+     * older local backups.
+     * Loaded from {@code maxStoredBackups}. One number sets both local and remote,
+     * {@code "local, remote"}. Sets them separately.
      */
     public int maxStoredBackups = 5;
+
+    /**
+     * Maximum remote (cloud) Chronos backups kept per world.
+     * Not enforced in git mode. Values less than 1 disable automatic deletion of
+     * older remote backups.
+     */
+    public int maxStoredBackupsRemote = 5;
 
     /**
      * {@code zip}: copy to cache then write a {@code .zip} in the world's backup
@@ -98,6 +108,7 @@ public final class ModConfig {
         out.scheduleBackups = scheduleBackups;
         out.backupIntervalSeconds = backupIntervalSeconds;
         out.maxStoredBackups = maxStoredBackups;
+        out.maxStoredBackupsRemote = maxStoredBackupsRemote;
         out.compressionMethod = compressionMethod;
         out.shouldKeepLocalBackups = shouldKeepLocalBackups;
         out.googleDriveEnabled = googleDriveEnabled;

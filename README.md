@@ -58,7 +58,7 @@ Chronos can upload finished backups to a remote cloud provider, then optionally 
 ### Behaviour
 
 - Local backups missing from the remote are uploaded, including catch-up after a failed upload or a restart.
-- `maxStoredBackups` also caps how many Chronos backups each enabled provider keeps per world (oldest removed first). Values below 1 disable automatic removal locally and remotely.
+- `maxStoredBackups` caps how many Chronos backups are kept. One number applies to both local and remote. `"local, remote"` sets them separately. Values below 1 disable automatic removal for that side. Does not apply when `compressionMethod = "git"`.
 - If `shouldKeepLocalBackups` is `false`, a backup is deleted from disk (only after it has been uploaded successfully).
 
 When multiple worlds would map to the same remote folder (e.g. two servers both named "world"), Chronos attempts to resolve this by assigning a unique alias in `chronos-alias.txt` instead of overwriting. This favors safety over storage, so orphaned remote data may remain. Watch the console when enabling cloud sync on multiple servers.
@@ -120,7 +120,7 @@ The mod's configuration is stored in the `config/chronos.toml` file. This file i
 - `pruneMaxWorkerThreads`: Maximum worker threads for pruning. 0 (or less) means "auto" (pruner picks a sensible default).
 - `scheduleBackups`: Whether to run backups on a timer.
 - `backupIntervalSeconds`: Seconds between automatic backup runs.
-- `maxStoredBackups`: Maximum backups kept per world locally and on each enabled cloud destination. After a successful backup, oldest local backups are removed if the limit is exceeded. Cloud sync also trims remote Chronos backups to this cap. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal.
+- `maxStoredBackups`: Maximum backups kept per world for zip/none. One number applies to both local disk and remote (cloud). Two numbers separated by a comma set them separately (`"5, 10"` keeps 5 locally and 10 remotely). After a successful backup, oldest backups are trimmed to their caps. **Not enforced in git mode**. Recommended value: 5. Values lower than 3 can be used to save space, but risks serious data loss if a catastrophic error occurs. Values below 1 disable automatic removal for that side.
 - `compressionMethod`: Whether to compress the backups into a zip file or store it as an uncompressed folder. Accepts `"zip"` or `"none"`.
 - `googleDriveEnabled`: Enable Google Drive as a cloud sync destination (see [Cloud sync](#cloud-sync)).
 - `shouldKeepLocalBackups`: When `true`, keep local backups after a successful cloud upload. When `false`, delete each local backup once it has been uploaded.

@@ -37,7 +37,7 @@ public interface CloudIntegration {
 
     /**
      * Upload local Chronos backups missing remotely, trim remote to
-     * {@code maxStoredBackups}, and optionally delete locals after upload.
+     * {@code maxStoredBackupsRemote}, and optionally delete locals after upload.
      */
     void synchronize() throws IOException;
 

@@ -171,7 +171,7 @@ public final class GoogleDrive implements CloudIntegration {
         }
 
         String rootFolderId = findOrCreateFolder(null, REMOTE_ROOT_FOLDER_NAME);
-        int maxStored = Config.live().maxStoredBackups;
+        int maxStored = Config.live().maxStoredBackupsRemote;
         boolean shouldKeepLocal = Config.live().shouldKeepLocalBackups;
 
         try (DirectoryStream<Path> worlds = Files.newDirectoryStream(backupRoot)) {

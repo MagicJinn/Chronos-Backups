@@ -72,14 +72,15 @@ public final class ChronosTomlSpec {
                     c -> c.backupIntervalSeconds,
                     "# Seconds between automatic backup runs (whole numbers only).",
                     "# Example: 1800 = every 30 minutes, 3600 = hourly."),
-            integer(KEY_MAX_STORED_BACKUPS,
-                    (c, v) -> c.maxStoredBackups = v,
-                    c -> c.maxStoredBackups,
+            maxStoredBackups(
                     "# Maximum backups kept per world.",
-                    "# After a successful backup, oldest local snapshots are removed if this would be exceeded.",
-                    "# Cloud sync also trims remote Chronos backups to this cap.",
+                    "# One number applies to both local disk and remote (cloud) retention.",
+                    "# Two numbers separated by a comma set them separately: local, remote",
+                    "# (example: \"5, 10\" keeps 5 locally and 10 on the remote).",
+                    "# After a successful backup, oldest local and remote Chronos backups are trimmed to their caps.",
+                    "# Not enforced when compressionMethod = \"git\".",
                     "# Recommended value: 5. Values lower than 3 save space but risk losing older restore points.",
-                    "# Values below 1 disable automatic removal."),
+                    "# Values below 1 disable automatic removal for that side."),
             compressionMethod(
                     "# Snapshot storage: \"zip\" or \"none\".",
                     "# \"zip\" uses zip for compression. \"none\" stores an uncompressed folder."),
@@ -258,6 +259,135 @@ public final class ChronosTomlSpec {
                 return changeLine(key, get.get(before), get.get(after));
             }
         };
+    }
+
+    /**
+     * {@code maxStoredBackups}: one number sets local and remote,
+     * {@code "local, remote"}
+     * (or a 2-element array) sets them separately.
+     */
+    private static Entry maxStoredBackups(final String... comments) {
+        return new Entry() {
+            @Override
+            public void load(Config cfg, ModConfig out, ModConfig defaults) {
+                Object raw = cfg.get(KEY_MAX_STORED_BACKUPS);
+                int[] parsed = parseMaxStoredBackups(raw);
+                if (parsed == null) {
+                    out.maxStoredBackups = defaults.maxStoredBackups;
+                    out.maxStoredBackupsRemote = defaults.maxStoredBackupsRemote;
+                    return;
+                }
+                out.maxStoredBackups = parsed[0];
+                out.maxStoredBackupsRemote = parsed[1];
+            }
+
+            @Override
+            public void render(List<String> lines, ModConfig config) {
+                addComments(lines, comments);
+                lines.add(KEY_MAX_STORED_BACKUPS + " = " + formatMaxStoredBackups(
+                        config.maxStoredBackups, config.maxStoredBackupsRemote));
+            }
+
+            @Override
+            public String key() {
+                return KEY_MAX_STORED_BACKUPS;
+            }
+
+            @Override
+            public String describeChange(ModConfig before, ModConfig after) {
+                String oldVal = formatMaxStoredBackupsDisplay(
+                        before.maxStoredBackups, before.maxStoredBackupsRemote);
+                String newVal = formatMaxStoredBackupsDisplay(
+                        after.maxStoredBackups, after.maxStoredBackupsRemote);
+                return changeLine(KEY_MAX_STORED_BACKUPS, oldVal, newVal);
+            }
+        };
+    }
+
+    /** {@code null} when {@code raw} is missing or invalid. */
+    static int[] parseMaxStoredBackups(Object raw) {
+        if (raw == null)
+            return null;
+
+        if (raw instanceof Number) {
+            int both = ((Number) raw).intValue();
+            return new int[] { both, both };
+        }
+
+        if (raw instanceof List) {
+            List<?> list = (List<?>) raw;
+            if (list.isEmpty() || list.size() > 2)
+                return null;
+
+            Integer first = parseMaxStoredPart(list.get(0));
+            if (first == null)
+                return null;
+
+            // If only one number, apply to both local and remote
+            if (list.size() == 1)
+                return new int[] { first, first };
+
+            Integer second = parseMaxStoredPart(list.get(1));
+            if (second == null)
+                return null;
+
+            return new int[] { first, second };
+        }
+        String text = raw.toString().trim();
+        if (text.isEmpty())
+            return null;
+
+        String[] parts = text.split(",", -1);
+        if (parts.length == 1) {
+            Integer both = parseMaxStoredPart(parts[0]);
+            if (both == null)
+                return null;
+
+            // If only one "number", apply to both local and remote
+            return new int[] { both, both };
+        }
+        if (parts.length == 2) {
+            Integer local = parseMaxStoredPart(parts[0]);
+            Integer remote = parseMaxStoredPart(parts[1]);
+            if (local == null || remote == null)
+                return null;
+
+            return new int[] { local, remote };
+        }
+        return null;
+    }
+
+    private static Integer parseMaxStoredPart(Object part) {
+        if (part == null)
+            return null;
+
+        if (part instanceof Number)
+            return ((Number) part).intValue();
+
+        String text = part.toString().trim();
+        if (text.isEmpty())
+            return null;
+
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String formatMaxStoredBackups(int local, int remote) {
+        String display = formatMaxStoredBackupsDisplay(local, remote);
+        if (local == remote)
+            return display;
+
+        return tomlStringLiteral(display);
+    }
+
+    private static String formatMaxStoredBackupsDisplay(int local, int remote) {
+        if (local == remote)
+            return Integer.toString(local);
+
+        return local + ", " + remote;
     }
 
     private static Entry compressionMethod(final String... comments) {
